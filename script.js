@@ -2,11 +2,20 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const user = tg.initDataUnsafe?.user || {};
+let user = {};
 // Only use the real Telegram ID — no random fallback for online play
-const userId = user?.id ?? null;
-const normalizedUserId = userId === null ? null : String(userId);
-const currentUserName = user.username || user.first_name || "Player";
+let userId = null;
+let normalizedUserId = null;
+let currentUserName = "Player";
+
+function syncTelegramUserContext() {
+  user = tg.initDataUnsafe?.user || {};
+  userId = user.id ?? null;
+  normalizedUserId = userId === null ? null : String(userId);
+  currentUserName = user.username || user.first_name || "Player";
+}
+
+syncTelegramUserContext();
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -112,6 +121,7 @@ function updateActionButtons() {
 // 🚀 INIT
 // =======================
 document.addEventListener("DOMContentLoaded", () => {
+  syncTelegramUserContext();
 
   console.log("App Loaded ✅");
 
