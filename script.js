@@ -29,6 +29,7 @@ let roomRef = null;
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
+let inviteBtn, restartBtn, homeBtn;
 
 // =======================
 // 🚀 INIT
@@ -48,6 +49,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const createBtn = document.getElementById("createGame");
   const aiBtn = document.getElementById("playAI");
+  inviteBtn = document.getElementById("inviteBtn");
+  restartBtn = document.getElementById("restartBtn");
+  homeBtn = document.getElementById("homeBtn");
 
   // 👤 Show user
   userInfo.innerText = "Player: " + (user.username || user.first_name || "Guest");
@@ -55,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
   aiBtn.addEventListener("click", playAI);
+  inviteBtn.addEventListener("click", shareGame);
+  restartBtn.addEventListener("click", restartGame);
+  homeBtn.addEventListener("click", goHome);
 
   // 🔗 AUTO JOIN (IMPORTANT FIX)
   const hash = window.location.hash;
@@ -65,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gameMode = "online";
     showGame();
+    setInviteButtonState();
     listenRoom();
 
     console.log("Joined Room:", roomId);
@@ -97,6 +105,7 @@ function createGame() {
   });
 
   showGame();
+  setInviteButtonState();
   listenRoom();
   shareGame();
 }
@@ -115,8 +124,14 @@ function playAI() {
   winningCells = [];
 
   showGame();
+  setInviteButtonState();
   updateStatus();
   renderBoard();
+}
+
+function setInviteButtonState() {
+  if (!inviteBtn) return;
+  inviteBtn.disabled = gameMode !== "online";
 }
 
 // =======================
@@ -359,6 +374,8 @@ function restartGame() {
 // 📩 SHARE (FIXED)
 // =======================
 function shareGame() {
+  if (gameMode !== "online" || !roomId) return;
+
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
 
   tg.openTelegramLink(
