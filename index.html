@@ -26,10 +26,16 @@
 
   <div id="board"></div>
 
-  <!-- 📩 Invite -->
-  <button onclick="shareGame()">Invite Friend</button>
+  <!-- 🎮 Game Actions -->
+  <div class="game-actions">
+    <button onclick="shareGame()">Invite Friend</button>
+    <button onclick="restartGame()">Restart</button>
+  </div>
 
 </div>
+
+<!-- 💬 Toast message -->
+<div id="toast" class="toast hidden"></div>
 
 <!-- 📱 Telegram -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
