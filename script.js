@@ -5,25 +5,10 @@ tg.expand();
 const user = tg.initDataUnsafe?.user;
 const userId = user?.id;
 
-// 👤 UI
-const userInfo = document.getElementById("userInfo");
-const boardDiv = document.getElementById("board");
-const statusText = document.getElementById("statusText");
-const playersDiv = document.getElementById("players");
-
-const homeScreen = document.getElementById("homeScreen");
-const gameScreen = document.getElementById("gameScreen");
-
-const createGameBtn = document.getElementById("createGame");
-const playAIBtn = document.getElementById("playAI");
-
-const messagesDiv = document.getElementById("messages");
-const chatInput = document.getElementById("chatInput");
-
-// 👤 Show user
-if (user) {
-  userInfo.innerText = "Player: " + (user.username || user.first_name);
-}
+// 👤 UI Elements
+let userInfo, boardDiv, statusText, playersDiv;
+let homeScreen, gameScreen;
+let messagesDiv, chatInput;
 
 // 🔊 Sounds
 const sounds = {
@@ -52,7 +37,90 @@ let gameMode = "online";
 let roomId = null;
 let roomRef = null;
 
+// ===============================
+// 🚀 INIT APP AFTER LOAD
+// ===============================
+document.addEventListener("DOMContentLoaded", () => {
+
+  // 🎯 Get UI
+  userInfo = document.getElementById("userInfo");
+  boardDiv = document.getElementById("board");
+  statusText = document.getElementById("statusText");
+  playersDiv = document.getElementById("players");
+
+  homeScreen = document.getElementById("homeScreen");
+  gameScreen = document.getElementById("gameScreen");
+
+  messagesDiv = document.getElementById("messages");
+  chatInput = document.getElementById("chatInput");
+
+  const createGameBtn = document.getElementById("createGame");
+  const playAIBtn = document.getElementById("playAI");
+
+  // 👤 Show user
+  if (user) {
+    userInfo.innerText = "Player: " + (user.username || user.first_name);
+  }
+
+  // 🎮 PLAY WITH FRIEND
+  createGameBtn.onclick = () => {
+    gameMode = "online";
+
+    roomId = Math.random().toString(36).substr(2, 6);
+    roomRef = db.ref("rooms/" + roomId);
+
+    roomRef.set({
+      board: ["","","","","","","","",""],
+      turn: "X",
+      winner: null,
+      winningCells: [],
+      players: {
+        X: {
+          id: userId,
+          name: user?.username || user?.first_name || "Player"
+        },
+        O: null
+      }
+    });
+
+    listenRoom();
+    showGame();
+    shareGame();
+  };
+
+  // 🤖 PLAY WITH AI
+  playAIBtn.onclick = () => {
+    gameMode = "ai";
+
+    board = ["","","","","","","","",""];
+    currentPlayer = "X";
+    winner = null;
+    winningCells = [];
+
+    showGame();
+    updateStatus();
+    renderBoard();
+  };
+
+  // 🔥 AUTO JOIN (Telegram FIX)
+  const hash = window.location.hash;
+
+  if (hash.startsWith("#room=")) {
+    roomId = hash.replace("#room=", "");
+    roomRef = db.ref("rooms/" + roomId);
+    gameMode = "online";
+
+    showGame();
+    listenRoom();
+
+    console.log("Joined room:", roomId);
+  }
+
+});
+
+// ===============================
 // 🏠 NAVIGATION
+// ===============================
 function showGame() {
   homeScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
@@ -63,47 +131,9 @@ function goHome() {
   homeScreen.classList.remove("hidden");
 }
 
-// 🎮 CREATE GAME (FRIEND)
-createGameBtn.onclick = () => {
-  gameMode = "online";
-
-  roomId = Math.random().toString(36).substr(2, 6);
-  roomRef = db.ref("rooms/" + roomId);
-
-  roomRef.set({
-    board: ["","","","","","","","",""],
-    turn: "X",
-    winner: null,
-    winningCells: [],
-    players: {
-      X: {
-        id: userId,
-        name: user.username || user.first_name
-      },
-      O: null
-    }
-  });
-
-  listenRoom();
-  showGame();
-  shareGame();
-};
-
-// 🤖 PLAY WITH AI
-playAIBtn.onclick = () => {
-  gameMode = "ai";
-
-  board = ["","","","","","","","",""];
-  currentPlayer = "X";
-  winner = null;
-  winningCells = [];
-
-  showGame();
-  updateStatus();
-  renderBoard();
-};
-
+// ===============================
 // 👀 LISTEN ROOM
+// ===============================
 function listenRoom() {
   roomRef.on("value", snapshot => {
     const data = snapshot.val();
@@ -132,7 +162,7 @@ function listenRoom() {
       roomRef.update({
         "players/O": {
           id: userId,
-          name: user.username || user.first_name
+          name: user?.username || user?.first_name || "Player"
         }
       });
     }
@@ -155,7 +185,9 @@ function listenRoom() {
   });
 }
 
-// 🎯 CHECK WINNER
+// ===============================
+// 🎯 WIN CHECK
+// ===============================
 function checkWinner(board) {
   const wins = [
     [0,1,2],[3,4,5],[6,7,8],
@@ -174,7 +206,9 @@ function checkWinner(board) {
   return null;
 }
 
+// ===============================
 // 🎮 RENDER
+// ===============================
 function renderBoard() {
   boardDiv.innerHTML = "";
 
@@ -196,7 +230,9 @@ function renderBoard() {
   });
 }
 
+// ===============================
 // ✍️ MOVE
+// ===============================
 function makeMove(index) {
   if (board[index] !== "" || winner) return;
 
@@ -312,19 +348,19 @@ function restartGame() {
   });
 }
 
-// 📩 SHARE (FIXED 🔥)
+// 📩 SHARE
 function shareGame() {
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
   tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link));
 }
 
-// 💬 CHAT SEND
+// 💬 CHAT
 function sendMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
 
   db.ref(`rooms/${roomId}/messages`).push({
-    user: user.username || user.first_name,
+    user: user?.username || user?.first_name || "Player",
     text,
     time: Date.now()
   });
@@ -339,19 +375,3 @@ function showMessage(text) {
   msg.style.display = "block";
   setTimeout(() => msg.style.display = "none", 2000);
 }
-
-// ✅ AUTO JOIN FIX (IMPORTANT 🔥)
-window.addEventListener("load", () => {
-  const hash = window.location.hash;
-
-  if (hash.startsWith("#room=")) {
-    roomId = hash.replace("#room=", "");
-    roomRef = db.ref("rooms/" + roomId);
-    gameMode = "online";
-
-    showGame();
-    listenRoom();
-
-    console.log("Joined room:", roomId);
-  }
-});
