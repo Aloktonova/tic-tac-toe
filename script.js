@@ -3,31 +3,20 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
-const userId = user?.id;
-
-// 👤 UI Elements
-let userInfo, boardDiv, statusText, playersDiv;
-let homeScreen, gameScreen;
-let messagesDiv, chatInput;
-
-// 🔊 Sounds
-const sounds = {
-  move: new Audio("https://www.soundjay.com/buttons/sounds/button-09.mp3"),
-  win: new Audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3")
-};
+const userId = user?.id || Math.random().toString(36);
 
 // 🔥 Firebase
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_DOMAIN",
-  databaseURL: "YOUR_DB_URL",
-  projectId: "YOUR_PROJECT_ID"
+  apiKey: "AIzaSyB-voWV6lb7JK_gSs_XyzHqpWD78PcMBZk",
+  authDomain: "tic-tac-toe-a19ae.firebaseapp.com",
+  databaseURL: "https://tic-tac-toe-a19ae-default-rtdb.firebaseio.com",
+  projectId: "tic-tac-toe-a19ae"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🧠 Game State
+// 🧠 State
 let board = ["","","","","","","","",""];
 let currentPlayer = "X";
 let winner = null;
@@ -37,13 +26,16 @@ let gameMode = "online";
 let roomId = null;
 let roomRef = null;
 
+// 🎯 UI
+let boardDiv, statusText, playersDiv;
+let homeScreen, gameScreen;
+let messagesDiv, chatInput;
+
 // ===============================
-// 🚀 INIT APP AFTER LOAD
+// 🚀 INIT
 // ===============================
 document.addEventListener("DOMContentLoaded", () => {
 
-  // 🎯 Get UI
-  userInfo = document.getElementById("userInfo");
   boardDiv = document.getElementById("board");
   statusText = document.getElementById("statusText");
   playersDiv = document.getElementById("players");
@@ -54,69 +46,74 @@ document.addEventListener("DOMContentLoaded", () => {
   messagesDiv = document.getElementById("messages");
   chatInput = document.getElementById("chatInput");
 
-  const createGameBtn = document.getElementById("createGame");
-  const playAIBtn = document.getElementById("playAI");
+  document.getElementById("userInfo").innerText =
+    "Player: " + (user?.username || user?.first_name || "Guest");
 
-  // 👤 Show user
-  if (user) {
-    userInfo.innerText = "Player: " + (user.username || user.first_name);
-  }
+  // 🎮 BUTTONS
+  document.getElementById("createGame").onclick = startFriendGame;
+  document.getElementById("playAI").onclick = startAIGame;
+  document.getElementById("inviteBtn").onclick = shareGame;
+  document.getElementById("restartBtn").onclick = restartGame;
+  document.getElementById("homeBtn").onclick = goHome;
+  document.getElementById("sendBtn").onclick = sendMessage;
 
-  // 🎮 PLAY WITH FRIEND
-  createGameBtn.onclick = () => {
-    gameMode = "online";
+  // 🔗 Auto join
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = params.get("room");
 
-    roomId = Math.random().toString(36).substr(2, 6);
-    roomRef = db.ref("rooms/" + roomId);
-
-    roomRef.set({
-      board: ["","","","","","","","",""],
-      turn: "X",
-      winner: null,
-      winningCells: [],
-      players: {
-        X: {
-          id: userId,
-          name: user?.username || user?.first_name || "Player"
-        },
-        O: null
-      }
-    });
-
-    listenRoom();
-    showGame();
-    shareGame();
-  };
-
-  // 🤖 PLAY WITH AI
-  playAIBtn.onclick = () => {
-    gameMode = "ai";
-
-    board = ["","","","","","","","",""];
-    currentPlayer = "X";
-    winner = null;
-    winningCells = [];
-
-    showGame();
-    updateStatus();
-    renderBoard();
-  };
-
-  // 🔥 AUTO JOIN (Telegram FIX)
-  const hash = window.location.hash;
-
-  if (hash.startsWith("#room=")) {
-    roomId = hash.replace("#room=", "");
+  if (roomFromUrl) {
+    roomId = roomFromUrl;
     roomRef = db.ref("rooms/" + roomId);
     gameMode = "online";
 
     showGame();
     listenRoom();
-
-    console.log("Joined room:", roomId);
   }
-
 });
+
+// ===============================
+// 🎮 START FRIEND GAME
+// ===============================
+function startFriendGame() {
+  gameMode = "online";
+
+  roomId = Math.random().toString(36).substr(2, 6);
+  roomRef = db.ref("rooms/" + roomId);
+
+  roomRef.set({
+    board: ["","","","","","","","",""],
+    turn: "X",
+    winner: null,
+    winningCells: [],
+    players: {
+      X: {
+        id: userId,
+        name: user?.username || user?.first_name || "Player"
+      },
+      O: null
+    }
+  });
+
+  showGame();
+  listenRoom();
+  shareGame();
+}
+
+// ===============================
+// 🤖 START AI GAME
+// ===============================
+function startAIGame() {
+  gameMode = "ai";
+
+  board = ["","","","","","","","",""];
+  currentPlayer = "X";
+  winner = null;
+  winningCells = [];
+
+  showGame();
+  updateStatus();
+  renderBoard();
+}
 
 // ===============================
 // 🏠 NAVIGATION
@@ -135,8 +132,8 @@ function goHome() {
 // 👀 LISTEN ROOM
 // ===============================
 function listenRoom() {
-  roomRef.on("value", snapshot => {
-    const data = snapshot.val();
+  roomRef.on("value", snap => {
+    const data = snap.val();
     if (!data) return;
 
     window.currentRoomData = data;
@@ -146,7 +143,7 @@ function listenRoom() {
     winner = data.winner;
     winningCells = data.winningCells || [];
 
-    const x = data.players.X?.name || "Player X";
+    const x = data.players.X?.name || "X";
     const o = data.players.O?.name || "Waiting...";
 
     playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
@@ -155,9 +152,10 @@ function listenRoom() {
     renderBoard();
   });
 
-  // 👥 Join as O
+  // join as O
   roomRef.once("value", snap => {
     const data = snap.val();
+
     if (!data.players.O && data.players.X.id !== userId) {
       roomRef.update({
         "players/O": {
@@ -168,10 +166,10 @@ function listenRoom() {
     }
   });
 
-  // 💬 CHAT
+  // 💬 Chat
   db.ref(`rooms/${roomId}/messages`).on("value", snap => {
     const data = snap.val();
-    if (!data || !messagesDiv) return;
+    if (!data) return;
 
     messagesDiv.innerHTML = "";
 
@@ -188,21 +186,21 @@ function listenRoom() {
 // ===============================
 // 🎯 WIN CHECK
 // ===============================
-function checkWinner(board) {
+function checkWinner(b) {
   const wins = [
     [0,1,2],[3,4,5],[6,7,8],
     [0,3,6],[1,4,7],[2,5,8],
     [0,4,8],[2,4,6]
   ];
 
-  for (let combo of wins) {
-    const [a,b,c] = combo;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return { winner: board[a], cells: combo };
+  for (let c of wins) {
+    const [a,b1,c1] = c;
+    if (b[a] && b[a] === b[b1] && b[a] === b[c1]) {
+      return { winner: b[a], cells: c };
     }
   }
 
-  if (board.every(c => c !== "")) return { winner: "draw", cells: [] };
+  if (b.every(x => x !== "")) return { winner: "draw", cells: [] };
   return null;
 }
 
@@ -212,20 +210,18 @@ function checkWinner(board) {
 function renderBoard() {
   boardDiv.innerHTML = "";
 
-  board.forEach((cell, index) => {
+  board.forEach((cell, i) => {
     const btn = document.createElement("button");
-    btn.classList.add("cell");
+    btn.className = "cell";
     btn.innerText = cell;
 
-    if (winningCells.includes(index)) {
+    if (winningCells.includes(i)) {
       btn.style.background = "#22c55e";
-      btn.style.animation = "winPulse 0.5s infinite alternate";
     }
 
-    if (cell !== "" || winner) btn.disabled = true;
+    if (cell || winner) btn.disabled = true;
 
-    btn.onclick = () => makeMove(index);
-
+    btn.onclick = () => makeMove(i);
     boardDiv.appendChild(btn);
   });
 }
@@ -233,19 +229,16 @@ function renderBoard() {
 // ===============================
 // ✍️ MOVE
 // ===============================
-function makeMove(index) {
-  if (board[index] !== "" || winner) return;
-
-  sounds.move.play();
+function makeMove(i) {
+  if (board[i] || winner) return;
 
   if (gameMode === "ai") {
-    board[index] = "X";
+    board[i] = "X";
 
-    let result = checkWinner(board);
-    if (result) {
-      winner = result.winner;
-      winningCells = result.cells;
-      sounds.win.play();
+    let r = checkWinner(board);
+    if (r) {
+      winner = r.winner;
+      winningCells = r.cells;
     } else {
       currentPlayer = "O";
       setTimeout(aiMove, 400);
@@ -256,22 +249,19 @@ function makeMove(index) {
     return;
   }
 
-  const playerSymbol = getPlayerSymbol();
+  const symbol = getPlayerSymbol();
+  if (!symbol) return showMessage("Spectator");
+  if (symbol !== currentPlayer) return showMessage("Wait turn");
 
-  if (!playerSymbol) return showMessage("Spectator 👀");
-  if (currentPlayer !== playerSymbol) return showMessage("Not your turn");
+  board[i] = currentPlayer;
 
-  board[index] = currentPlayer;
+  let r = checkWinner(board);
 
-  const result = checkWinner(board);
-
-  if (result) {
-    sounds.win.play();
-
+  if (r) {
     roomRef.update({
       board,
-      winner: result.winner,
-      winningCells: result.cells,
+      winner: r.winner,
+      winningCells: r.cells,
       turn: null
     });
   } else {
@@ -282,18 +272,17 @@ function makeMove(index) {
   }
 }
 
-// 🤖 AI
+// 🤖 AI MOVE
 function aiMove() {
   let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
   let move = empty[Math.floor(Math.random()*empty.length)];
 
   board[move] = "O";
 
-  let result = checkWinner(board);
-  if (result) {
-    winner = result.winner;
-    winningCells = result.cells;
-    sounds.win.play();
+  let r = checkWinner(board);
+  if (r) {
+    winner = r.winner;
+    winningCells = r.cells;
   } else {
     currentPlayer = "X";
   }
@@ -302,17 +291,21 @@ function aiMove() {
   renderBoard();
 }
 
-// 🔒 SYMBOL
+// ===============================
+// 🔒 PLAYER SYMBOL
+// ===============================
 function getPlayerSymbol() {
-  const data = window.currentRoomData;
-  if (!data) return null;
+  const d = window.currentRoomData;
+  if (!d) return null;
 
-  if (data.players.X?.id === userId) return "X";
-  if (data.players.O?.id === userId) return "O";
+  if (d.players.X?.id === userId) return "X";
+  if (d.players.O?.id === userId) return "O";
   return null;
 }
 
+// ===============================
 // 📊 STATUS
+// ===============================
 function updateStatus() {
   if (gameMode === "ai") {
     if (winner === "draw") return statusText.innerText = "Draw 🤝";
@@ -320,23 +313,21 @@ function updateStatus() {
     return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking...";
   }
 
-  const data = window.currentRoomData;
-  if (!data.players.O) return statusText.innerText = "Waiting for opponent...";
+  const d = window.currentRoomData;
+
+  if (!d.players.O) return statusText.innerText = "Waiting for opponent...";
 
   if (winner === "draw") statusText.innerText = "Draw 🤝";
   else if (winner) statusText.innerText = winner + " Wins 🎉";
   else statusText.innerText = currentPlayer + "'s Turn";
 }
 
+// ===============================
 // 🔁 RESTART
+// ===============================
 function restartGame() {
   if (gameMode === "ai") {
-    board = ["","","","","","","","",""];
-    currentPlayer = "X";
-    winner = null;
-    winningCells = [];
-    updateStatus();
-    renderBoard();
+    startAIGame();
     return;
   }
 
@@ -348,13 +339,22 @@ function restartGame() {
   });
 }
 
+// ===============================
 // 📩 SHARE
+// ===============================
 function shareGame() {
-  const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
-  tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link));
+  if (!roomId) return;
+
+  const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+
+  tg.openTelegramLink(
+    "https://t.me/share/url?url=" + encodeURIComponent(link)
+  );
 }
 
+// ===============================
 // 💬 CHAT
+// ===============================
 function sendMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
@@ -368,10 +368,12 @@ function sendMessage() {
   chatInput.value = "";
 }
 
+// ===============================
 // 💬 TOAST
-function showMessage(text) {
+// ===============================
+function showMessage(t) {
   const msg = document.getElementById("toast");
-  msg.innerText = text;
+  msg.innerText = t;
   msg.style.display = "block";
-  setTimeout(() => msg.style.display = "none", 2000);
+  setTimeout(()=>msg.style.display="none",2000);
 }
