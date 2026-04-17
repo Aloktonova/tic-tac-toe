@@ -132,7 +132,9 @@ function playAI() {
 // 📩 Invite availability
 function setInviteButtonState() {
   if (!inviteBtn) return;
-  inviteBtn.disabled = gameMode !== "online";
+  const isOnlineMode = gameMode === "online";
+  inviteBtn.disabled = !isOnlineMode;
+  inviteBtn.title = isOnlineMode ? "" : "Only available in online mode";
 }
 
 // =======================
@@ -375,7 +377,10 @@ function restartGame() {
 // 📩 SHARE (FIXED)
 // =======================
 function shareGame() {
-  if (gameMode !== "online" || !roomId) return;
+  if (gameMode !== "online" || !roomId) {
+    console.warn("Invite is only available in online mode with a valid room.");
+    return;
+  }
 
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
 
