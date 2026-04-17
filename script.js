@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function getRoomIdFromLocation() {
   const hash = window.location.hash || "";
-  const hashMatch = hash.match(/(?:^#|[?&])room=([^&]+)/) || hash.match(/room=([^&]+)/);
+  const hashMatch = hash.match(/(?:^#|[?&])room=([^&]+)/) || hash.match(/^#.*[?&]room=([^&]+)/);
   if (hashMatch && hashMatch[1]) return decodeURIComponent(hashMatch[1]);
 
   const roomFromQuery = new URLSearchParams(window.location.search).get("room");
@@ -370,7 +370,7 @@ function findBestMove(symbol) {
 }
 
 function makeAIMove(i) {
-  if (i == null || board[i] !== "" || winner) return;
+  if (i === null || i === undefined || board[i] !== "" || winner) return;
 
   board[i] = "O";
   const res = checkWinner(board);
