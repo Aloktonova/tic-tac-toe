@@ -2,10 +2,20 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const user = tg.initDataUnsafe?.user || {};
+let user = {};
 // Only use the real Telegram ID — no random fallback for online play
-const userId = user.id || null;
-const normalizedUserId = userId ? String(userId) : null;
+let userId = null;
+let normalizedUserId = null;
+let currentUserName = "Player";
+
+function syncTelegramUserContext() {
+  user = tg.initDataUnsafe?.user || {};
+  userId = user.id ?? null;
+  normalizedUserId = userId === null ? null : String(userId);
+  currentUserName = user.username || user.first_name || "Player";
+}
+
+syncTelegramUserContext();
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -42,7 +52,6 @@ const MAX_MESSAGE_LENGTH = 500;
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl;
-const currentUserName = user.username || user.first_name || "Player";
 let inviteBtn, restartBtn, homeBtn;
 
 // =======================
@@ -112,6 +121,7 @@ function updateActionButtons() {
 // 🚀 INIT
 // =======================
 document.addEventListener("DOMContentLoaded", () => {
+  syncTelegramUserContext();
 
   console.log("App Loaded ✅");
 
@@ -134,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
   homeBtn = document.getElementById("homeBtn");
 
   // 👤 Show user
-  userInfo.innerText = "Player: " + (user.username || user.first_name || "Guest");
+  userInfo.innerText = "Player: " + currentUserName;
 
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
@@ -209,7 +219,7 @@ function createGame() {
     players: {
       X: {
         id: normalizedUserId,
-        name: user.username || user.first_name || "Player"
+        name: currentUserName
       },
       O: null
     }
@@ -296,7 +306,7 @@ function listenRoom() {
       hasAttemptedJoin = true;
       roomRef.child("players/O").transaction(currentO => {
         if (currentO !== null) return undefined; // already taken — abort
-        return { id: normalizedUserId, name: user.username || user.first_name || "Player" };
+        return { id: normalizedUserId, name: currentUserName };
       }, (err, committed) => {
         if (err) console.error("Failed to join as O:", err);
         else if (!committed) showToast("Room is full — you are spectating");
