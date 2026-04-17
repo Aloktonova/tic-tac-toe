@@ -1,1 +1,1 @@
-
+console.log("Game loaded");
