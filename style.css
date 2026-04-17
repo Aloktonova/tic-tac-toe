@@ -141,6 +141,12 @@ button:hover {
   margin-left: 5px;
 }
 
+.chat-input input:disabled,
+.chat-input button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .message-item {
   background: #1e293b;
   border-radius: 8px;
