@@ -252,35 +252,63 @@ function makeMove(i) {
 
 // 🤖 AI MOVE
 function aiMove() {
-  let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
-  let move = empty[Math.floor(Math.random()*empty.length)];
 
-  board[move] = "O";
-
-  let res = checkWinner(board);
-
-  if (res) {
-    winner = res.winner;
-    winningCells = res.cells;
-  } else {
-    currentPlayer = "X";
+  // 🎲 40% chance to play RANDOM (to make it beatable)
+  if (Math.random() < 0.4) {
+    playRandom();
+    return;
   }
 
-  updateStatus();
-  renderBoard();
+  // 1️⃣ Try to WIN
+  let move = findBestMove("O");
+  if (move !== null) {
+    makeAIMove(move);
+    return;
+  }
+
+  // 🎲 30% chance to IGNORE blocking (intentional mistake)
+  if (Math.random() < 0.3) {
+    playSmartPosition();
+    return;
+  }
+
+  // 2️⃣ Block player WIN
+  move = findBestMove("X");
+  if (move !== null) {
+    makeAIMove(move);
+    return;
+  }
+
+  // 3️⃣ Smart positioning
+  playSmartPosition();
 }
 
-// =======================
-// 🔒 PLAYER SYMBOL
-// =======================
-function getPlayerSymbol() {
-  const data = window.currentRoomData;
-  if (!data) return null;
+// 🎯 Smart positioning (not perfect)
+function playSmartPosition() {
 
-  if (data.players.X?.id === userId) return "X";
-  if (data.players.O?.id === userId) return "O";
+  // Take center sometimes
+  if (board[4] === "" && Math.random() < 0.7) {
+    makeAIMove(4);
+    return;
+  }
 
-  return null;
+  // Take corner sometimes
+  const corners = [0,2,6,8].filter(i => board[i] === "");
+  if (corners.length && Math.random() < 0.7) {
+    const move = corners[Math.floor(Math.random() * corners.length)];
+    makeAIMove(move);
+    return;
+  }
+
+  // Otherwise random
+  playRandom();
+}
+
+// 🎲 Random move
+function playRandom() {
+  const empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+  const move = empty[Math.floor(Math.random()*empty.length)];
+  makeAIMove(move);
 }
 
 // =======================
