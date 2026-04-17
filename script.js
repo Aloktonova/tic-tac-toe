@@ -79,21 +79,39 @@ document.addEventListener("DOMContentLoaded", () => {
   restartBtn.addEventListener("click", restartGame);
   homeBtn.addEventListener("click", goHome);
 
-  // 🔗 AUTO JOIN (IMPORTANT FIX)
-  const hash = window.location.hash;
-
-  if (hash.startsWith("#room=")) {
-    roomId = hash.replace("#room=", "");
-    roomRef = db.ref("rooms/" + roomId);
-
-    gameMode = "online";
-    showGame();
-    setInviteButtonState();
-    listenRoom();
-
-    console.log("Joined Room:", roomId);
-  }
+  autoJoinRoomFromLocation();
+  window.addEventListener("hashchange", autoJoinRoomFromLocation);
 });
+
+function getRoomIdFromLocation() {
+  const hash = window.location.hash || "";
+  const hashMatch = hash.match(/(?:^#|[?&])room=([^&]+)/) || hash.match(/room=([^&]+)/);
+  if (hashMatch && hashMatch[1]) return decodeURIComponent(hashMatch[1]);
+
+  const roomFromQuery = new URLSearchParams(window.location.search).get("room");
+  if (roomFromQuery) return roomFromQuery;
+
+  return null;
+}
+
+function autoJoinRoomFromLocation() {
+  const detectedRoomId = getRoomIdFromLocation();
+  if (!detectedRoomId) return;
+  if (roomId === detectedRoomId && roomRef) return;
+
+  stopRoomListener();
+  stopChatListener();
+
+  roomId = detectedRoomId;
+  roomRef = db.ref("rooms/" + roomId);
+  gameMode = "online";
+
+  showGame();
+  setInviteButtonState();
+  listenRoom();
+
+  console.log("Joined Room:", roomId);
+}
 
 // =======================
 // 🎮 CREATE GAME
@@ -299,6 +317,14 @@ function makeMove(i) {
   }
 }
 
+function getPlayerSymbol() {
+  const data = window.currentRoomData;
+  if (!data || !data.players) return null;
+  if (data.players.X?.id === userId) return "X";
+  if (data.players.O?.id === userId) return "O";
+  return null;
+}
+
 // 🤖 AI MOVE
 function aiMove() {
 
@@ -330,6 +356,34 @@ function aiMove() {
 
   // 3️⃣ Smart positioning
   playSmartPosition();
+}
+
+function findBestMove(symbol) {
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== "") continue;
+    const testBoard = [...board];
+    testBoard[i] = symbol;
+    const result = checkWinner(testBoard);
+    if (result?.winner === symbol) return i;
+  }
+  return null;
+}
+
+function makeAIMove(i) {
+  if (i == null || board[i] !== "" || winner) return;
+
+  board[i] = "O";
+  const res = checkWinner(board);
+
+  if (res) {
+    winner = res.winner;
+    winningCells = res.cells;
+  } else {
+    currentPlayer = "X";
+  }
+
+  updateStatus();
+  renderBoard();
 }
 
 // 🎯 Smart positioning (not perfect)
@@ -371,6 +425,10 @@ function updateStatus() {
   }
 
   const data = window.currentRoomData;
+  if (!data || !data.players) {
+    statusText.innerText = "Loading room...";
+    return;
+  }
 
   if (!data.players.O) {
     statusText.innerText = "Waiting for player...";
