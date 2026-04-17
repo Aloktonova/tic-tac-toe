@@ -289,13 +289,15 @@ function listenRoom() {
     winningCells = data.winningCells;
 
     // Derive this user's role from room data
+    // Re-read user.id fresh on every snapshot to avoid stale closure value
+    const currentUserId = user?.id != null ? String(user.id) : null;
     const xId = normalizePlayerId(data.players.X?.id);
     const oId = normalizePlayerId(data.players.O?.id);
-    if (xId && xId === normalizedUserId) myRole = "X";
-    else if (oId && oId === normalizedUserId) myRole = "O";
+    if (xId && xId === currentUserId) myRole = "X";
+    else if (oId && oId === currentUserId) myRole = "O";
     else myRole = null;
 
-    console.log("join debug: current userId =", normalizedUserId);
+    console.log("join debug: userId =", currentUserId);
     console.log("join debug: players.X.id =", xId);
     console.log("join debug: players.O.id =", oId);
 
@@ -311,27 +313,19 @@ function listenRoom() {
     const shouldAttemptJoinAsO =
       !hasAttemptedJoin &&
       !isJoinAttemptInFlight &&
-      !!normalizedUserId &&
+      !!currentUserId &&
       !!xId &&
       !oId &&
-      xId !== normalizedUserId;
+      xId !== currentUserId;
 
     if (shouldAttemptJoinAsO) {
       isJoinAttemptInFlight = true;
-      roomRef.child("players").transaction(currentPlayers => {
-        const players = currentPlayers || {};
-        const currentXId = normalizePlayerId(players.X?.id);
-        const currentOId = normalizePlayerId(players.O?.id);
-
-        if (currentOId) return undefined; // already taken — abort
-        if (currentXId && currentXId === normalizedUserId) return undefined; // X cannot also be O
+      roomRef.child("players/O").transaction(currentO => {
+        if (currentO?.id) return undefined; // already assigned — abort
 
         return {
-          ...players,
-          O: {
-            id: normalizedUserId,
-            name: currentUserName
-          }
+          id: currentUserId,
+          name: currentUserName
         };
       }, (err, committed) => {
         isJoinAttemptInFlight = false;
@@ -341,7 +335,14 @@ function listenRoom() {
         }
 
         hasAttemptedJoin = true;
-        if (!committed) showToast("Room is full — you are spectating");
+        if (committed) {
+          myRole = "O";
+          updateActionButtons();
+          updateStatus();
+          renderBoard();
+        } else {
+          showToast("Room is full — you are spectating");
+        }
       });
     }
   };
