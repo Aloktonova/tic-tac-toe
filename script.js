@@ -25,10 +25,15 @@ let gameMode = "online";
 
 let roomId = null;
 let roomRef = null;
+let roomValueListener = null;
+let chatMessagesRef = null;
+let chatEnabled = false;
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
+let messagesDiv, chatInputEl, sendBtnEl;
+const currentUserName = user.username || user.first_name || "Player";
 let inviteBtn, restartBtn, homeBtn;
 
 // =======================
@@ -46,6 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   homeScreen = document.getElementById("homeScreen");
   gameScreen = document.getElementById("gameScreen");
+  messagesDiv = document.getElementById("messages");
+  chatInputEl = document.getElementById("chatInput");
+  sendBtnEl = document.getElementById("sendBtn");
 
   const createBtn = document.getElementById("createGame");
   const aiBtn = document.getElementById("playAI");
@@ -59,6 +67,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
   aiBtn.addEventListener("click", playAI);
+  sendBtnEl.addEventListener("click", sendChatMessage);
+  chatInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+  setChatEnabled(false, "Chat is disabled in AI mode");
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
   homeBtn.addEventListener("click", goHome);
@@ -124,6 +140,7 @@ function playAI() {
   winningCells = [];
 
   showGame();
+  disableChatForAI();
   setInviteButtonState();
   updateStatus();
   renderBoard();
@@ -145,7 +162,13 @@ function setInviteButtonState() {
 // 👀 LISTEN ROOM
 // =======================
 function listenRoom() {
-  roomRef.on("value", snap => {
+  if (!roomRef) return;
+
+  if (roomValueListener) {
+    roomRef.off("value", roomValueListener);
+  }
+
+  roomValueListener = (snap) => {
     const data = snap.val();
     if (!data) return;
 
@@ -163,7 +186,11 @@ function listenRoom() {
 
     updateStatus();
     renderBoard();
-  });
+  };
+  roomRef.on("value", roomValueListener);
+
+  startChatListener();
+  setChatEnabled(true, "Type message...");
 
   // JOIN AS O
   roomRef.once("value", snap => {
@@ -402,6 +429,132 @@ function showGame() {
 }
 
 function goHome() {
+  stopRoomListener();
+  stopChatListener();
+  setChatEnabled(false, "Chat is disabled in AI mode");
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
+}
+
+function stopRoomListener() {
+  if (roomRef && roomValueListener) {
+    roomRef.off("value", roomValueListener);
+  }
+  roomValueListener = null;
+}
+
+function startChatListener() {
+  if (!roomRef) return;
+
+  stopChatListener();
+  chatMessagesRef = roomRef.child("messages");
+
+  chatMessagesRef.orderByChild("timestamp").on("value", snap => {
+    const messages = [];
+
+    snap.forEach(child => {
+      const data = child.val() || {};
+      const text = typeof data.text === "string" ? data.text.trim() : "";
+      if (!text) return;
+
+      messages.push({
+        senderId: data.senderId,
+        senderName: data.senderName || "Player",
+        text,
+        timestamp: data.timestamp || 0
+      });
+    });
+
+    renderMessages(messages);
+  });
+}
+
+function stopChatListener() {
+  if (chatMessagesRef) {
+    chatMessagesRef.off();
+    chatMessagesRef = null;
+  }
+}
+
+function sendChatMessage() {
+  if (!chatEnabled || gameMode !== "online" || !roomRef || !chatInputEl) return;
+
+  const text = chatInputEl.value.trim();
+  if (!text) return;
+
+  roomRef.child("messages").push({
+    senderId: userId,
+    senderName: currentUserName,
+    text,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  }).then(() => {
+    chatInputEl.value = "";
+    chatInputEl.focus();
+  }).catch((error) => {
+    console.error("Send message failed:", error);
+  });
+}
+
+function renderMessages(messages) {
+  if (!messagesDiv) return;
+
+  messagesDiv.innerHTML = "";
+
+  if (!messages.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-message";
+    empty.innerText = "No messages yet";
+    messagesDiv.appendChild(empty);
+    return;
+  }
+
+  messages.forEach((msg) => {
+    const item = document.createElement("div");
+    item.className = "message-item";
+    if (msg.senderId === userId) item.classList.add("mine");
+
+    const sender = document.createElement("div");
+    sender.className = "message-sender";
+    sender.innerText = msg.senderName;
+
+    const text = document.createElement("div");
+    text.className = "message-text";
+    text.innerText = msg.text;
+
+    item.appendChild(sender);
+    item.appendChild(text);
+    messagesDiv.appendChild(item);
+  });
+
+  autoScrollMessages();
+}
+
+function autoScrollMessages() {
+  if (!messagesDiv) return;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function setChatEnabled(enabled, placeholderText) {
+  chatEnabled = enabled;
+  if (!chatInputEl || !sendBtnEl) return;
+
+  chatInputEl.disabled = !enabled;
+  sendBtnEl.disabled = !enabled;
+  chatInputEl.placeholder = placeholderText || "Type message...";
+
+  if (!enabled) {
+    chatInputEl.value = "";
+    if (messagesDiv) {
+      messagesDiv.innerHTML = "";
+      const disabledNote = document.createElement("div");
+      disabledNote.className = "empty-message";
+      disabledNote.innerText = "Chat disabled in AI mode";
+      messagesDiv.appendChild(disabledNote);
+    }
+  }
+}
+
+function disableChatForAI() {
+  stopChatListener();
+  setChatEnabled(false, "Chat is disabled in AI mode");
 }
