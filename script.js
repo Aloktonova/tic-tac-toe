@@ -15,6 +15,10 @@ function syncTelegramUserContext() {
   currentUserName = user.username || user.first_name || "Player";
 }
 
+function generateFallbackUserId() {
+  return "user_" + window.crypto.randomUUID().replace(/-/g, "");
+}
+
 syncTelegramUserContext();
 
 // 🔥 Firebase
@@ -280,30 +284,52 @@ function listenRoom() {
     if (!data) return;
 
     // 🧠 Ensure userId always exists
-    let safeUserId = userId != null ? String(userId) : localStorage.getItem("fallbackId");
+    let fallbackId = null;
+    try {
+      fallbackId = localStorage.getItem("fallbackId");
+    } catch (err) {
+      console.warn("Unable to read fallbackId:", err);
+    }
+    let resolvedUserId = userId != null ? String(userId) : fallbackId;
 
-    if (!safeUserId) {
-      safeUserId = "user_" + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem("fallbackId", safeUserId);
+    if (!resolvedUserId) {
+      resolvedUserId = generateFallbackUserId();
+      try {
+        localStorage.setItem("fallbackId", resolvedUserId);
+      } catch (err) {
+        console.warn("Unable to persist fallbackId:", err);
+      }
     }
 
     // 🔥 FIX: Assign Player O properly
     if (
       data.players &&
       data.players.X &&
-      String(data.players.X.id) !== safeUserId &&
+      String(data.players.X.id) !== resolvedUserId &&
       !data.players.O
     ) {
-      console.log("Assigning Player O:", safeUserId);
+      if (!hasAttemptedJoin && !isJoinAttemptInFlight) {
+        isJoinAttemptInFlight = true;
+        roomRef.child("players/O").transaction(currentO => {
+          if (currentO?.id) return undefined;
+          return {
+            id: resolvedUserId,
+            name: currentUserName || "Player O"
+          };
+        }, (err, committed) => {
+          isJoinAttemptInFlight = false;
+          hasAttemptedJoin = true;
+          if (err) {
+            console.error("Failed assigning Player O:", err);
+            return;
+          }
+          if (committed) {
+            console.log("Successfully assigned Player O:", resolvedUserId);
+          }
+        });
+      }
 
-      roomRef.update({
-        "players/O": {
-          id: safeUserId,
-          name: user?.username || user?.first_name || "Player"
-        }
-      });
-
-      return; // ⛔ wait for next update
+      return; // ⛔ wait for next update after transaction completes
     }
 
     // ✅ NORMAL GAME FLOW
@@ -317,7 +343,7 @@ function listenRoom() {
     winningCells = normalizedData.winningCells;
 
     // Derive this user's role from room data
-    const currentUserId = safeUserId;
+    const currentUserId = resolvedUserId;
     const xId = normalizePlayerId(normalizedData.players.X?.id);
     const oId = normalizePlayerId(normalizedData.players.O?.id);
     if (xId && xId === currentUserId) myRole = "X";
