@@ -29,6 +29,21 @@ function syncTelegramUserContext() {
   currentUserName = user.username || user.first_name || "Player";
 }
 
+function ensureNormalizedUserId() {
+  if (normalizedUserId) return normalizedUserId;
+  syncTelegramUserContext();
+  if (normalizedUserId) return normalizedUserId;
+
+  const fallbackId = generateFallbackUserId();
+  normalizedUserId = fallbackId;
+  try {
+    localStorage.setItem("fallbackId", fallbackId);
+  } catch (err) {
+    console.warn("Unable to persist fallbackId:", err);
+  }
+  return normalizedUserId;
+}
+
 function generateFallbackUserId() {
   return "user_" + window.crypto.randomUUID().replace(/-/g, "");
 }
@@ -295,7 +310,7 @@ function listenRoom() {
     const data = snapshot.val();
     if (!data) return;
 
-    const resolvedUserId = normalizedUserId || String(userId || "");
+    const resolvedUserId = ensureNormalizedUserId();
 
     // 🔥 FIX: Assign Player O properly
     if (
@@ -720,8 +735,8 @@ function sendChatMessage() {
   if (!roomRef || !chatInputEl) return;
   const text = chatInputEl.value.trim();
   if (!text || text.length > MAX_MESSAGE_LENGTH) return;
-  if (!normalizedUserId) syncTelegramUserContext();
-  const senderId = normalizedUserId || generateFallbackUserId();
+  const senderId = ensureNormalizedUserId();
+  if (!senderId) return;
   const senderName = user.username || user.first_name || currentUserName || "Player";
 
   roomRef.child("messages").push({
