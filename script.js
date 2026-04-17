@@ -129,6 +129,7 @@ function playAI() {
   renderBoard();
 }
 
+// 📩 Invite availability
 function setInviteButtonState() {
   if (!inviteBtn) return;
   inviteBtn.disabled = gameMode !== "online";
