@@ -135,6 +135,10 @@ function setInviteButtonState() {
   const isOnlineMode = gameMode === "online";
   inviteBtn.disabled = !isOnlineMode;
   inviteBtn.title = isOnlineMode ? "" : "Only available in online mode";
+  inviteBtn.setAttribute(
+    "aria-label",
+    isOnlineMode ? "Invite" : "Invite (only available in online mode)"
+  );
 }
 
 // =======================
