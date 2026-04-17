@@ -25,6 +25,7 @@ let gameMode = "online";
 
 let roomId = null;
 let roomRef = null;
+let roomValueListener = null;
 let chatMessagesRef = null;
 let chatEnabled = false;
 
@@ -141,8 +142,11 @@ function playAI() {
 function listenRoom() {
   if (!roomRef) return;
 
-  roomRef.off("value");
-  roomRef.on("value", snap => {
+  if (roomValueListener) {
+    roomRef.off("value", roomValueListener);
+  }
+
+  roomValueListener = (snap) => {
     const data = snap.val();
     if (!data) return;
 
@@ -160,7 +164,8 @@ function listenRoom() {
 
     updateStatus();
     renderBoard();
-  });
+  };
+  roomRef.on("value", roomValueListener);
 
   startChatListener();
   setChatEnabled(true, "Type message...");
@@ -397,10 +402,18 @@ function showGame() {
 }
 
 function goHome() {
+  stopRoomListener();
   stopChatListener();
   setChatEnabled(false, "Chat is disabled in AI mode");
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
+}
+
+function stopRoomListener() {
+  if (roomRef && roomValueListener) {
+    roomRef.off("value", roomValueListener);
+  }
+  roomValueListener = null;
 }
 
 function startChatListener() {
