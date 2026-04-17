@@ -137,8 +137,8 @@ function getPlayerSymbol() {
   const data = window.currentRoomData;
   if (!data) return null;
 
-  if (data.players.X === userId) return "X";
-  if (data.players.O === userId) return "O";
+  if (data.players.X?.id === userId) return "X";
+  if (data.players.O?.id === userId) return "O";
 
   return null;
 }
