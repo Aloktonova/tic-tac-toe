@@ -182,6 +182,14 @@ function makeMove(index) {
 
 // 📊 Status text
 function updateStatus() {
+  const data = window.currentRoomData;
+
+  // ⏳ Waiting for second player
+  if (!data.players.O) {
+    statusText.innerText = "Waiting for opponent... ⏳";
+    return;
+  }
+
   if (winner === "draw") {
     statusText.innerText = "Draw 🤝";
   } else if (winner) {
