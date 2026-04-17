@@ -33,10 +33,10 @@ const sounds = {
 
 // 🔥 Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyB-voWV6lb7JK_gSs_XyzHqpWD78PcMBZk",
-  authDomain: "tic-tac-toe-a19ae.firebaseapp.com",
-  databaseURL: "https://tic-tac-toe-a19ae-default-rtdb.firebaseio.com",
-  projectId: "tic-tac-toe-a19ae"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_DOMAIN",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_PROJECT_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -52,7 +52,7 @@ let gameMode = "online";
 let roomId = null;
 let roomRef = null;
 
-// 🏠 Navigation
+// 🏠 NAVIGATION
 function showGame() {
   homeScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
@@ -63,7 +63,7 @@ function goHome() {
   homeScreen.classList.remove("hidden");
 }
 
-// 🎮 PLAY WITH FRIEND
+// 🎮 CREATE GAME (FRIEND)
 createGameBtn.onclick = () => {
   gameMode = "online";
 
@@ -116,16 +116,10 @@ function listenRoom() {
     winner = data.winner;
     winningCells = data.winningCells || [];
 
-    // 👤 Player UI
     const x = data.players.X?.name || "Player X";
     const o = data.players.O?.name || "Waiting...";
 
-    const xActive = currentPlayer === "X" ? "🟢" : "";
-    const oActive = currentPlayer === "O" ? "🟢" : "";
-
-    if (playersDiv) {
-      playersDiv.innerText = `❌ ${x} ${xActive} vs ⭕ ${o} ${oActive}`;
-    }
+    playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
 
     updateStatus();
     renderBoard();
@@ -144,7 +138,7 @@ function listenRoom() {
     }
   });
 
-  // 💬 CHAT LISTENER
+  // 💬 CHAT
   db.ref(`rooms/${roomId}/messages`).on("value", snap => {
     const data = snap.val();
     if (!data || !messagesDiv) return;
@@ -180,7 +174,7 @@ function checkWinner(board) {
   return null;
 }
 
-// 🎮 RENDER BOARD
+// 🎮 RENDER
 function renderBoard() {
   boardDiv.innerHTML = "";
 
@@ -188,9 +182,6 @@ function renderBoard() {
     const btn = document.createElement("button");
     btn.classList.add("cell");
     btn.innerText = cell;
-
-    if (cell === "X") btn.style.color = "#22c55e";
-    if (cell === "O") btn.style.color = "#3b82f6";
 
     if (winningCells.includes(index)) {
       btn.style.background = "#22c55e";
@@ -209,13 +200,9 @@ function renderBoard() {
 function makeMove(index) {
   if (board[index] !== "" || winner) return;
 
-  sounds.move.currentTime = 0;
   sounds.move.play();
 
-  // 🤖 AI MODE
   if (gameMode === "ai") {
-    if (currentPlayer !== "X") return;
-
     board[index] = "X";
 
     let result = checkWinner(board);
@@ -233,11 +220,10 @@ function makeMove(index) {
     return;
   }
 
-  // 🌐 ONLINE MODE
   const playerSymbol = getPlayerSymbol();
 
   if (!playerSymbol) return showMessage("Spectator 👀");
-  if (currentPlayer !== playerSymbol) return showMessage("Not your turn ⏳");
+  if (currentPlayer !== playerSymbol) return showMessage("Not your turn");
 
   board[index] = currentPlayer;
 
@@ -260,16 +246,10 @@ function makeMove(index) {
   }
 }
 
-// 🤖 SMART AI
+// 🤖 AI
 function aiMove() {
-  if (winner) return;
-
-  let move = findBestMove("O") || findBestMove("X");
-
-  if (move === null) {
-    let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
-    move = empty[Math.floor(Math.random()*empty.length)];
-  }
+  let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+  let move = empty[Math.floor(Math.random()*empty.length)];
 
   board[move] = "O";
 
@@ -284,20 +264,6 @@ function aiMove() {
 
   updateStatus();
   renderBoard();
-}
-
-// 🧠 AI HELPER
-function findBestMove(player) {
-  for (let i = 0; i < 9; i++) {
-    if (board[i] === "") {
-      board[i] = player;
-      let win = checkWinner(board);
-      board[i] = "";
-
-      if (win && win.winner === player) return i;
-    }
-  }
-  return null;
 }
 
 // 🔒 SYMBOL
@@ -319,7 +285,7 @@ function updateStatus() {
   }
 
   const data = window.currentRoomData;
-  if (!data.players.O) return statusText.innerText = "Waiting for opponent... ⏳";
+  if (!data.players.O) return statusText.innerText = "Waiting for opponent...";
 
   if (winner === "draw") statusText.innerText = "Draw 🤝";
   else if (winner) statusText.innerText = winner + " Wins 🎉";
@@ -346,24 +312,23 @@ function restartGame() {
   });
 }
 
-// 📩 SHARE
+// 📩 SHARE (FIXED 🔥)
 function shareGame() {
-  const link = window.location.origin + window.location.pathname + "?room=" + roomId;
+  const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
   tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link));
 }
 
-// 💬 SEND MESSAGE
+// 💬 CHAT SEND
 function sendMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
 
-  const msg = {
+  db.ref(`rooms/${roomId}/messages`).push({
     user: user.username || user.first_name,
-    text: text,
+    text,
     time: Date.now()
-  };
+  });
 
-  db.ref(`rooms/${roomId}/messages`).push(msg);
   chatInput.value = "";
 }
 
@@ -374,3 +339,19 @@ function showMessage(text) {
   msg.style.display = "block";
   setTimeout(() => msg.style.display = "none", 2000);
 }
+
+// ✅ AUTO JOIN FIX (IMPORTANT 🔥)
+window.addEventListener("load", () => {
+  const hash = window.location.hash;
+
+  if (hash.startsWith("#room=")) {
+    roomId = hash.replace("#room=", "");
+    roomRef = db.ref("rooms/" + roomId);
+    gameMode = "online";
+
+    showGame();
+    listenRoom();
+
+    console.log("Joined room:", roomId);
+  }
+});
