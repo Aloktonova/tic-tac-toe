@@ -295,6 +295,10 @@ function listenRoom() {
     else if (oId && oId === normalizedUserId) myRole = "O";
     else myRole = null;
 
+    console.log("join debug: current userId =", normalizedUserId);
+    console.log("join debug: players.X.id =", xId);
+    console.log("join debug: players.O.id =", oId);
+
     const x = data.players.X?.name || "X";
     const o = data.players.O?.name || "Waiting...";
     playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
@@ -308,15 +312,26 @@ function listenRoom() {
       !hasAttemptedJoin &&
       !isJoinAttemptInFlight &&
       !!normalizedUserId &&
-      data.players.O === null &&
-      !!xId &&
+      !oId &&
       xId !== normalizedUserId;
 
     if (shouldAttemptJoinAsO) {
       isJoinAttemptInFlight = true;
-      roomRef.child("players/O").transaction(currentO => {
-        if (currentO !== null) return undefined; // already taken — abort
-        return { id: normalizedUserId, name: currentUserName };
+      roomRef.child("players").transaction(currentPlayers => {
+        const players = currentPlayers || {};
+        const currentXId = normalizePlayerId(players.X?.id);
+        const currentOId = normalizePlayerId(players.O?.id);
+
+        if (currentOId) return undefined; // already taken — abort
+        if (currentXId && currentXId === normalizedUserId) return undefined; // X cannot also be O
+
+        return {
+          ...players,
+          O: {
+            id: normalizedUserId,
+            name: currentUserName
+          }
+        };
       }, (err, committed) => {
         isJoinAttemptInFlight = false;
         if (err) {
