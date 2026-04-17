@@ -438,7 +438,6 @@ function startChatListener() {
       });
     });
 
-    messages.sort((a, b) => a.timestamp - b.timestamp);
     renderMessages(messages);
   });
 }
@@ -518,7 +517,13 @@ function setChatEnabled(enabled, placeholderText) {
 
   if (!enabled) {
     chatInputEl.value = "";
-    if (messagesDiv) messagesDiv.innerHTML = "";
+    if (messagesDiv) {
+      messagesDiv.innerHTML = "";
+      const disabledNote = document.createElement("div");
+      disabledNote.className = "empty-message";
+      disabledNote.innerText = "Chat disabled in AI mode";
+      messagesDiv.appendChild(disabledNote);
+    }
   }
 }
 
