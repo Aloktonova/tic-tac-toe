@@ -31,6 +31,7 @@ let currentPlayer = "X";
 const params = new URLSearchParams(window.location.search);
 let roomId = params.get("room");
 
+// 🎮 Create new room
 if (!roomId) {
   roomId = Math.random().toString(36).substr(2, 6);
 
@@ -43,7 +44,17 @@ if (!roomId) {
     }
   });
 
-  alert("Share this link:\n" + window.location.href + "?room=" + roomId);
+  const gameLink = window.location.origin + window.location.pathname + "?room=" + roomId;
+
+  // ✅ Copy link
+  navigator.clipboard.writeText(gameLink).then(() => {
+    showMessage("Link copied! Tap Invite to share 🚀");
+  });
+
+  // ✅ Auto open share (better UX)
+  setTimeout(() => {
+    shareGame();
+  }, 500);
 }
 
 // 👥 Join as player O
@@ -105,12 +116,12 @@ function makeMove(index) {
   const playerSymbol = getPlayerSymbol();
 
   if (!playerSymbol) {
-    alert("You are a spectator!");
+    showMessage("You are a spectator 👀");
     return;
   }
 
   if (currentPlayer !== playerSymbol) {
-    alert("Not your turn!");
+    showMessage("Not your turn ⏳");
     return;
   }
 
@@ -121,4 +132,39 @@ function makeMove(index) {
     board: board,
     turn: currentPlayer
   });
+}
+
+// 📩 Share via Telegram
+function shareGame() {
+  const gameLink = window.location.origin + window.location.pathname + "?room=" + roomId;
+
+  tg.openTelegramLink(
+    "https://t.me/share/url?url=" + encodeURIComponent(gameLink)
+  );
+}
+
+// 💬 Better message UI (instead of alert)
+function showMessage(text) {
+  let msg = document.getElementById("toast");
+
+  if (!msg) {
+    msg = document.createElement("div");
+    msg.id = "toast";
+    msg.style.position = "fixed";
+    msg.style.bottom = "20px";
+    msg.style.left = "50%";
+    msg.style.transform = "translateX(-50%)";
+    msg.style.background = "#333";
+    msg.style.color = "#fff";
+    msg.style.padding = "10px 20px";
+    msg.style.borderRadius = "10px";
+    document.body.appendChild(msg);
+  }
+
+  msg.innerText = text;
+  msg.style.display = "block";
+
+  setTimeout(() => {
+    msg.style.display = "none";
+  }, 2000);
 }
