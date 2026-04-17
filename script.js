@@ -214,9 +214,11 @@ function listenRoom() {
   // JOIN AS O
   roomRef.once("value", snap => {
     const data = snap.val();
+    if (!data?.players) return;
 
     const xId = normalizePlayerId(data.players?.X?.id);
-    if (!data.players.O && xId && xId !== normalizedUserId) {
+    const oId = normalizePlayerId(data.players?.O?.id);
+    if (!oId && xId && xId !== normalizedUserId) {
       roomRef.update({
         "players/O": {
           id: normalizedUserId,
