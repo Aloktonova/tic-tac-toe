@@ -34,6 +34,7 @@ let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl;
 const currentUserName = user.username || user.first_name || "Player";
+let inviteBtn, restartBtn, homeBtn;
 
 // =======================
 // 🚀 INIT
@@ -56,6 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const createBtn = document.getElementById("createGame");
   const aiBtn = document.getElementById("playAI");
+  inviteBtn = document.getElementById("inviteBtn");
+  restartBtn = document.getElementById("restartBtn");
+  homeBtn = document.getElementById("homeBtn");
 
   // 👤 Show user
   userInfo.innerText = "Player: " + (user.username || user.first_name || "Guest");
@@ -71,6 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   setChatEnabled(false, "Chat is disabled in AI mode");
+  inviteBtn.addEventListener("click", shareGame);
+  restartBtn.addEventListener("click", restartGame);
+  homeBtn.addEventListener("click", goHome);
 
   // 🔗 AUTO JOIN (IMPORTANT FIX)
   const hash = window.location.hash;
@@ -81,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gameMode = "online";
     showGame();
+    setInviteButtonState();
     listenRoom();
 
     console.log("Joined Room:", roomId);
@@ -113,6 +121,7 @@ function createGame() {
   });
 
   showGame();
+  setInviteButtonState();
   listenRoom();
   shareGame();
 }
@@ -132,8 +141,21 @@ function playAI() {
 
   showGame();
   disableChatForAI();
+  setInviteButtonState();
   updateStatus();
   renderBoard();
+}
+
+// 📩 Invite availability
+function setInviteButtonState() {
+  if (!inviteBtn) return;
+  const isOnlineMode = gameMode === "online";
+  inviteBtn.disabled = !isOnlineMode;
+  inviteBtn.title = isOnlineMode ? "" : "Only available in online mode";
+  inviteBtn.setAttribute(
+    "aria-label",
+    isOnlineMode ? "Invite" : "Invite (only available in online mode)"
+  );
 }
 
 // =======================
@@ -386,6 +408,11 @@ function restartGame() {
 // 📩 SHARE (FIXED)
 // =======================
 function shareGame() {
+  if (gameMode !== "online" || !roomId) {
+    console.warn("Invite is only available in online mode with a valid room.");
+    return;
+  }
+
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
 
   tg.openTelegramLink(
