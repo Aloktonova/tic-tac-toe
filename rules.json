@@ -1,0 +1,71 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['board', 'turn', 'players'])",
+
+        "board": {
+          "$index": {
+            ".validate": "newData.isString() && (newData.val() === '' || newData.val() === 'X' || newData.val() === 'O')"
+          }
+        },
+
+        "turn": {
+          ".validate": "newData.val() === 'X' || newData.val() === 'O' || newData.val() === null"
+        },
+
+        "winner": {
+          ".validate": "newData.val() === null || newData.val() === 'X' || newData.val() === 'O' || newData.val() === 'draw'"
+        },
+
+        "winningCells": {
+          "$i": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+
+        "players": {
+          ".validate": "newData.hasChildren(['X'])",
+
+          "X": {
+            ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').isString() && newData.child('name').isString()",
+            "id": {
+              ".validate": "!data.exists() || data.val() === newData.val()"
+            },
+            "name": { ".validate": "newData.isString()" },
+            "$other": { ".validate": false }
+          },
+
+          "O": {
+            ".validate": "newData.val() === null || (newData.hasChildren(['id', 'name']) && newData.child('id').isString() && newData.child('name').isString())",
+            "id": {
+              ".validate": "!data.exists() || data.val() === newData.val()"
+            },
+            "name": { ".validate": "newData.isString()" },
+            "$other": { ".validate": false }
+          },
+
+          "$other": { ".validate": false }
+        },
+
+        "messages": {
+          "$messageId": {
+            ".validate": "newData.hasChildren(['senderId', 'senderName', 'text', 'timestamp'])",
+            "senderId":   { ".validate": "newData.isString()" },
+            "senderName": { ".validate": "newData.isString()" },
+            "text":       { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 500" },
+            "timestamp":  { ".validate": "newData.isNumber()" },
+            "$other":     { ".validate": false }
+          }
+        },
+
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

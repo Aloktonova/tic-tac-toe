@@ -3,8 +3,9 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user || {};
-const userId = user.id || Math.floor(Math.random() * 1000000);
-const normalizedUserId = normalizePlayerId(userId);
+// Only use the real Telegram ID — no random fallback for online play
+const userId = user.id || null;
+const normalizedUserId = userId ? String(userId) : null;
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -30,12 +31,82 @@ let roomValueListener = null;
 let chatMessagesRef = null;
 let chatEnabled = false;
 
+// Tracks room readiness and the current user's role
+let roomLoaded = false;
+let myRole = null;        // "X", "O", or null (spectator)
+let hasAttemptedJoin = false;
+
+const MAX_MESSAGE_LENGTH = 500;
+
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl;
 const currentUserName = user.username || user.first_name || "Player";
 let inviteBtn, restartBtn, homeBtn;
+
+// =======================
+// 🔔 TOAST
+// =======================
+function showToast(msg, duration) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.innerText = msg;
+  toast.style.display = "block";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.display = "none"; }, duration || 2500);
+}
+
+// =======================
+// 🧹 NORMALIZE ROOM DATA
+// =======================
+function normalizeRoomData(raw) {
+  let board = ["","","","","","","","",""];
+  if (Array.isArray(raw.board)) {
+    board = raw.board;
+  } else if (raw.board && typeof raw.board === "object") {
+    board = Array.from({ length: 9 }, (_, i) => String(raw.board[i] || ""));
+  }
+  return {
+    board,
+    turn: raw.turn || null,
+    winner: raw.winner || null,
+    winningCells: Array.isArray(raw.winningCells) ? raw.winningCells : [],
+    players: {
+      X: raw.players?.X || null,
+      O: raw.players?.O || null
+    }
+  };
+}
+
+// =======================
+// 🔒 WRITE GUARD
+// =======================
+function canWrite() {
+  return gameMode === "online" && !!roomRef && roomLoaded;
+}
+
+// =======================
+// 🎛️ ACTION BUTTONS STATE
+// =======================
+function updateActionButtons() {
+  if (!restartBtn) return;
+  if (gameMode === "online") {
+    restartBtn.disabled = !roomLoaded || !myRole;
+    // Spectators can see chat messages but cannot send
+    if (chatInputEl && sendBtnEl) {
+      const canChat = !!myRole && roomLoaded;
+      chatEnabled = canChat;
+      chatInputEl.disabled = !canChat;
+      sendBtnEl.disabled = !canChat;
+      if (!canChat && roomLoaded && !myRole) {
+        chatInputEl.placeholder = "Spectators cannot chat";
+      }
+    }
+  } else {
+    restartBtn.disabled = false;
+  }
+}
 
 // =======================
 // 🚀 INIT
@@ -118,6 +189,11 @@ function autoJoinRoomFromLocation() {
 // 🎮 CREATE GAME
 // =======================
 function createGame() {
+  if (!normalizedUserId) {
+    showToast("Unable to verify Telegram identity");
+    return;
+  }
+
   console.log("Create Game Clicked");
 
   gameMode = "online";
@@ -137,6 +213,9 @@ function createGame() {
       },
       O: null
     }
+  }).catch(err => {
+    console.error("Create game failed:", err);
+    showToast("Failed to create room. Try again.");
   });
 
   showGame();
@@ -165,16 +244,11 @@ function playAI() {
   renderBoard();
 }
 
-// 📩 Invite availability
+// 📩 Invite visibility
 function setInviteButtonState() {
   if (!inviteBtn) return;
   const isOnlineMode = gameMode === "online";
-  inviteBtn.disabled = !isOnlineMode;
-  inviteBtn.title = isOnlineMode ? "" : "Only available in online mode";
-  inviteBtn.setAttribute(
-    "aria-label",
-    isOnlineMode ? "Invite" : "Invite (only available in online mode)"
-  );
+  inviteBtn.style.display = isOnlineMode ? "" : "none";
 }
 
 // =======================
@@ -187,46 +261,53 @@ function listenRoom() {
     roomRef.off("value", roomValueListener);
   }
 
-  roomValueListener = (snap) => {
-    const data = snap.val();
-    if (!data) return;
+  hasAttemptedJoin = false;
 
+  roomValueListener = (snap) => {
+    const raw = snap.val();
+    if (!raw) return;
+
+    const data = normalizeRoomData(raw);
     window.currentRoomData = data;
+    roomLoaded = true;
 
     board = data.board;
     currentPlayer = data.turn;
     winner = data.winner;
-    winningCells = data.winningCells || [];
+    winningCells = data.winningCells;
+
+    // Derive this user's role from room data
+    const xId = normalizePlayerId(data.players.X?.id);
+    const oId = normalizePlayerId(data.players.O?.id);
+    if (xId && xId === normalizedUserId) myRole = "X";
+    else if (oId && oId === normalizedUserId) myRole = "O";
+    else myRole = null;
 
     const x = data.players.X?.name || "X";
     const o = data.players.O?.name || "Waiting...";
-
     playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
 
     updateStatus();
     renderBoard();
+    updateActionButtons();
+
+    // Atomically claim O slot (only once, only if eligible)
+    if (!hasAttemptedJoin && normalizedUserId && !oId && xId && xId !== normalizedUserId) {
+      hasAttemptedJoin = true;
+      roomRef.child("players/O").transaction(currentO => {
+        if (currentO !== null) return undefined; // already taken — abort
+        return { id: normalizedUserId, name: user.username || user.first_name || "Player" };
+      }, (err, committed) => {
+        if (err) console.error("Failed to join as O:", err);
+        else if (!committed) showToast("Room is full — you are spectating");
+      });
+    }
   };
+
   roomRef.on("value", roomValueListener);
 
   startChatListener();
   setChatEnabled(true, "Type message...");
-
-  // JOIN AS O
-  roomRef.once("value", snap => {
-    const data = snap.val();
-    if (!data?.players) return;
-
-    const xId = normalizePlayerId(data.players?.X?.id);
-    const oId = normalizePlayerId(data.players?.O?.id);
-    if (!oId && xId && xId !== normalizedUserId) {
-      roomRef.update({
-        "players/O": {
-          id: normalizedUserId,
-          name: user.username || user.first_name || "Player"
-        }
-      });
-    }
-  });
 }
 
 // =======================
@@ -266,8 +347,16 @@ function renderBoard() {
       btn.style.background = "#22c55e";
     }
 
-    if (cell || winner) btn.disabled = true;
+    let disabled;
+    if (gameMode === "ai") {
+      // Disable when cell is filled, game over, or AI is thinking
+      disabled = !!(cell || winner || currentPlayer === "O");
+    } else {
+      // Disable when: cell filled, game over, room not ready, spectator, or wrong turn
+      disabled = !!(cell || winner || !roomLoaded || !myRole || myRole !== currentPlayer);
+    }
 
+    btn.disabled = disabled;
     btn.onclick = () => makeMove(i);
 
     boardDiv.appendChild(btn);
@@ -297,26 +386,34 @@ function makeMove(i) {
     return;
   }
 
-  const symbol = getPlayerSymbol();
+  // Online mode guards
+  if (!roomLoaded || !roomRef) return;
+  if (!myRole) { showToast("You are spectating"); return; }
+  if (myRole !== currentPlayer) { showToast("Not your turn"); return; }
+  if (winner) return;
 
-  if (!symbol) return alert("Spectator");
-  if (symbol !== currentPlayer) return alert("Not your turn");
+  const newBoard = [...board];
+  newBoard[i] = myRole;
 
-  board[i] = currentPlayer;
-
-  let res = checkWinner(board);
+  const res = checkWinner(newBoard);
 
   if (res) {
     roomRef.update({
-      board,
+      board: newBoard,
       winner: res.winner,
       winningCells: res.cells,
       turn: null
+    }).catch(err => {
+      console.error("Move failed:", err);
+      showToast("Move failed. Please try again.");
     });
   } else {
     roomRef.update({
-      board,
-      turn: currentPlayer === "X" ? "O" : "X"
+      board: newBoard,
+      turn: myRole === "X" ? "O" : "X"
+    }).catch(err => {
+      console.error("Move failed:", err);
+      showToast("Move failed. Please try again.");
     });
   }
 }
@@ -431,8 +528,8 @@ function playRandom() {
 function updateStatus() {
   if (gameMode === "ai") {
     if (winner === "draw") return statusText.innerText = "Draw";
-    if (winner) return statusText.innerText = winner === "X" ? "You Win" : "AI Wins";
-    return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking";
+    if (winner) return statusText.innerText = winner === "X" ? "You Win 🎉" : "AI Wins 🤖";
+    return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking…";
   }
 
   const data = window.currentRoomData;
@@ -446,9 +543,11 @@ function updateStatus() {
     return;
   }
 
-  if (winner === "draw") statusText.innerText = "Draw";
-  else if (winner) statusText.innerText = winner + " Wins";
-  else statusText.innerText = currentPlayer + "'s Turn";
+  if (winner === "draw") statusText.innerText = "Draw!";
+  else if (winner) statusText.innerText = winner + " Wins! 🎉";
+  else if (!myRole) statusText.innerText = currentPlayer + "'s Turn (you are spectating)";
+  else if (myRole === currentPlayer) statusText.innerText = "Your Turn (" + myRole + ")";
+  else statusText.innerText = "Waiting for " + currentPlayer + "...";
 }
 
 // =======================
@@ -465,11 +564,19 @@ function restartGame() {
     return;
   }
 
+  if (!canWrite() || !myRole) {
+    showToast("Only players can restart");
+    return;
+  }
+
   roomRef.update({
     board: ["","","","","","","","",""],
     turn: "X",
     winner: null,
     winningCells: []
+  }).catch(err => {
+    console.error("Restart failed:", err);
+    showToast("Restart failed. Try again.");
   });
 }
 
@@ -500,6 +607,8 @@ function showGame() {
 function goHome() {
   stopRoomListener();
   stopChatListener();
+  roomId = null;
+  roomRef = null;
   setChatEnabled(false, "Chat is disabled in AI mode");
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
@@ -510,6 +619,10 @@ function stopRoomListener() {
     roomRef.off("value", roomValueListener);
   }
   roomValueListener = null;
+  roomLoaded = false;
+  myRole = null;
+  hasAttemptedJoin = false;
+  window.currentRoomData = null;
 }
 
 function startChatListener() {
@@ -547,12 +660,14 @@ function stopChatListener() {
 
 function sendChatMessage() {
   if (!chatEnabled || gameMode !== "online" || !roomRef || !chatInputEl) return;
+  if (!normalizedUserId) return;
+  if (!myRole) { showToast("Only players can chat"); return; }
 
   const text = chatInputEl.value.trim();
-  if (!text) return;
+  if (!text || text.length > MAX_MESSAGE_LENGTH) return;
 
   roomRef.child("messages").push({
-    senderId: userId,
+    senderId: normalizedUserId,
     senderName: currentUserName,
     text,
     timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -561,6 +676,7 @@ function sendChatMessage() {
     chatInputEl.focus();
   }).catch((error) => {
     console.error("Send message failed:", error);
+    showToast("Failed to send message.");
   });
 }
 
@@ -580,7 +696,7 @@ function renderMessages(messages) {
   messages.forEach((msg) => {
     const item = document.createElement("div");
     item.className = "message-item";
-    if (msg.senderId === userId) item.classList.add("mine");
+    if (msg.senderId === normalizedUserId) item.classList.add("mine");
 
     const sender = document.createElement("div");
     sender.className = "message-sender";
