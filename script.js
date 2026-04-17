@@ -4,6 +4,7 @@ tg.expand();
 
 const user = tg.initDataUnsafe?.user || {};
 const userId = user.id || Math.floor(Math.random() * 1000000);
+const normalizedUserId = normalizePlayerId(userId);
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -131,7 +132,7 @@ function createGame() {
     winningCells: [],
     players: {
       X: {
-        id: userId,
+        id: normalizedUserId,
         name: user.username || user.first_name || "Player"
       },
       O: null
@@ -214,10 +215,11 @@ function listenRoom() {
   roomRef.once("value", snap => {
     const data = snap.val();
 
-    if (!data.players.O && data.players.X.id !== userId) {
+    const xId = normalizePlayerId(data.players?.X?.id);
+    if (!data.players.O && xId && xId !== normalizedUserId) {
       roomRef.update({
         "players/O": {
-          id: userId,
+          id: normalizedUserId,
           name: user.username || user.first_name || "Player"
         }
       });
@@ -320,9 +322,16 @@ function makeMove(i) {
 function getPlayerSymbol() {
   const data = window.currentRoomData;
   if (!data || !data.players) return null;
-  if (data.players.X?.id === userId) return "X";
-  if (data.players.O?.id === userId) return "O";
+  const xId = normalizePlayerId(data.players.X?.id);
+  const oId = normalizePlayerId(data.players.O?.id);
+  if (xId && xId === normalizedUserId) return "X";
+  if (oId && oId === normalizedUserId) return "O";
   return null;
+}
+
+function normalizePlayerId(id) {
+  if (id === null || id === undefined) return null;
+  return String(id);
 }
 
 // 🤖 AI MOVE
