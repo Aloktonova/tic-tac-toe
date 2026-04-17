@@ -23,9 +23,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const boardDiv = document.getElementById("board");
+const statusText = document.getElementById("statusText");
 
 let board = ["","","","","","","","",""];
 let currentPlayer = "X";
+let winner = null;
+let winningCells = [];
 
 // 🔗 Room system
 const params = new URLSearchParams(window.location.search);
@@ -38,6 +41,8 @@ if (!roomId) {
   db.ref("rooms/" + roomId).set({
     board: ["","","","","","","","",""],
     turn: "X",
+    winner: null,
+    winningCells: [],
     players: {
       X: userId,
       O: null
@@ -46,15 +51,8 @@ if (!roomId) {
 
   const gameLink = window.location.origin + window.location.pathname + "?room=" + roomId;
 
-  // ✅ Copy link
-  navigator.clipboard.writeText(gameLink).then(() => {
-    showMessage("Link copied! Tap Invite to share 🚀");
-  });
-
-  // ✅ Auto open share (better UX)
-  setTimeout(() => {
-    shareGame();
-  }, 500);
+  navigator.clipboard.writeText(gameLink);
+  setTimeout(() => shareGame(), 500);
 }
 
 // 👥 Join as player O
@@ -79,9 +77,34 @@ roomRef.on("value", snapshot => {
 
   board = data.board;
   currentPlayer = data.turn;
+  winner = data.winner;
+  winningCells = data.winningCells || [];
 
+  updateStatus();
   renderBoard();
 });
+
+// 🎯 Check winner
+function checkWinner(board) {
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  for (let combo of wins) {
+    const [a,b,c] = combo;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return { winner: board[a], cells: combo };
+    }
+  }
+
+  if (board.every(cell => cell !== "")) {
+    return { winner: "draw", cells: [] };
+  }
+
+  return null;
+}
 
 // 🎮 Render board
 function renderBoard() {
@@ -91,6 +114,11 @@ function renderBoard() {
     const btn = document.createElement("button");
     btn.classList.add("cell");
     btn.innerText = cell;
+
+    // 🎨 Highlight winning cells
+    if (winningCells.includes(index)) {
+      btn.style.background = "#22c55e";
+    }
 
     btn.onclick = () => makeMove(index);
 
@@ -111,7 +139,7 @@ function getPlayerSymbol() {
 
 // ✍️ Move logic
 function makeMove(index) {
-  if (board[index] !== "") return;
+  if (board[index] !== "" || winner) return;
 
   const playerSymbol = getPlayerSymbol();
 
@@ -126,11 +154,44 @@ function makeMove(index) {
   }
 
   board[index] = currentPlayer;
-  currentPlayer = currentPlayer === "X" ? "O" : "X";
 
+  const result = checkWinner(board);
+
+  if (result) {
+    roomRef.update({
+      board: board,
+      winner: result.winner,
+      winningCells: result.cells,
+      turn: null
+    });
+  } else {
+    currentPlayer = currentPlayer === "X" ? "O" : "X";
+
+    roomRef.update({
+      board: board,
+      turn: currentPlayer
+    });
+  }
+}
+
+// 📊 Status text
+function updateStatus() {
+  if (winner === "draw") {
+    statusText.innerText = "Draw 🤝";
+  } else if (winner) {
+    statusText.innerText = winner + " Wins 🎉";
+  } else {
+    statusText.innerText = currentPlayer + "'s Turn";
+  }
+}
+
+// 🔁 Restart game
+function restartGame() {
   roomRef.update({
-    board: board,
-    turn: currentPlayer
+    board: ["","","","","","","","",""],
+    turn: "X",
+    winner: null,
+    winningCells: []
   });
 }
 
@@ -143,7 +204,7 @@ function shareGame() {
   );
 }
 
-// 💬 Better message UI (instead of alert)
+// 💬 Toast message
 function showMessage(text) {
   let msg = document.getElementById("toast");
 
