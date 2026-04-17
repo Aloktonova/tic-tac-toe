@@ -312,6 +312,7 @@ function listenRoom() {
       !hasAttemptedJoin &&
       !isJoinAttemptInFlight &&
       !!normalizedUserId &&
+      !!xId &&
       !oId &&
       xId !== normalizedUserId;
 
