@@ -55,11 +55,11 @@
 
         "messages": {
           "$messageId": {
-            ".validate": "newData.hasChildren(['senderId', 'senderName', 'text', 'timestamp'])",
-            "senderId":   { ".validate": "newData.isString()" },
-            "senderName": { ".validate": "newData.isString()" },
+            ".validate": "newData.hasChildren(['userId', 'name', 'text', 'time'])",
+            "userId":     { ".validate": "newData.isString()" },
+            "name":       { ".validate": "newData.isString()" },
             "text":       { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 500" },
-            "timestamp":  { ".validate": "newData.isNumber()" },
+            "time":       { ".validate": "newData.isNumber()" },
             "$other":     { ".validate": false }
           }
         },
