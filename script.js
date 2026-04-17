@@ -44,8 +44,11 @@ if (!roomId) {
     winner: null,
     winningCells: [],
     players: {
-      X: userId,
-      O: null
+  X: {
+    id: userId,
+    name: user.username || user.first_name
+  },
+  O: null
     }
   });
 
@@ -61,9 +64,12 @@ const roomRef = db.ref("rooms/" + roomId);
 roomRef.once("value", snapshot => {
   const data = snapshot.val();
 
-  if (data.players.O === null && userId !== data.players.X) {
+  if (!data.players.O && data.players.X.id !== userId) {
     roomRef.update({
-      "players/O": userId
+      "players/O": {
+        id: userId,
+        name: user.username || user.first_name
+      }
     });
   }
 });
