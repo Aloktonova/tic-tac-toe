@@ -15,6 +15,10 @@ function syncTelegramUserContext() {
   currentUserName = user.username || user.first_name || "Player";
 }
 
+function generateFallbackUserId() {
+  return "user_" + window.crypto.randomUUID().replace(/-/g, "");
+}
+
 syncTelegramUserContext();
 
 // 🔥 Firebase
@@ -275,24 +279,73 @@ function listenRoom() {
   hasAttemptedJoin = false;
   isJoinAttemptInFlight = false;
 
-  roomValueListener = (snap) => {
-    const raw = snap.val();
-    if (!raw) return;
+  roomValueListener = (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
 
-    const data = normalizeRoomData(raw);
-    window.currentRoomData = data;
+    // 🧠 Ensure userId always exists
+    let fallbackId = null;
+    try {
+      fallbackId = localStorage.getItem("fallbackId");
+    } catch (err) {
+      console.warn("Unable to read fallbackId:", err);
+    }
+    let resolvedUserId = userId != null ? String(userId) : fallbackId;
+
+    if (!resolvedUserId) {
+      resolvedUserId = generateFallbackUserId();
+      try {
+        localStorage.setItem("fallbackId", resolvedUserId);
+      } catch (err) {
+        console.warn("Unable to persist fallbackId:", err);
+      }
+    }
+
+    // 🔥 FIX: Assign Player O properly
+    if (
+      data.players &&
+      data.players.X &&
+      String(data.players.X.id) !== resolvedUserId &&
+      !data.players.O
+    ) {
+      if (!hasAttemptedJoin && !isJoinAttemptInFlight) {
+        isJoinAttemptInFlight = true;
+        roomRef.child("players/O").transaction(currentO => {
+          if (currentO?.id) return undefined;
+          return {
+            id: resolvedUserId,
+            name: currentUserName || "Player O"
+          };
+        }, (err, committed) => {
+          isJoinAttemptInFlight = false;
+          hasAttemptedJoin = true;
+          if (err) {
+            console.error("Failed assigning Player O:", err);
+            return;
+          }
+          if (committed) {
+            console.log("Successfully assigned Player O:", resolvedUserId);
+          }
+        });
+      }
+
+      return; // ⛔ wait for next update after transaction completes
+    }
+
+    // ✅ NORMAL GAME FLOW
+    const normalizedData = normalizeRoomData(data);
+    window.currentRoomData = normalizedData;
     roomLoaded = true;
 
-    board = data.board;
-    currentPlayer = data.turn;
-    winner = data.winner;
-    winningCells = data.winningCells;
+    board = normalizedData.board;
+    currentPlayer = normalizedData.turn;
+    winner = normalizedData.winner;
+    winningCells = normalizedData.winningCells;
 
     // Derive this user's role from room data
-    // Re-read user.id fresh on every snapshot to avoid stale closure value
-    const currentUserId = user?.id != null ? String(user.id) : null;
-    const xId = normalizePlayerId(data.players.X?.id);
-    const oId = normalizePlayerId(data.players.O?.id);
+    const currentUserId = resolvedUserId;
+    const xId = normalizePlayerId(normalizedData.players.X?.id);
+    const oId = normalizePlayerId(normalizedData.players.O?.id);
     if (xId && xId === currentUserId) myRole = "X";
     else if (oId && oId === currentUserId) myRole = "O";
     else myRole = null;
@@ -301,50 +354,13 @@ function listenRoom() {
     console.log("join debug: players.X.id =", xId);
     console.log("join debug: players.O.id =", oId);
 
-    const x = data.players.X?.name || "X";
-    const o = data.players.O?.name || "Waiting...";
+    const x = normalizedData.players.X?.name || "Player X";
+    const o = normalizedData.players.O?.name || "Waiting...";
     playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
 
     updateStatus();
     renderBoard();
     updateActionButtons();
-
-    // Atomically claim O slot (only once, only if eligible after room value loads)
-    const shouldAttemptJoinAsO =
-      !hasAttemptedJoin &&
-      !isJoinAttemptInFlight &&
-      !!currentUserId &&
-      !!xId &&
-      !oId &&
-      xId !== currentUserId;
-
-    if (shouldAttemptJoinAsO) {
-      isJoinAttemptInFlight = true;
-      roomRef.child("players/O").transaction(currentO => {
-        if (currentO?.id) return undefined; // already assigned — abort
-
-        return {
-          id: currentUserId,
-          name: currentUserName
-        };
-      }, (err, committed) => {
-        isJoinAttemptInFlight = false;
-        if (err) {
-          console.error("Failed to join as O:", err);
-          return;
-        }
-
-        hasAttemptedJoin = true;
-        if (committed) {
-          myRole = "O";
-          updateActionButtons();
-          updateStatus();
-          renderBoard();
-        } else {
-          showToast("Room is full — you are spectating");
-        }
-      });
-    }
   };
 
   roomRef.on("value", roomValueListener);
