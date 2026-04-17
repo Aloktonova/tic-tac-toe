@@ -1,20 +1,21 @@
-  body {
+body {
   margin: 0;
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background: #0f172a;
   color: white;
   text-align: center;
 }
 
-/* Top bar */
+/* 🔝 Top bar */
 .top-bar {
   display: flex;
   justify-content: space-between;
-  padding: 12px;
+  padding: 12px 16px;
   background: #1e293b;
+  font-size: 14px;
 }
 
-/* Screens */
+/* 🏠 Screens */
 .screen {
   padding: 20px;
 }
@@ -23,41 +24,117 @@
   display: none;
 }
 
-/* Buttons */
+/* 🎮 Buttons */
 button {
-  padding: 12px;
+  padding: 12px 16px;
   margin: 8px;
   border: none;
-  border-radius: 10px;
-  background: #2563eb;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
-  font-size: 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Board */
+/* ✨ Hover */
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* 🎯 Board container */
 #board {
   display: grid;
   grid-template-columns: repeat(3, 90px);
   gap: 10px;
   justify-content: center;
   margin: 20px auto;
+  padding: 15px;
+  border-radius: 15px;
+  background: #020617;
+  box-shadow: 0 0 20px rgba(59,130,246,0.3);
 }
 
+/* 🔲 Cells */
 .cell {
   width: 90px;
   height: 90px;
   font-size: 28px;
-  border-radius: 10px;
+  font-weight: bold;
+  border-radius: 12px;
   background: #1e293b;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Players */
+/* ✨ Cell hover */
+.cell:not(:disabled):hover {
+  background: #334155;
+}
+
+/* 👇 Click effect */
+.cell:active {
+  transform: scale(0.9);
+}
+
+/* ❌ Disabled */
+.cell:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 👤 Players */
 #players {
   margin: 10px;
   font-weight: bold;
+  font-size: 16px;
 }
 
-/* Modal */
+/* 🎮 Actions */
+.actions {
+  margin-top: 15px;
+}
+
+/* 💬 Chat Box */
+#chatBox {
+  margin-top: 20px;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 📩 Messages */
+#messages {
+  height: 150px;
+  overflow-y: auto;
+  background: #1e293b;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 14px;
+}
+
+/* 🧠 Chat input */
+.chat-input {
+  display: flex;
+  margin-top: 5px;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+}
+
+.chat-input button {
+  margin-left: 5px;
+}
+
+/* ⚙️ Modal */
 .modal {
   position: fixed;
   top: 0;
@@ -72,13 +149,36 @@ button {
   padding: 20px;
   margin: 100px auto;
   width: 80%;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-/* Toast */
+/* 💬 Toast */
 #toast {
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
+  background: #111;
+  padding: 10px 20px;
+  border-radius: 10px;
+  display: none;
+}
+
+/* 🎉 Win animation */
+@keyframes winPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.15); }
+}
+
+/* 📱 Mobile */
+@media (max-width: 400px) {
+  #board {
+    grid-template-columns: repeat(3, 70px);
+  }
+
+  .cell {
+    width: 70px;
+    height: 70px;
+    font-size: 24px;
+  }
 }
