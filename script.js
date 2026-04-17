@@ -2,8 +2,8 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const user = tg.initDataUnsafe?.user;
-const userId = user?.id || Math.random().toString(36);
+const user = tg.initDataUnsafe?.user || {};
+const userId = user.id || Math.floor(Math.random() * 1000000);
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -16,7 +16,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🧠 State
+// 🎯 GLOBAL STATE
 let board = ["","","","","","","","",""];
 let currentPlayer = "X";
 let winner = null;
@@ -26,16 +26,19 @@ let gameMode = "online";
 let roomId = null;
 let roomRef = null;
 
-// 🎯 UI
-let boardDiv, statusText, playersDiv;
+// 🎯 UI ELEMENTS
+let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
-let messagesDiv, chatInput;
 
-// ===============================
+// =======================
 // 🚀 INIT
-// ===============================
+// =======================
 document.addEventListener("DOMContentLoaded", () => {
 
+  console.log("App Loaded ✅");
+
+  // UI
+  userInfo = document.getElementById("userInfo");
   boardDiv = document.getElementById("board");
   statusText = document.getElementById("statusText");
   playersDiv = document.getElementById("players");
@@ -43,38 +46,37 @@ document.addEventListener("DOMContentLoaded", () => {
   homeScreen = document.getElementById("homeScreen");
   gameScreen = document.getElementById("gameScreen");
 
-  messagesDiv = document.getElementById("messages");
-  chatInput = document.getElementById("chatInput");
+  const createBtn = document.getElementById("createGame");
+  const aiBtn = document.getElementById("playAI");
 
-  document.getElementById("userInfo").innerText =
-    "Player: " + (user?.username || user?.first_name || "Guest");
+  // 👤 Show user
+  userInfo.innerText = "Player: " + (user.username || user.first_name || "Guest");
 
-  // 🎮 BUTTONS
-  document.getElementById("createGame").onclick = startFriendGame;
-  document.getElementById("playAI").onclick = startAIGame;
-  document.getElementById("inviteBtn").onclick = shareGame;
-  document.getElementById("restartBtn").onclick = restartGame;
-  document.getElementById("homeBtn").onclick = goHome;
-  document.getElementById("sendBtn").onclick = sendMessage;
+  // 🔥 BUTTON FIX (IMPORTANT)
+  createBtn.addEventListener("click", createGame);
+  aiBtn.addEventListener("click", playAI);
 
-  // 🔗 Auto join
-  const params = new URLSearchParams(window.location.search);
-  const roomFromUrl = params.get("room");
+  // 🔗 AUTO JOIN (IMPORTANT FIX)
+  const hash = window.location.hash;
 
-  if (roomFromUrl) {
-    roomId = roomFromUrl;
+  if (hash.startsWith("#room=")) {
+    roomId = hash.replace("#room=", "");
     roomRef = db.ref("rooms/" + roomId);
-    gameMode = "online";
 
+    gameMode = "online";
     showGame();
     listenRoom();
+
+    console.log("Joined Room:", roomId);
   }
 });
 
-// ===============================
-// 🎮 START FRIEND GAME
-// ===============================
-function startFriendGame() {
+// =======================
+// 🎮 CREATE GAME
+// =======================
+function createGame() {
+  console.log("Create Game Clicked");
+
   gameMode = "online";
 
   roomId = Math.random().toString(36).substr(2, 6);
@@ -88,7 +90,7 @@ function startFriendGame() {
     players: {
       X: {
         id: userId,
-        name: user?.username || user?.first_name || "Player"
+        name: user.username || user.first_name || "Player"
       },
       O: null
     }
@@ -99,10 +101,12 @@ function startFriendGame() {
   shareGame();
 }
 
-// ===============================
-// 🤖 START AI GAME
-// ===============================
-function startAIGame() {
+// =======================
+// 🤖 AI MODE
+// =======================
+function playAI() {
+  console.log("AI Mode");
+
   gameMode = "ai";
 
   board = ["","","","","","","","",""];
@@ -115,22 +119,9 @@ function startAIGame() {
   renderBoard();
 }
 
-// ===============================
-// 🏠 NAVIGATION
-// ===============================
-function showGame() {
-  homeScreen.classList.add("hidden");
-  gameScreen.classList.remove("hidden");
-}
-
-function goHome() {
-  gameScreen.classList.add("hidden");
-  homeScreen.classList.remove("hidden");
-}
-
-// ===============================
+// =======================
 // 👀 LISTEN ROOM
-// ===============================
+// =======================
 function listenRoom() {
   roomRef.on("value", snap => {
     const data = snap.val();
@@ -152,7 +143,7 @@ function listenRoom() {
     renderBoard();
   });
 
-  // join as O
+  // JOIN AS O
   roomRef.once("value", snap => {
     const data = snap.val();
 
@@ -160,32 +151,16 @@ function listenRoom() {
       roomRef.update({
         "players/O": {
           id: userId,
-          name: user?.username || user?.first_name || "Player"
+          name: user.username || user.first_name || "Player"
         }
       });
     }
   });
-
-  // 💬 Chat
-  db.ref(`rooms/${roomId}/messages`).on("value", snap => {
-    const data = snap.val();
-    if (!data) return;
-
-    messagesDiv.innerHTML = "";
-
-    Object.values(data).forEach(m => {
-      const div = document.createElement("div");
-      div.innerText = `${m.user}: ${m.text}`;
-      messagesDiv.appendChild(div);
-    });
-
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  });
 }
 
-// ===============================
-// 🎯 WIN CHECK
-// ===============================
+// =======================
+// 🎯 GAME LOGIC
+// =======================
 function checkWinner(b) {
   const wins = [
     [0,1,2],[3,4,5],[6,7,8],
@@ -193,20 +168,21 @@ function checkWinner(b) {
     [0,4,8],[2,4,6]
   ];
 
-  for (let c of wins) {
-    const [a,b1,c1] = c;
-    if (b[a] && b[a] === b[b1] && b[a] === b[c1]) {
-      return { winner: b[a], cells: c };
+  for (let combo of wins) {
+    const [a,b1,c] = combo;
+    if (b[a] && b[a] === b[b1] && b[a] === b[c]) {
+      return { winner: b[a], cells: combo };
     }
   }
 
   if (b.every(x => x !== "")) return { winner: "draw", cells: [] };
+
   return null;
 }
 
-// ===============================
+// =======================
 // 🎮 RENDER
-// ===============================
+// =======================
 function renderBoard() {
   boardDiv.innerHTML = "";
 
@@ -222,23 +198,24 @@ function renderBoard() {
     if (cell || winner) btn.disabled = true;
 
     btn.onclick = () => makeMove(i);
+
     boardDiv.appendChild(btn);
   });
 }
 
-// ===============================
+// =======================
 // ✍️ MOVE
-// ===============================
+// =======================
 function makeMove(i) {
-  if (board[i] || winner) return;
+  if (board[i] !== "" || winner) return;
 
   if (gameMode === "ai") {
     board[i] = "X";
 
-    let r = checkWinner(board);
-    if (r) {
-      winner = r.winner;
-      winningCells = r.cells;
+    let res = checkWinner(board);
+    if (res) {
+      winner = res.winner;
+      winningCells = res.cells;
     } else {
       currentPlayer = "O";
       setTimeout(aiMove, 400);
@@ -250,18 +227,19 @@ function makeMove(i) {
   }
 
   const symbol = getPlayerSymbol();
-  if (!symbol) return showMessage("Spectator");
-  if (symbol !== currentPlayer) return showMessage("Wait turn");
+
+  if (!symbol) return alert("Spectator");
+  if (symbol !== currentPlayer) return alert("Not your turn");
 
   board[i] = currentPlayer;
 
-  let r = checkWinner(board);
+  let res = checkWinner(board);
 
-  if (r) {
+  if (res) {
     roomRef.update({
       board,
-      winner: r.winner,
-      winningCells: r.cells,
+      winner: res.winner,
+      winningCells: res.cells,
       turn: null
     });
   } else {
@@ -279,10 +257,11 @@ function aiMove() {
 
   board[move] = "O";
 
-  let r = checkWinner(board);
-  if (r) {
-    winner = r.winner;
-    winningCells = r.cells;
+  let res = checkWinner(board);
+
+  if (res) {
+    winner = res.winner;
+    winningCells = res.cells;
   } else {
     currentPlayer = "X";
   }
@@ -291,43 +270,52 @@ function aiMove() {
   renderBoard();
 }
 
-// ===============================
+// =======================
 // 🔒 PLAYER SYMBOL
-// ===============================
+// =======================
 function getPlayerSymbol() {
-  const d = window.currentRoomData;
-  if (!d) return null;
+  const data = window.currentRoomData;
+  if (!data) return null;
 
-  if (d.players.X?.id === userId) return "X";
-  if (d.players.O?.id === userId) return "O";
+  if (data.players.X?.id === userId) return "X";
+  if (data.players.O?.id === userId) return "O";
+
   return null;
 }
 
-// ===============================
+// =======================
 // 📊 STATUS
-// ===============================
+// =======================
 function updateStatus() {
   if (gameMode === "ai") {
-    if (winner === "draw") return statusText.innerText = "Draw 🤝";
-    if (winner) return statusText.innerText = winner === "X" ? "You Win 🎉" : "AI Wins 🤖";
-    return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking...";
+    if (winner === "draw") return statusText.innerText = "Draw";
+    if (winner) return statusText.innerText = winner === "X" ? "You Win" : "AI Wins";
+    return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking";
   }
 
-  const d = window.currentRoomData;
+  const data = window.currentRoomData;
 
-  if (!d.players.O) return statusText.innerText = "Waiting for opponent...";
+  if (!data.players.O) {
+    statusText.innerText = "Waiting for player...";
+    return;
+  }
 
-  if (winner === "draw") statusText.innerText = "Draw 🤝";
-  else if (winner) statusText.innerText = winner + " Wins 🎉";
+  if (winner === "draw") statusText.innerText = "Draw";
+  else if (winner) statusText.innerText = winner + " Wins";
   else statusText.innerText = currentPlayer + "'s Turn";
 }
 
-// ===============================
+// =======================
 // 🔁 RESTART
-// ===============================
+// =======================
 function restartGame() {
   if (gameMode === "ai") {
-    startAIGame();
+    board = ["","","","","","","","",""];
+    currentPlayer = "X";
+    winner = null;
+    winningCells = [];
+    updateStatus();
+    renderBoard();
     return;
   }
 
@@ -339,41 +327,26 @@ function restartGame() {
   });
 }
 
-// ===============================
-// 📩 SHARE
-// ===============================
+// =======================
+// 📩 SHARE (FIXED)
+// =======================
 function shareGame() {
-  if (!roomId) return;
-
-  const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+  const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
 
   tg.openTelegramLink(
     "https://t.me/share/url?url=" + encodeURIComponent(link)
   );
 }
 
-// ===============================
-// 💬 CHAT
-// ===============================
-function sendMessage() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-
-  db.ref(`rooms/${roomId}/messages`).push({
-    user: user?.username || user?.first_name || "Player",
-    text,
-    time: Date.now()
-  });
-
-  chatInput.value = "";
+// =======================
+// 🏠 NAV
+// =======================
+function showGame() {
+  homeScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
 }
 
-// ===============================
-// 💬 TOAST
-// ===============================
-function showMessage(t) {
-  const msg = document.getElementById("toast");
-  msg.innerText = t;
-  msg.style.display = "block";
-  setTimeout(()=>msg.style.display="none",2000);
+function goHome() {
+  gameScreen.classList.add("hidden");
+  homeScreen.classList.remove("hidden");
 }
