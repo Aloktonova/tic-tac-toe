@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Tic Tac Toe 🎮</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,26 +13,41 @@
   <div id="userInfo"></div>
 </div>
 
-<!-- 🏠 Home -->
+<!-- 🏠 Home Screen -->
 <div id="homeScreen" class="screen">
   <h1>Tic Tac Toe</h1>
 
-  <button id="createGame">Play with Friend</button>
-  <button id="playAI">Play with Computer</button>
+  <button id="createGame">👥 Play with Friend</button>
+  <button id="playAI">🤖 Play with Computer</button>
 </div>
 
-<!-- 🎮 Game -->
+<!-- 🎮 Game Screen -->
 <div id="gameScreen" class="screen hidden">
 
-  <h2 id="statusText"></h2>
+  <!-- 📊 Status -->
+  <h2 id="statusText">Loading...</h2>
+
+  <!-- 👤 Players -->
   <div id="players"></div>
 
+  <!-- 🎯 Game Board -->
   <div id="board"></div>
 
+  <!-- 🎮 Actions -->
   <div class="actions">
-    <button onclick="shareGame()">Invite</button>
-    <button onclick="restartGame()">Restart</button>
-    <button onclick="goHome()">Home</button>
+    <button onclick="shareGame()">📩 Invite</button>
+    <button onclick="restartGame()">🔁 Restart</button>
+    <button onclick="goHome()">🏠 Home</button>
+  </div>
+
+  <!-- 💬 Chat Box -->
+  <div id="chatBox">
+    <div id="messages"></div>
+
+    <div class="chat-input">
+      <input id="chatInput" placeholder="Type message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
   </div>
 
 </div>
@@ -40,18 +56,23 @@
 <div id="settingsModal" class="modal hidden">
   <div class="modal-content">
     <h3>Settings</h3>
+
     <button onclick="goHome()">🏠 Back to Home</button>
     <button onclick="closeSettings()">Close</button>
   </div>
 </div>
 
-<!-- Toast -->
+<!-- 💬 Toast -->
 <div id="toast"></div>
 
+<!-- 📱 Telegram -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- 🔥 Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 
+<!-- 🧠 Game Script -->
 <script src="script.js"></script>
 
 </body>
