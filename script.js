@@ -45,6 +45,7 @@ let chatEnabled = false;
 let roomLoaded = false;
 let myRole = null;        // "X", "O", or null (spectator)
 let hasAttemptedJoin = false;
+let isJoinAttemptInFlight = false;
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -272,6 +273,7 @@ function listenRoom() {
   }
 
   hasAttemptedJoin = false;
+  isJoinAttemptInFlight = false;
 
   roomValueListener = (snap) => {
     const raw = snap.val();
@@ -301,15 +303,29 @@ function listenRoom() {
     renderBoard();
     updateActionButtons();
 
-    // Atomically claim O slot (only once, only if eligible)
-    if (!hasAttemptedJoin && normalizedUserId && !oId && xId && xId !== normalizedUserId) {
-      hasAttemptedJoin = true;
+    // Atomically claim O slot (only once, only if eligible after room value loads)
+    const shouldAttemptJoinAsO =
+      !hasAttemptedJoin &&
+      !isJoinAttemptInFlight &&
+      !!normalizedUserId &&
+      data.players.O === null &&
+      !!xId &&
+      xId !== normalizedUserId;
+
+    if (shouldAttemptJoinAsO) {
+      isJoinAttemptInFlight = true;
       roomRef.child("players/O").transaction(currentO => {
         if (currentO !== null) return undefined; // already taken — abort
         return { id: normalizedUserId, name: currentUserName };
       }, (err, committed) => {
-        if (err) console.error("Failed to join as O:", err);
-        else if (!committed) showToast("Room is full — you are spectating");
+        isJoinAttemptInFlight = false;
+        if (err) {
+          console.error("Failed to join as O:", err);
+          return;
+        }
+
+        hasAttemptedJoin = true;
+        if (!committed) showToast("Room is full — you are spectating");
       });
     }
   };
@@ -632,6 +648,7 @@ function stopRoomListener() {
   roomLoaded = false;
   myRole = null;
   hasAttemptedJoin = false;
+  isJoinAttemptInFlight = false;
   window.currentRoomData = null;
 }
 
