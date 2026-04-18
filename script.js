@@ -11,8 +11,37 @@ let currentUserName = "Player";
 function syncTelegramUserContext() {
   user = tg.initDataUnsafe?.user || {};
   userId = user.id ?? null;
-  normalizedUserId = userId === null ? null : String(userId);
+  let fallbackId = null;
+  try {
+    fallbackId = localStorage.getItem("fallbackId");
+  } catch (err) {
+    console.warn("Unable to read fallbackId:", err);
+  }
+  if (!fallbackId) {
+    fallbackId = generateFallbackUserId();
+    try {
+      localStorage.setItem("fallbackId", fallbackId);
+    } catch (err) {
+      console.warn("Unable to persist fallbackId:", err);
+    }
+  }
+  normalizedUserId = userId === null ? fallbackId : String(userId);
   currentUserName = user.username || user.first_name || "Player";
+}
+
+function ensureNormalizedUserId() {
+  if (normalizedUserId) return normalizedUserId;
+  syncTelegramUserContext();
+  if (normalizedUserId) return normalizedUserId;
+
+  const fallbackId = generateFallbackUserId();
+  normalizedUserId = fallbackId;
+  try {
+    localStorage.setItem("fallbackId", fallbackId);
+  } catch (err) {
+    console.warn("Unable to persist fallbackId:", err);
+  }
+  return normalizedUserId;
 }
 
 function generateFallbackUserId() {
@@ -107,15 +136,13 @@ function updateActionButtons() {
   if (!restartBtn) return;
   if (gameMode === "online") {
     restartBtn.disabled = !roomLoaded || !myRole;
-    // Spectators can see chat messages but cannot send
+    // Chat is available for everyone in online rooms
     if (chatInputEl && sendBtnEl) {
-      const canChat = !!myRole && roomLoaded;
+      const canChat = !!roomLoaded;
       chatEnabled = canChat;
       chatInputEl.disabled = !canChat;
       sendBtnEl.disabled = !canChat;
-      if (!canChat && roomLoaded && !myRole) {
-        chatInputEl.placeholder = "Spectators cannot chat";
-      }
+      chatInputEl.placeholder = canChat ? "Type message..." : "Chat unavailable";
     }
   } else {
     restartBtn.disabled = false;
@@ -283,23 +310,7 @@ function listenRoom() {
     const data = snapshot.val();
     if (!data) return;
 
-    // 🧠 Ensure userId always exists
-    let fallbackId = null;
-    try {
-      fallbackId = localStorage.getItem("fallbackId");
-    } catch (err) {
-      console.warn("Unable to read fallbackId:", err);
-    }
-    let resolvedUserId = userId != null ? String(userId) : fallbackId;
-
-    if (!resolvedUserId) {
-      resolvedUserId = generateFallbackUserId();
-      try {
-        localStorage.setItem("fallbackId", resolvedUserId);
-      } catch (err) {
-        console.warn("Unable to persist fallbackId:", err);
-      }
-    }
+    const resolvedUserId = ensureNormalizedUserId();
 
     // 🔥 FIX: Assign Player O properly
     if (
@@ -691,7 +702,7 @@ function startChatListener() {
   stopChatListener();
   chatMessagesRef = roomRef.child("messages");
 
-  chatMessagesRef.orderByChild("timestamp").on("value", snap => {
+  chatMessagesRef.orderByChild("time").on("value", snap => {
     const messages = [];
 
     snap.forEach(child => {
@@ -700,10 +711,12 @@ function startChatListener() {
       if (!text) return;
 
       messages.push({
-        senderId: data.senderId,
-        senderName: data.senderName || "Player",
+        userId: typeof data.userId === "string" ? data.userId : (typeof data.senderId === "string" ? data.senderId : ""),
+        name: (typeof data.name === "string" && data.name.trim())
+          ? data.name.trim()
+          : ((typeof data.senderName === "string" && data.senderName.trim()) ? data.senderName.trim() : "Player"),
         text,
-        timestamp: data.timestamp || 0
+        time: typeof data.time === "number" ? data.time : (typeof data.timestamp === "number" ? data.timestamp : 0)
       });
     });
 
@@ -719,18 +732,18 @@ function stopChatListener() {
 }
 
 function sendChatMessage() {
-  if (!chatEnabled || gameMode !== "online" || !roomRef || !chatInputEl) return;
-  if (!normalizedUserId) return;
-  if (!myRole) { showToast("Only players can chat"); return; }
-
+  if (!roomRef || !chatInputEl) return;
   const text = chatInputEl.value.trim();
   if (!text || text.length > MAX_MESSAGE_LENGTH) return;
+  const senderId = ensureNormalizedUserId();
+  if (!senderId) return;
+  const senderName = user.username || user.first_name || currentUserName || "Player";
 
   roomRef.child("messages").push({
-    senderId: normalizedUserId,
-    senderName: currentUserName,
+    userId: senderId,
+    name: senderName,
     text,
-    timestamp: firebase.database.ServerValue.TIMESTAMP
+    time: Date.now()
   }).then(() => {
     chatInputEl.value = "";
     chatInputEl.focus();
@@ -756,11 +769,11 @@ function renderMessages(messages) {
   messages.forEach((msg) => {
     const item = document.createElement("div");
     item.className = "message-item";
-    if (msg.senderId === normalizedUserId) item.classList.add("mine");
+    if (msg.userId === normalizedUserId) item.classList.add("mine");
 
     const sender = document.createElement("div");
     sender.className = "message-sender";
-    sender.innerText = msg.senderName;
+    sender.innerText = msg.name;
 
     const text = document.createElement("div");
     text.className = "message-text";
