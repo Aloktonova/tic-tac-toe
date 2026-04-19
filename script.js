@@ -52,7 +52,9 @@ const translations = {
     moveFailed: "Move failed. Please try again.",
     onlyPlayersRestart: "Only players can restart",
     restartFailed: "Restart failed. Try again.",
-    failedSendMessage: "Failed to send message."
+    failedSendMessage: "Failed to send message.",
+    gameNotFound: "Game not found",
+    gameExpired: "This game has expired ⏳"
   },
   hi: {
     appTitle: "टिक टैक टो",
@@ -710,6 +712,8 @@ const XP_GAIN_WIN = 10;
 const XP_GAIN_DRAW = 7;
 const XP_GAIN_LOSS = 5;
 const AUTO_RESTART_DELAY_MS = 2000;
+const ROOM_EXPIRE_MS = 24 * 60 * 60 * 1000;
+const ROOM_EXPIRED_REDIRECT_DELAY_MS = 2000;
 const LOCAL_MATCH_ID = 1;
 
 // 🎯 UI ELEMENTS
@@ -721,6 +725,7 @@ let settingsModal;
 let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileLossesValue, profileDrawsValue, profileGamesValue, profileLevelValue, profileXpValue, profileXpBarFill, profileXpPercentValue;
 let autoRestartTimer = null;
 let lastAutoRestartKey = "";
+let roomExpiryRedirectTimer = null;
 
 // =======================
 // 🔔 TOAST
@@ -1067,6 +1072,33 @@ function autoJoinRoomFromLocation() {
   console.log("Joined Room:", roomId);
 }
 
+function clearRoomExpiryRedirectTimer() {
+  if (!roomExpiryRedirectTimer) return;
+  clearTimeout(roomExpiryRedirectTimer);
+  roomExpiryRedirectTimer = null;
+}
+
+function isRoomExpired(roomData) {
+  const createdAt = Number(roomData?.createdAt);
+  if (!Number.isFinite(createdAt)) return false; // Allow old rooms without createdAt
+  return Date.now() - createdAt > ROOM_EXPIRE_MS;
+}
+
+function handleRoomUnavailable(message, delayMs = 0) {
+  stopRoomListener();
+  stopChatListener();
+  showToast(message);
+  clearRoomExpiryRedirectTimer();
+  if (delayMs > 0) {
+    roomExpiryRedirectTimer = setTimeout(() => {
+      roomExpiryRedirectTimer = null;
+      goHome();
+    }, delayMs);
+    return;
+  }
+  goHome();
+}
+
 // =======================
 // CREATE GAME
 // =======================
@@ -1093,6 +1125,7 @@ function createGame() {
     turn: "X",
     winner: null,
     winningCells: [],
+    createdAt: Date.now(),
     stats: {
       matchId: 1,
       awardedKey: null
@@ -1217,7 +1250,21 @@ function listenRoom() {
 
   roomValueListener = (snapshot) => {
     const data = snapshot.val();
-    if (!data) return;
+    if (!data) {
+      handleRoomUnavailable(t("gameNotFound"));
+      return;
+    }
+
+    if (isRoomExpired(data)) {
+      const expiredRoomRef = roomRef;
+      handleRoomUnavailable(t("gameExpired"), ROOM_EXPIRED_REDIRECT_DELAY_MS);
+      if (expiredRoomRef) {
+        expiredRoomRef.remove().catch((error) => {
+          console.warn("Failed to remove expired room:", error);
+        });
+      }
+      return;
+    }
 
     const resolvedUserId = ensureNormalizedUserId();
 
@@ -1656,6 +1703,7 @@ function showGame() {
 
 function goHome() {
   closeCurrentUserProfile();
+  clearRoomExpiryRedirectTimer();
   stopRoomListener();
   stopChatListener();
   roomId = null;
