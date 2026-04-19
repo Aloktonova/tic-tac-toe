@@ -300,6 +300,7 @@ let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
 let lastAIGameStartAt = 0;
+const AI_GAME_START_DEBOUNCE_MS = 350;
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -1000,7 +1001,7 @@ function startAIGameFromHome(event) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   const now = Date.now();
-  if (now - lastAIGameStartAt < 350) return;
+  if (now - lastAIGameStartAt < AI_GAME_START_DEBOUNCE_MS) return;
   lastAIGameStartAt = now;
   startAIGame();
 }
@@ -1357,7 +1358,10 @@ function maybeAwardAIMatchStats() {
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return;
   aiResultAwarded = true;
-  const aiAwardKey = `ai:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+  const uniquePart = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now().toString(36)}_${generateRoomId()}`;
+  const aiAwardKey = `ai:${uniquePart}`;
   incrementUserMatchStats(
     resolvedUserId,
     currentUserName || t("guestPlayer"),
