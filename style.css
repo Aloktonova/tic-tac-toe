@@ -296,7 +296,7 @@ button:disabled {
 .cell {
   width: 100%;
   aspect-ratio: 1 / 1;
-  min-height: 96px;
+  min-height: 0;
   margin: 0;
   font-size: 32px;
   font-weight: bold;
@@ -706,7 +706,7 @@ button:disabled {
   }
 
   .cell {
-    min-height: 88px;
+    min-height: 0;
     font-size: 28px;
   }
 
