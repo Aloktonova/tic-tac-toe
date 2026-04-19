@@ -299,8 +299,6 @@ let profileStatsByUserId = {};
 let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
-let lastAIGameStartAt = 0;
-const AI_GAME_START_DEBOUNCE_MS = 350;
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -902,8 +900,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
   if (aiBtn) {
-    aiBtn.addEventListener("click", startAIGameFromHome);
-    aiBtn.addEventListener("pointerup", startAIGameFromHome);
+    aiBtn.onclick = startAIGame;
   }
   sendBtnEl.addEventListener("click", sendChatMessage);
   chatInputEl.addEventListener("keydown", (e) => {
@@ -1020,18 +1017,8 @@ function createGame() {
 // =======================
 // 🤖 AI MODE
 // =======================
-function startAIGameFromHome(event) {
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  const now = Date.now();
-  // Prevent duplicate fire when click/pointer events are emitted together.
-  if (now - lastAIGameStartAt < AI_GAME_START_DEBOUNCE_MS) return;
-  lastAIGameStartAt = now;
-  startAIGame();
-}
-
 function startAIGame() {
-  console.log("AI Mode");
+  console.log("AI button clicked");
 
   stopRoomListener();
   stopChatListener();
@@ -1046,7 +1033,10 @@ function startAIGame() {
   winner = null;
   winningCells = [];
 
-  showGame();
+  homeScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
+  const chatBox = document.getElementById("chatBox");
+  if (chatBox) chatBox.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
   setInviteButtonState();
@@ -1673,5 +1663,6 @@ function disableChatForAI() {
 
 function setChatVisibility(visible) {
   if (!chatBoxEl) return;
+  chatBoxEl.style.display = visible ? "" : "none";
   chatBoxEl.classList.toggle("hidden", !visible);
 }

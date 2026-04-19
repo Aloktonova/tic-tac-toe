@@ -49,6 +49,9 @@ body {
   min-width: 44px;
   color: #c4b5fd;
   font-size: 12px;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -97,15 +100,15 @@ body {
   box-shadow: none;
   cursor: pointer;
   text-align: right;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  font-weight: 700;
   color: #bfdbfe;
 }
 
 .user-name-link:hover {
   transform: none;
   box-shadow: none;
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .user-name-link:active {
@@ -213,6 +216,12 @@ button:disabled {
   box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 15px rgba(37, 99, 235, 0.6);
   transition: transform 0.2s ease, box-shadow 0.28s ease, filter 0.28s ease;
   animation: buttonGlow 2.4s ease-in-out infinite alternate;
+}
+
+#playAI {
+  pointer-events: auto;
+  position: relative;
+  z-index: 27;
 }
 
 #createGame:hover,
