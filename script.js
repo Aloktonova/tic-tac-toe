@@ -33,7 +33,7 @@ const translations = {
     opponentTurn: "Opponent Turn",
     turnOf: "{player}'s Turn",
     symbolWins: "{symbol} Wins! 🎉",
-    playerVs: "❌ {x} vs ⭕ {o}",
+    playerVs: "❌ {x} против ⭕ {o}",
     playerX: "Player X",
     playerO: "Player O",
     waiting: "Waiting...",
