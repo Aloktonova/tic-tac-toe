@@ -444,6 +444,7 @@ function getAwardKey(roomIdValue, matchId) {
 }
 
 function ensurePlayerProfileForCurrentUser() {
+  if (!db) return Promise.resolve();
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return Promise.resolve();
   const playerName = currentUserName || t("guestPlayer");
@@ -491,6 +492,7 @@ function stopPlayerStatsListeners() {
 }
 
 function subscribeToPlayerStats(normalizedData) {
+  if (!db) return;
   const xId = normalizePlayerId(normalizedData?.players?.X?.id);
   const oId = normalizePlayerId(normalizedData?.players?.O?.id);
   const subscriptionKey = `${xId || ""}|${oId || ""}`;
@@ -529,6 +531,7 @@ function subscribeToPlayerStats(normalizedData) {
 }
 
 function incrementUserMatchStats(userIdValue, userNameValue, isWinner, roomAwardKey) {
+  if (!db) return;
   if (!userIdValue || !roomAwardKey) return;
   const playerStatsRef = db.ref("users/" + userIdValue);
   const relatedRoomId = roomId || null;
@@ -615,8 +618,21 @@ const firebaseConfig = {
   projectId: "tic-tac-toe-a19ae"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+let db = null;
+try {
+  const firebaseClient = window.firebase;
+  if (firebaseClient && typeof firebaseClient.initializeApp === "function" && typeof firebaseClient.database === "function") {
+    if (!Array.isArray(firebaseClient.apps) || firebaseClient.apps.length === 0) {
+      firebaseClient.initializeApp(firebaseConfig);
+    }
+    db = firebaseClient.database();
+  } else {
+    console.warn("Firebase SDK unavailable; online mode disabled.");
+  }
+} catch (error) {
+  console.error("Firebase init failed; online mode disabled:", error);
+  db = null;
+}
 
 // 🎯 GLOBAL STATE
 let board = ["","","","","","","","",""];
@@ -700,6 +716,7 @@ function updateProfileModalContent(playerId) {
 }
 
 function startCurrentUserStatsListener() {
+  if (!db) return;
   const playerId = ensureNormalizedUserId();
   if (!playerId) return;
   if (userStatsRef && userStatsListener) return;
@@ -953,6 +970,7 @@ function getRoomIdFromLocation() {
 }
 
 function autoJoinRoomFromLocation() {
+  if (!db) return;
   const detectedRoomId = getRoomIdFromLocation();
   if (!detectedRoomId) return;
   if (roomId === detectedRoomId && roomRef) return;
@@ -975,6 +993,11 @@ function autoJoinRoomFromLocation() {
 // CREATE GAME
 // =======================
 function createGame() {
+  if (!db) {
+    showToast(t("failedCreateRoom"));
+    console.warn("Online mode unavailable because Firebase is not initialized.");
+    return;
+  }
   if (!normalizedUserId) {
     showToast(t("unableVerifyIdentity"));
     return;
@@ -1043,6 +1066,7 @@ function startAIGame() {
   updateStatus();
   renderBoard();
 }
+window.startAIGame = startAIGame;
 
 // 📩 Invite visibility
 function setInviteButtonState() {
@@ -1367,6 +1391,7 @@ function makeAIMove(i) {
 function maybeAwardAIMatchStats() {
   if (gameMode !== "ai" || aiResultAwarded) return;
   if (winner !== "X" && winner !== "O" && winner !== "draw") return;
+  if (!db) return;
 
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return;
