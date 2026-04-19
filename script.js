@@ -1033,8 +1033,7 @@ function startAIGame() {
   winner = null;
   winningCells = [];
 
-  homeScreen.classList.add("hidden");
-  gameScreen.classList.remove("hidden");
+  showGame();
   const chatBox = document.getElementById("chatBox");
   if (chatBox) chatBox.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
@@ -1663,6 +1662,6 @@ function disableChatForAI() {
 
 function setChatVisibility(visible) {
   if (!chatBoxEl) return;
-  chatBoxEl.style.display = visible ? "" : "none";
+  if (visible) chatBoxEl.style.display = "";
   chatBoxEl.classList.toggle("hidden", !visible);
 }
