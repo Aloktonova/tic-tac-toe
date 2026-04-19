@@ -97,6 +97,9 @@ body {
   box-shadow: none;
   cursor: pointer;
   text-align: right;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: #bfdbfe;
 }
 
 .user-name-link:hover {
@@ -112,7 +115,7 @@ body {
 .user-name-link.disabled {
   cursor: default;
   text-decoration: none;
-  pointer-events: none;
+  color: #c4b5fd;
 }
 
 /* 🏠 Screens */
