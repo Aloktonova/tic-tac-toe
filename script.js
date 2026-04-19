@@ -2,12 +2,334 @@
 const tg = window.Telegram?.WebApp;
 if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
+const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
+
+const translations = {
+  en: {
+    appTitle: "Tic Tac Toe 🎮",
+    playFriend: "Play with Friend",
+    playAI: "Play with Computer",
+    invite: "Invite",
+    restart: "Restart",
+    home: "Home",
+    send: "Send",
+    settings: "Settings",
+    language: "Language",
+    about: "About",
+    developer: "Developer: Alok Maurya",
+    telegram: "Telegram:",
+    backHome: "Back to Home",
+    close: "Close",
+    yourTurn: "Your Turn",
+    win: "You Win 🎉",
+    draw: "Draw 🤝",
+    opponentWins: "Opponent Wins",
+    opponentWinsAI: "Opponent Wins 🤖",
+    aiThinking: "AI Thinking…",
+    loadingRoom: "Loading room...",
+    waitingOpponent: "Waiting for Opponent...",
+    opponentTurn: "Opponent Turn",
+    turnOf: "{player}'s Turn",
+    symbolWins: "{symbol} Wins! 🎉",
+    playerVs: "❌ {x} vs ⭕ {o}",
+    playerX: "Player X",
+    playerO: "Player O",
+    waiting: "Waiting...",
+    guestPlayer: "Guest Player",
+    typeMessage: "Type message...",
+    chatUnavailable: "Chat unavailable",
+    chatDisabledAIPlaceholder: "Chat is disabled in AI mode",
+    chatDisabledAI: "Chat disabled in AI mode",
+    noMessagesYet: "No messages yet",
+    unableVerifyIdentity: "Unable to verify identity",
+    failedCreateRoom: "Failed to create room. Try again.",
+    youAreSpectating: "You are spectating",
+    notYourTurn: "Not your turn",
+    moveFailed: "Move failed. Please try again.",
+    onlyPlayersRestart: "Only players can restart",
+    restartFailed: "Restart failed. Try again.",
+    failedSendMessage: "Failed to send message."
+  },
+  hi: {
+    appTitle: "टिक टैक टो 🎮",
+    playFriend: "दोस्त के साथ खेलें",
+    playAI: "कंप्यूटर के साथ खेलें",
+    invite: "निमंत्रण",
+    restart: "फिर से शुरू",
+    home: "होम",
+    send: "भेजें",
+    settings: "सेटिंग्स",
+    language: "भाषा",
+    about: "परिचय",
+    developer: "डेवलपर: Alok Maurya",
+    telegram: "टेलीग्राम:",
+    backHome: "होम पर वापस",
+    close: "बंद करें",
+    yourTurn: "आपकी बारी",
+    win: "आप जीते 🎉",
+    draw: "ड्रॉ 🤝",
+    opponentWins: "प्रतिद्वंदी जीता",
+    opponentWinsAI: "कंप्यूटर जीता 🤖",
+    aiThinking: "कंप्यूटर सोच रहा है…",
+    loadingRoom: "रूम लोड हो रहा है...",
+    waitingOpponent: "प्रतिद्वंदी का इंतज़ार...",
+    opponentTurn: "प्रतिद्वंदी की बारी",
+    turnOf: "{player} की बारी",
+    playerVs: "❌ {x} बनाम ⭕ {o}",
+    playerX: "प्लेयर X",
+    playerO: "प्लेयर O",
+    waiting: "इंतज़ार...",
+    guestPlayer: "गेस्ट प्लेयर",
+    typeMessage: "संदेश लिखें...",
+    chatUnavailable: "चैट उपलब्ध नहीं",
+    chatDisabledAIPlaceholder: "AI मोड में चैट बंद है",
+    chatDisabledAI: "AI मोड में चैट बंद है",
+    noMessagesYet: "अभी तक कोई संदेश नहीं",
+    unableVerifyIdentity: "पहचान सत्यापित नहीं हो सकी",
+    failedCreateRoom: "रूम नहीं बन पाया। फिर से कोशिश करें।",
+    youAreSpectating: "आप दर्शक हैं",
+    notYourTurn: "यह आपकी बारी नहीं है",
+    moveFailed: "चाल असफल रही। फिर प्रयास करें।",
+    onlyPlayersRestart: "केवल खिलाड़ी रीस्टार्ट कर सकते हैं",
+    restartFailed: "रीस्टार्ट असफल रहा। फिर प्रयास करें।",
+    failedSendMessage: "संदेश भेजने में विफल।"
+  },
+  ar: {
+    appTitle: "تيك تاك تو 🎮",
+    playFriend: "العب مع صديق",
+    playAI: "العب مع الكمبيوتر",
+    invite: "دعوة",
+    restart: "إعادة",
+    home: "الرئيسية",
+    send: "إرسال",
+    settings: "الإعدادات",
+    language: "اللغة",
+    about: "حول",
+    developer: "المطور: Alok Maurya",
+    telegram: "تيليجرام:",
+    backHome: "العودة للرئيسية",
+    close: "إغلاق",
+    yourTurn: "دورك",
+    win: "لقد فزت 🎉",
+    draw: "تعادل 🤝",
+    opponentWins: "الخصم فاز",
+    opponentWinsAI: "الكمبيوتر فاز 🤖",
+    aiThinking: "الكمبيوتر يفكر…",
+    loadingRoom: "جاري تحميل الغرفة...",
+    waitingOpponent: "بانتظار الخصم...",
+    opponentTurn: "دور الخصم",
+    turnOf: "دور {player}",
+    playerVs: "❌ {x} ضد ⭕ {o}",
+    playerX: "اللاعب X",
+    playerO: "اللاعب O",
+    waiting: "بانتظار...",
+    guestPlayer: "لاعب ضيف",
+    typeMessage: "اكتب رسالة...",
+    chatUnavailable: "الدردشة غير متاحة",
+    chatDisabledAIPlaceholder: "الدردشة معطلة في وضع الذكاء الاصطناعي",
+    chatDisabledAI: "الدردشة معطلة في وضع الذكاء الاصطناعي",
+    noMessagesYet: "لا توجد رسائل بعد",
+    unableVerifyIdentity: "تعذر التحقق من الهوية",
+    failedCreateRoom: "فشل إنشاء الغرفة. حاول مرة أخرى.",
+    youAreSpectating: "أنت متفرج",
+    notYourTurn: "ليس دورك",
+    moveFailed: "فشلت الحركة. حاول مرة أخرى.",
+    onlyPlayersRestart: "فقط اللاعبون يمكنهم إعادة اللعبة",
+    restartFailed: "فشلت الإعادة. حاول مرة أخرى.",
+    failedSendMessage: "فشل إرسال الرسالة."
+  },
+  ru: {
+    appTitle: "Крестики-нолики 🎮",
+    playFriend: "Играть с другом",
+    playAI: "Играть с компьютером",
+    invite: "Пригласить",
+    restart: "Рестарт",
+    home: "Домой",
+    send: "Отправить",
+    settings: "Настройки",
+    language: "Язык",
+    about: "О приложении",
+    developer: "Разработчик: Alok Maurya",
+    telegram: "Телеграм:",
+    backHome: "Назад домой",
+    close: "Закрыть",
+    yourTurn: "Ваш ход",
+    win: "Вы выиграли 🎉",
+    draw: "Ничья 🤝",
+    opponentWins: "Соперник победил",
+    opponentWinsAI: "Компьютер победил 🤖",
+    aiThinking: "Компьютер думает…",
+    loadingRoom: "Загрузка комнаты...",
+    waitingOpponent: "Ожидание соперника...",
+    opponentTurn: "Ход соперника",
+    turnOf: "Ход: {player}",
+    playerVs: "❌ {x} vs ⭕ {o}",
+    playerX: "Игрок X",
+    playerO: "Игрок O",
+    waiting: "Ожидание...",
+    guestPlayer: "Гость",
+    typeMessage: "Введите сообщение...",
+    chatUnavailable: "Чат недоступен",
+    chatDisabledAIPlaceholder: "Чат отключен в режиме ИИ",
+    chatDisabledAI: "Чат отключен в режиме ИИ",
+    noMessagesYet: "Пока нет сообщений",
+    unableVerifyIdentity: "Не удалось проверить личность",
+    failedCreateRoom: "Не удалось создать комнату. Попробуйте снова.",
+    youAreSpectating: "Вы наблюдатель",
+    notYourTurn: "Сейчас не ваш ход",
+    moveFailed: "Ход не выполнен. Попробуйте снова.",
+    onlyPlayersRestart: "Только игроки могут перезапустить",
+    restartFailed: "Перезапуск не удался. Попробуйте снова.",
+    failedSendMessage: "Не удалось отправить сообщение."
+  },
+  ko: {
+    appTitle: "틱택토 🎮",
+    playFriend: "친구와 플레이",
+    playAI: "컴퓨터와 플레이",
+    invite: "초대",
+    restart: "다시 시작",
+    home: "홈",
+    send: "보내기",
+    settings: "설정",
+    language: "언어",
+    about: "정보",
+    developer: "개발자: Alok Maurya",
+    telegram: "텔레그램:",
+    backHome: "홈으로",
+    close: "닫기",
+    yourTurn: "당신 차례",
+    win: "당신이 이겼어요 🎉",
+    draw: "무승부 🤝",
+    opponentWins: "상대가 이겼어요",
+    opponentWinsAI: "컴퓨터가 이겼어요 🤖",
+    aiThinking: "컴퓨터 생각 중…",
+    loadingRoom: "방 불러오는 중...",
+    waitingOpponent: "상대를 기다리는 중...",
+    opponentTurn: "상대 차례",
+    turnOf: "{player}의 차례",
+    playerVs: "❌ {x} vs ⭕ {o}",
+    playerX: "플레이어 X",
+    playerO: "플레이어 O",
+    waiting: "대기 중...",
+    guestPlayer: "게스트 플레이어",
+    typeMessage: "메시지를 입력하세요...",
+    chatUnavailable: "채팅을 사용할 수 없음",
+    chatDisabledAIPlaceholder: "AI 모드에서는 채팅이 비활성화됩니다",
+    chatDisabledAI: "AI 모드에서는 채팅이 비활성화됩니다",
+    noMessagesYet: "아직 메시지가 없습니다",
+    unableVerifyIdentity: "사용자 확인에 실패했습니다",
+    failedCreateRoom: "방 생성에 실패했습니다. 다시 시도하세요.",
+    youAreSpectating: "관전 중입니다",
+    notYourTurn: "당신 차례가 아닙니다",
+    moveFailed: "수를 둘 수 없습니다. 다시 시도하세요.",
+    onlyPlayersRestart: "플레이어만 다시 시작할 수 있습니다",
+    restartFailed: "다시 시작에 실패했습니다. 다시 시도하세요.",
+    failedSendMessage: "메시지 전송 실패."
+  },
+  ja: {
+    appTitle: "三目並べ 🎮",
+    playFriend: "友達と遊ぶ",
+    playAI: "コンピューターと遊ぶ",
+    invite: "招待",
+    restart: "再スタート",
+    home: "ホーム",
+    send: "送信",
+    settings: "設定",
+    language: "言語",
+    about: "このアプリについて",
+    developer: "開発者: Alok Maurya",
+    telegram: "Telegram:",
+    backHome: "ホームに戻る",
+    close: "閉じる",
+    yourTurn: "あなたの番",
+    win: "あなたの勝ち 🎉",
+    draw: "引き分け 🤝",
+    opponentWins: "相手の勝ち",
+    opponentWinsAI: "コンピューターの勝ち 🤖",
+    aiThinking: "コンピューターが考え中…",
+    loadingRoom: "ルームを読み込み中...",
+    waitingOpponent: "対戦相手を待っています...",
+    opponentTurn: "相手の番",
+    turnOf: "{player}の番",
+    playerVs: "❌ {x} vs ⭕ {o}",
+    playerX: "プレイヤーX",
+    playerO: "プレイヤーO",
+    waiting: "待機中...",
+    guestPlayer: "ゲストプレイヤー",
+    typeMessage: "メッセージを入力...",
+    chatUnavailable: "チャットは利用できません",
+    chatDisabledAIPlaceholder: "AIモードではチャットできません",
+    chatDisabledAI: "AIモードではチャットできません",
+    noMessagesYet: "まだメッセージがありません",
+    unableVerifyIdentity: "ユーザー確認ができませんでした",
+    failedCreateRoom: "ルーム作成に失敗しました。再試行してください。",
+    youAreSpectating: "観戦中です",
+    notYourTurn: "あなたの番ではありません",
+    moveFailed: "操作に失敗しました。再試行してください。",
+    onlyPlayersRestart: "プレイヤーのみ再スタートできます",
+    restartFailed: "再スタートに失敗しました。再試行してください。",
+    failedSendMessage: "メッセージ送信に失敗しました。"
+  }
+};
 
 let user = {};
-// Only use the real Telegram ID — no random fallback for online play
 let userId = null;
 let normalizedUserId = null;
-let currentUserName = "Player";
+let currentUserName = "Guest Player";
+let currentUserPhotoUrl = "";
+let lang = "en";
+let currentMessages = [];
+let currentChatPlaceholderKey = "typeMessage";
+
+function normalizeLangCode(code) {
+  if (!code || typeof code !== "string") return null;
+  const normalized = code.toLowerCase().split("-")[0];
+  return SUPPORTED_LANGS.includes(normalized) ? normalized : null;
+}
+
+function getInitialLanguage() {
+  let storedLanguage = null;
+  try {
+    storedLanguage = localStorage.getItem("lang");
+  } catch (err) {
+    console.warn("Unable to read lang from localStorage:", err);
+  }
+  return normalizeLangCode(storedLanguage) || normalizeLangCode(tg?.initDataUnsafe?.user?.language_code) || "en";
+}
+
+function t(key, vars) {
+  const dictionary = translations[lang] || translations.en;
+  let value = dictionary[key] ?? translations.en[key] ?? key;
+  if (vars && typeof value === "string") {
+    Object.keys(vars).forEach((varKey) => {
+      value = value.replace(new RegExp(`\\{${varKey}\\}`, "g"), String(vars[varKey]));
+    });
+  }
+  return value;
+}
+
+function getDisplayName(rawUser) {
+  if (!rawUser || typeof rawUser !== "object") return t("guestPlayer");
+  const firstName = typeof rawUser.first_name === "string" ? rawUser.first_name.trim() : "";
+  const lastName = typeof rawUser.last_name === "string" ? rawUser.last_name.trim() : "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  return fullName || t("guestPlayer");
+}
+
+function setLanguage(nextLanguage, persist = true) {
+  const normalized = normalizeLangCode(nextLanguage) || "en";
+  lang = normalized;
+  if (persist) {
+    try {
+      localStorage.setItem("lang", normalized);
+    } catch (err) {
+      console.warn("Unable to persist lang:", err);
+    }
+  }
+  document.documentElement.lang = normalized;
+  document.documentElement.dir = normalized === "ar" ? "rtl" : "ltr";
+  applyTranslations();
+}
 
 function syncTelegramUserContext() {
   user = tg.initDataUnsafe?.user || {};
@@ -27,7 +349,8 @@ function syncTelegramUserContext() {
     }
   }
   normalizedUserId = userId === null ? fallbackId : String(userId);
-  currentUserName = user.username || user.first_name || "Player";
+  currentUserName = getDisplayName(user);
+  currentUserPhotoUrl = typeof user.photo_url === "string" ? user.photo_url : "";
 }
 
 function ensureNormalizedUserId() {
@@ -46,10 +369,14 @@ function ensureNormalizedUserId() {
 }
 
 function generateFallbackUserId() {
-  return "user_" + window.crypto.randomUUID().replace(/-/g, "");
+  if (window.crypto?.randomUUID) {
+    return "user_" + window.crypto.randomUUID().replace(/-/g, "");
+  }
+  return "user_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 syncTelegramUserContext();
+lang = getInitialLanguage();
 
 // 🔥 Firebase
 const firebaseConfig = {
@@ -112,6 +439,81 @@ function openDeveloperTelegram(event) {
   tg.openTelegramLink(DEVELOPER_TELEGRAM_URL);
 }
 
+function renderUserProfile() {
+  if (!userInfo) return;
+  userInfo.innerHTML = "";
+
+  const profile = document.createElement("div");
+  profile.className = "user-profile";
+
+  if (currentUserPhotoUrl) {
+    const avatar = document.createElement("img");
+    avatar.className = "user-avatar";
+    avatar.src = currentUserPhotoUrl;
+    avatar.alt = currentUserName;
+    profile.appendChild(avatar);
+  } else {
+    const avatarFallback = document.createElement("div");
+    avatarFallback.className = "user-avatar user-avatar-fallback";
+    avatarFallback.innerText = (currentUserName || t("guestPlayer")).charAt(0).toUpperCase();
+    profile.appendChild(avatarFallback);
+  }
+
+  const fullName = document.createElement("span");
+  fullName.className = "user-name";
+  fullName.innerText = currentUserName || t("guestPlayer");
+  profile.appendChild(fullName);
+
+  userInfo.appendChild(profile);
+}
+
+function applyTranslations() {
+  document.title = t("appTitle");
+  const homeTitle = document.getElementById("homeTitle");
+  const topTitle = document.getElementById("topTitle");
+  const createBtn = document.getElementById("createGame");
+  const aiBtn = document.getElementById("playAI");
+  const inviteButton = document.getElementById("inviteBtn");
+  const restartButton = document.getElementById("restartBtn");
+  const homeButton = document.getElementById("homeBtn");
+  const sendButton = document.getElementById("sendBtn");
+  const settingsTitle = document.getElementById("settingsTitle");
+  const languageLabel = document.getElementById("languageLabel");
+  const aboutTitle = document.getElementById("aboutTitle");
+  const developerText = document.getElementById("developerText");
+  const telegramLabel = document.getElementById("telegramLabel");
+  const backHomeButton = document.getElementById("backHomeBtn");
+  const closeSettingsButton = document.getElementById("closeSettingsBtn");
+
+  if (homeTitle) homeTitle.innerText = t("appTitle");
+  if (topTitle) topTitle.innerText = t("appTitle");
+  if (createBtn) createBtn.innerText = `👥 ${t("playFriend")}`;
+  if (aiBtn) aiBtn.innerText = `🤖 ${t("playAI")}`;
+  if (inviteButton) inviteButton.innerText = `📩 ${t("invite")}`;
+  if (restartButton) restartButton.innerText = `🔁 ${t("restart")}`;
+  if (homeButton) homeButton.innerText = `🏠 ${t("home")}`;
+  if (sendButton) sendButton.innerText = t("send");
+  if (settingsTitle) settingsTitle.innerText = t("settings");
+  if (languageLabel) languageLabel.innerText = t("language");
+  if (aboutTitle) aboutTitle.innerText = t("about");
+  if (developerText) developerText.innerText = t("developer");
+  if (telegramLabel) telegramLabel.innerText = t("telegram");
+  if (backHomeButton) backHomeButton.innerText = `🏠 ${t("backHome")}`;
+  if (closeSettingsButton) closeSettingsButton.innerText = t("close");
+
+  if (chatInputEl) {
+    chatInputEl.placeholder = t(currentChatPlaceholderKey);
+  }
+
+  renderUserProfile();
+  updateStatus();
+  updatePlayersText();
+  if (messagesDiv) {
+    if (!chatEnabled && gameMode === "ai") setChatEnabled(false, "chatDisabledAIPlaceholder");
+    else renderMessages(currentMessages);
+  }
+}
+
 // =======================
 // 🧹 NORMALIZE ROOM DATA
 // =======================
@@ -154,7 +556,8 @@ function updateActionButtons() {
       chatEnabled = canChat;
       chatInputEl.disabled = !canChat;
       sendBtnEl.disabled = !canChat;
-      chatInputEl.placeholder = canChat ? "Type message..." : "Chat unavailable";
+      currentChatPlaceholderKey = canChat ? "typeMessage" : "chatUnavailable";
+      chatInputEl.placeholder = t(currentChatPlaceholderKey);
     }
   } else {
     restartBtn.disabled = false;
@@ -190,11 +593,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const backHomeBtn = document.getElementById("backHomeBtn");
+  const languageSelect = document.getElementById("languageSelect");
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
-
-  // 👤 Show user
-  userInfo.innerText = "Player: " + currentUserName;
 
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
@@ -206,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
       sendChatMessage();
     }
   });
-  setChatEnabled(false, "Chat is disabled in AI mode");
+  setChatEnabled(false, "chatDisabledAIPlaceholder");
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
   homeBtn.addEventListener("click", goHome);
@@ -221,6 +622,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   footerDeveloperLink?.addEventListener("click", openDeveloperTelegram);
   aboutTelegramLink?.addEventListener("click", openDeveloperTelegram);
+  languageSelect?.addEventListener("change", (event) => {
+    setLanguage(event.target.value);
+  });
+
+  if (languageSelect) {
+    languageSelect.value = lang;
+  }
+  setLanguage(lang, false);
 
   autoJoinRoomFromLocation();
   window.addEventListener("hashchange", autoJoinRoomFromLocation);
@@ -261,7 +670,7 @@ function autoJoinRoomFromLocation() {
 // =======================
 function createGame() {
   if (!normalizedUserId) {
-    showToast("Unable to verify Telegram identity");
+    showToast(t("unableVerifyIdentity"));
     return;
   }
 
@@ -286,7 +695,7 @@ function createGame() {
     }
   }).catch(err => {
     console.error("Create game failed:", err);
-    showToast("Failed to create room. Try again.");
+    showToast(t("failedCreateRoom"));
   });
 
   showGame();
@@ -322,6 +731,14 @@ function setInviteButtonState() {
   inviteBtn.style.display = isOnlineMode ? "" : "none";
 }
 
+function updatePlayersText() {
+  if (!playersDiv) return;
+  const data = window.currentRoomData;
+  const x = data?.players?.X?.name || t("playerX");
+  const o = data?.players?.O?.name || t("waiting");
+  playersDiv.innerText = t("playerVs", { x, o });
+}
+
 // =======================
 // 👀 LISTEN ROOM
 // =======================
@@ -354,7 +771,7 @@ function listenRoom() {
           if (currentO?.id) return undefined;
           return {
             id: resolvedUserId,
-            name: currentUserName || "Player O"
+            name: currentUserName || t("playerO")
           };
         }, (err, committed) => {
           isJoinAttemptInFlight = false;
@@ -394,9 +811,7 @@ function listenRoom() {
     console.log("join debug: players.X.id =", xId);
     console.log("join debug: players.O.id =", oId);
 
-    const x = normalizedData.players.X?.name || "Player X";
-    const o = normalizedData.players.O?.name || "Waiting...";
-    playersDiv.innerText = `❌ ${x} vs ⭕ ${o}`;
+    updatePlayersText();
 
     updateStatus();
     renderBoard();
@@ -406,7 +821,7 @@ function listenRoom() {
   roomRef.on("value", roomValueListener);
 
   startChatListener();
-  setChatEnabled(true, "Type message...");
+  setChatEnabled(true, "typeMessage");
 }
 
 // =======================
@@ -487,8 +902,8 @@ function makeMove(i) {
 
   // Online mode guards
   if (!roomLoaded || !roomRef) return;
-  if (!myRole) { showToast("You are spectating"); return; }
-  if (myRole !== currentPlayer) { showToast("Not your turn"); return; }
+  if (!myRole) { showToast(t("youAreSpectating")); return; }
+  if (myRole !== currentPlayer) { showToast(t("notYourTurn")); return; }
   if (winner) return;
 
   const newBoard = [...board];
@@ -504,7 +919,7 @@ function makeMove(i) {
       turn: null
     }).catch(err => {
       console.error("Move failed:", err);
-      showToast("Move failed. Please try again.");
+      showToast(t("moveFailed"));
     });
   } else {
     roomRef.update({
@@ -512,7 +927,7 @@ function makeMove(i) {
       turn: myRole === "X" ? "O" : "X"
     }).catch(err => {
       console.error("Move failed:", err);
-      showToast("Move failed. Please try again.");
+      showToast(t("moveFailed"));
     });
   }
 }
@@ -626,28 +1041,28 @@ function playRandom() {
 // =======================
 function updateStatus() {
   if (gameMode === "ai") {
-    if (winner === "draw") return statusText.innerText = "Draw 🤝";
-    if (winner) return statusText.innerText = winner === "X" ? "You Win 🎉" : "Opponent Wins 🤖";
-    return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking…";
+    if (winner === "draw") return statusText.innerText = t("draw");
+    if (winner) return statusText.innerText = winner === "X" ? t("win") : t("opponentWinsAI");
+    return statusText.innerText = currentPlayer === "X" ? t("yourTurn") : t("aiThinking");
   }
 
   const data = window.currentRoomData;
   if (!data || !data.players) {
-    statusText.innerText = "Loading room...";
+    statusText.innerText = t("loadingRoom");
     return;
   }
 
   if (!data.players.O) {
-    statusText.innerText = "Waiting for Opponent...";
+    statusText.innerText = t("waitingOpponent");
     return;
   }
 
-  if (winner === "draw") statusText.innerText = "Draw 🤝";
-  else if (winner && myRole) statusText.innerText = winner === myRole ? "You Win 🎉" : "Opponent Wins";
-  else if (winner) statusText.innerText = winner + " Wins! 🎉";
-  else if (!myRole) statusText.innerText = currentPlayer + "'s Turn";
-  else if (myRole === currentPlayer) statusText.innerText = "Your Turn";
-  else statusText.innerText = "Opponent Turn";
+  if (winner === "draw") statusText.innerText = t("draw");
+  else if (winner && myRole) statusText.innerText = winner === myRole ? t("win") : t("opponentWins");
+  else if (winner) statusText.innerText = t("symbolWins", { symbol: winner });
+  else if (!myRole) statusText.innerText = t("turnOf", { player: currentPlayer });
+  else if (myRole === currentPlayer) statusText.innerText = t("yourTurn");
+  else statusText.innerText = t("opponentTurn");
 }
 
 // =======================
@@ -665,7 +1080,7 @@ function restartGame() {
   }
 
   if (!canWrite() || !myRole) {
-    showToast("Only players can restart");
+    showToast(t("onlyPlayersRestart"));
     return;
   }
 
@@ -676,7 +1091,7 @@ function restartGame() {
     winningCells: []
   }).catch(err => {
     console.error("Restart failed:", err);
-    showToast("Restart failed. Try again.");
+    showToast(t("restartFailed"));
   });
 }
 
@@ -717,7 +1132,7 @@ function goHome() {
   stopChatListener();
   roomId = null;
   roomRef = null;
-  setChatEnabled(false, "Chat is disabled in AI mode");
+  setChatEnabled(false, "chatDisabledAIPlaceholder");
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
 }
@@ -749,15 +1164,16 @@ function startChatListener() {
       if (!text) return;
 
       messages.push({
-        userId: typeof data.userId === "string" ? data.userId : (typeof data.senderId === "string" ? data.senderId : ""),
+        userId: data.userId !== null && data.userId !== undefined ? String(data.userId) : (data.senderId !== null && data.senderId !== undefined ? String(data.senderId) : ""),
         name: (typeof data.name === "string" && data.name.trim())
           ? data.name.trim()
-          : ((typeof data.senderName === "string" && data.senderName.trim()) ? data.senderName.trim() : "Player"),
+          : ((typeof data.senderName === "string" && data.senderName.trim()) ? data.senderName.trim() : t("guestPlayer")),
         text,
         time: typeof data.time === "number" ? data.time : (typeof data.timestamp === "number" ? data.timestamp : 0)
       });
     });
 
+    currentMessages = messages;
     renderMessages(messages);
   });
 }
@@ -775,7 +1191,7 @@ function sendChatMessage() {
   if (!text || text.length > MAX_MESSAGE_LENGTH) return;
   const senderId = ensureNormalizedUserId();
   if (!senderId) return;
-  const senderName = user.username || user.first_name || currentUserName || "Player";
+  const senderName = currentUserName || t("guestPlayer");
 
   roomRef.child("messages").push({
     userId: senderId,
@@ -787,7 +1203,7 @@ function sendChatMessage() {
     chatInputEl.focus();
   }).catch((error) => {
     console.error("Send message failed:", error);
-    showToast("Failed to send message.");
+    showToast(t("failedSendMessage"));
   });
 }
 
@@ -799,7 +1215,7 @@ function renderMessages(messages) {
   if (!messages.length) {
     const empty = document.createElement("div");
     empty.className = "empty-message";
-    empty.innerText = "No messages yet";
+    empty.innerText = t("noMessagesYet");
     messagesDiv.appendChild(empty);
     return;
   }
@@ -833,10 +1249,11 @@ function autoScrollMessages() {
 function setChatEnabled(enabled, placeholderText) {
   chatEnabled = enabled;
   if (!chatInputEl || !sendBtnEl) return;
+  currentChatPlaceholderKey = placeholderText || "typeMessage";
 
   chatInputEl.disabled = !enabled;
   sendBtnEl.disabled = !enabled;
-  chatInputEl.placeholder = placeholderText || "Type message...";
+  chatInputEl.placeholder = t(currentChatPlaceholderKey);
 
   if (!enabled) {
     chatInputEl.value = "";
@@ -844,7 +1261,7 @@ function setChatEnabled(enabled, placeholderText) {
       messagesDiv.innerHTML = "";
       const disabledNote = document.createElement("div");
       disabledNote.className = "empty-message";
-      disabledNote.innerText = "Chat disabled in AI mode";
+      disabledNote.innerText = t("chatDisabledAI");
       messagesDiv.appendChild(disabledNote);
     }
   }
@@ -852,5 +1269,5 @@ function setChatEnabled(enabled, placeholderText) {
 
 function disableChatForAI() {
   stopChatListener();
-  setChatEnabled(false, "Chat is disabled in AI mode");
+  setChatEnabled(false, "chatDisabledAIPlaceholder");
 }

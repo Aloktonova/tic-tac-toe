@@ -47,6 +47,39 @@ body {
   text-align: right;
 }
 
+.user-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 170px;
+}
+
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #334155;
+}
+
+.user-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1d4ed8;
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.user-name {
+  color: #93c5fd;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 🏠 Screens */
 .screen {
   padding: 16px 0;
@@ -296,6 +329,28 @@ button:disabled {
   width: 80%;
   border-radius: 12px;
   max-width: 420px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.settings-row label {
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.settings-row select {
+  min-width: 140px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #f8fafc;
 }
 
 .about-section {
