@@ -130,6 +130,11 @@ body {
   display: none;
 }
 
+#homeScreen.hidden,
+#gameScreen.hidden {
+  display: none;
+}
+
 #homeScreen,
 #gameScreen {
   max-width: 420px;
