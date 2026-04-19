@@ -2,7 +2,9 @@
 const tg = window.Telegram?.WebApp;
 if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
+const DEFAULT_LANGUAGE = "en";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
+const RTL_LANGS = ["ar"];
 
 const translations = {
   en: {
@@ -275,11 +277,11 @@ const translations = {
 let user = {};
 let userId = null;
 let normalizedUserId = null;
-let currentUserName = "Guest Player";
+let currentUserName = "";
 let currentUserPhotoUrl = "";
-let lang = "en";
+let lang = DEFAULT_LANGUAGE;
 let currentMessages = [];
-let currentChatPlaceholderKey = "typeMessage";
+let currentChatPlaceholderKey = "chatDisabledAIPlaceholder";
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -294,7 +296,7 @@ function getInitialLanguage() {
   } catch (err) {
     console.warn("Unable to read lang from localStorage:", err);
   }
-  return normalizeLangCode(storedLanguage) || normalizeLangCode(tg?.initDataUnsafe?.user?.language_code) || "en";
+  return normalizeLangCode(storedLanguage) || normalizeLangCode(tg?.initDataUnsafe?.user?.language_code) || DEFAULT_LANGUAGE;
 }
 
 function t(key, vars) {
@@ -317,7 +319,7 @@ function getDisplayName(rawUser) {
 }
 
 function setLanguage(nextLanguage, persist = true) {
-  const normalized = normalizeLangCode(nextLanguage) || "en";
+  const normalized = normalizeLangCode(nextLanguage) || DEFAULT_LANGUAGE;
   lang = normalized;
   if (persist) {
     try {
@@ -327,7 +329,7 @@ function setLanguage(nextLanguage, persist = true) {
     }
   }
   document.documentElement.lang = normalized;
-  document.documentElement.dir = normalized === "ar" ? "rtl" : "ltr";
+  document.documentElement.dir = RTL_LANGS.includes(normalized) ? "rtl" : "ltr";
   applyTranslations();
 }
 
@@ -372,7 +374,19 @@ function generateFallbackUserId() {
   if (window.crypto?.randomUUID) {
     return "user_" + window.crypto.randomUUID().replace(/-/g, "");
   }
-  return "user_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return "user_" + Date.now().toString(36) + "_" + (window.performance?.now?.() || 0).toString().replace(".", "");
+}
+
+function generateRoomId() {
+  if (window.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(4);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 6);
+  }
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+  }
+  return Date.now().toString(36).slice(-6);
 }
 
 syncTelegramUserContext();
@@ -678,7 +692,7 @@ function createGame() {
 
   gameMode = "online";
 
-  roomId = Math.random().toString(36).substr(2, 6);
+  roomId = generateRoomId();
   roomRef = db.ref("rooms/" + roomId);
 
   roomRef.set({
