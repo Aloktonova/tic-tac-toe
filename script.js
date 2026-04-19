@@ -1041,13 +1041,14 @@ function createGame() {
 // 🤖 AI MODE
 // =======================
 function startAIGame() {
-  console.log("AI button clicked");
+  console.log("AI CLICKED");
 
   stopRoomListener();
   stopChatListener();
   roomId = null;
   roomRef = null;
   window.currentRoomData = null;
+
   gameMode = "ai";
   aiResultAwarded = false;
 
@@ -1056,8 +1057,14 @@ function startAIGame() {
   winner = null;
   winningCells = [];
 
-  showGame();
-  if (chatBoxEl) chatBoxEl.style.display = "none";
+  const home = document.getElementById("homeScreen");
+  const game = document.getElementById("gameScreen");
+  if (home) home.classList.add("hidden");
+  if (game) game.classList.remove("hidden");
+
+  const chat = document.getElementById("chatBox");
+  if (chat) chat.style.display = "none";
+
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
   setInviteButtonState();
@@ -1066,6 +1073,7 @@ function startAIGame() {
   updateStatus();
   renderBoard();
 }
+
 window.startAIGame = startAIGame;
 
 // 📩 Invite visibility

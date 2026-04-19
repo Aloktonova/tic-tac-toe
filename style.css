@@ -130,6 +130,11 @@ body {
   display: none;
 }
 
+#homeScreen.hidden,
+#gameScreen.hidden {
+  display: none;
+}
+
 #homeScreen,
 #gameScreen {
   max-width: 420px;
@@ -187,6 +192,9 @@ button {
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
   touch-action: manipulation;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 /* ✨ Hover */
