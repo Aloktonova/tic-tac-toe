@@ -8,7 +8,7 @@ const RTL_LANGS = ["ar"];
 
 const translations = {
   en: {
-    appTitle: "Tic Tac Toe 🎮",
+    appTitle: "Tic Tac Toe",
     playFriend: "Play with Friend",
     playAI: "Play with Computer",
     invite: "Invite",
@@ -53,7 +53,7 @@ const translations = {
     failedSendMessage: "Failed to send message."
   },
   hi: {
-    appTitle: "टिक टैक टो 🎮",
+    appTitle: "टिक टैक टो",
     playFriend: "दोस्त के साथ खेलें",
     playAI: "कंप्यूटर के साथ खेलें",
     invite: "निमंत्रण",
@@ -97,7 +97,7 @@ const translations = {
     failedSendMessage: "संदेश भेजने में विफल।"
   },
   ar: {
-    appTitle: "تيك تاك تو 🎮",
+    appTitle: "تيك تاك تو",
     playFriend: "العب مع صديق",
     playAI: "العب مع الكمبيوتر",
     invite: "دعوة",
@@ -141,7 +141,7 @@ const translations = {
     failedSendMessage: "فشل إرسال الرسالة."
   },
   ru: {
-    appTitle: "Крестики-нолики 🎮",
+    appTitle: "Крестики-нолики",
     playFriend: "Играть с другом",
     playAI: "Играть с компьютером",
     invite: "Пригласить",
@@ -185,7 +185,7 @@ const translations = {
     failedSendMessage: "Не удалось отправить сообщение."
   },
   ko: {
-    appTitle: "틱택토 🎮",
+    appTitle: "틱택토",
     playFriend: "친구와 플레이",
     playAI: "컴퓨터와 플레이",
     invite: "초대",
@@ -229,7 +229,7 @@ const translations = {
     failedSendMessage: "메시지 전송 실패."
   },
   ja: {
-    appTitle: "三目並べ 🎮",
+    appTitle: "三目並べ",
     playFriend: "友達と遊ぶ",
     playAI: "コンピューターと遊ぶ",
     invite: "招待",
@@ -496,8 +496,6 @@ function renderUserProfile() {
 
 function applyTranslations() {
   document.title = t("appTitle");
-  const homeTitle = document.getElementById("homeTitle");
-  const topTitle = document.getElementById("topTitle");
   const createBtn = document.getElementById("createGame");
   const aiBtn = document.getElementById("playAI");
   const inviteButton = document.getElementById("inviteBtn");
@@ -512,10 +510,8 @@ function applyTranslations() {
   const backHomeButton = document.getElementById("backHomeBtn");
   const closeSettingsButton = document.getElementById("closeSettingsBtn");
 
-  if (homeTitle) homeTitle.innerText = t("appTitle");
-  if (topTitle) topTitle.innerText = t("appTitle");
-  if (createBtn) createBtn.innerText = `👥 ${t("playFriend")}`;
-  if (aiBtn) aiBtn.innerText = `🤖 ${t("playAI")}`;
+  if (createBtn) createBtn.innerText = t("playFriend");
+  if (aiBtn) aiBtn.innerText = t("playAI");
   if (inviteButton) inviteButton.innerText = `📩 ${t("invite")}`;
   if (restartButton) restartButton.innerText = `🔁 ${t("restart")}`;
   if (homeButton) homeButton.innerText = `🏠 ${t("home")}`;
@@ -693,7 +689,7 @@ function autoJoinRoomFromLocation() {
 }
 
 // =======================
-// 🎮 CREATE GAME
+// CREATE GAME
 // =======================
 function createGame() {
   if (!normalizedUserId) {
@@ -874,7 +870,7 @@ function checkWinner(b) {
 }
 
 // =======================
-// 🎮 RENDER
+// RENDER
 // =======================
 function renderBoard() {
   boardDiv.innerHTML = "";

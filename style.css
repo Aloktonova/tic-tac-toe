@@ -1,10 +1,10 @@
 body {
   margin: 0;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  background: radial-gradient(circle at top, #172554 0%, #0b1120 45%, #020617 100%);
+  background: radial-gradient(circle at 20% 0%, #1e1b4b 0%, #0b1120 45%, #020617 100%);
   color: #f8fafc;
   text-align: center;
-  padding: 0 12px 56px;
+  padding: 0 16px 56px;
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -15,31 +15,24 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 0 8px;
+  padding: 14px 0 10px;
   font-size: 14px;
-}
-
-.app-title {
-  flex: 1;
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-align: center;
-  color: #f8fafc;
 }
 
 #settingsBtn {
   margin: 0;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 42px;
+  min-height: 42px;
   padding: 0;
   border-radius: 50%;
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.32);
 }
 
 #userInfo {
   min-width: 44px;
-  color: #93c5fd;
+  color: #c4b5fd;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -50,8 +43,9 @@ body {
 .user-profile {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  max-width: 170px;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 190px;
 }
 
 .user-avatar {
@@ -73,8 +67,8 @@ body {
 }
 
 .user-name {
-  color: #93c5fd;
-  font-size: 12px;
+  color: #c4b5fd;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -95,12 +89,53 @@ body {
   margin: 0 auto;
 }
 
-#homeScreen h1 {
-  margin: 14px 0 18px;
-  font-size: 32px;
+#homeScreen {
+  min-height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 26px;
+  padding: 28px 0 24px;
 }
 
-/* 🎮 Buttons */
+.home-board-preview {
+  width: min(84vw, 310px);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(20, 16, 44, 0.92));
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.18), 0 22px 48px rgba(2, 6, 23, 0.7), 0 0 32px rgba(99, 102, 241, 0.25);
+  animation: boardGlow 2.8s ease-in-out infinite alternate;
+}
+
+.preview-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: rgba(196, 181, 253, 0.8);
+  font-size: clamp(24px, 8vw, 34px);
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(199, 210, 254, 0.13);
+}
+
+.home-actions {
+  width: min(100%, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+/* Buttons */
 button {
   padding: 12px 16px;
   margin: 6px;
@@ -134,8 +169,26 @@ button:disabled {
 
 #createGame,
 #playAI {
-  width: calc(100% - 12px);
-  margin: 8px 6px;
+  width: 100%;
+  margin: 0;
+  border-radius: 22px;
+  padding: 16px 20px;
+  background: linear-gradient(120deg, #3b82f6 0%, #6366f1 52%, #9333ea 100%);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 20px rgba(147, 51, 234, 0.34);
+  transition: transform 0.2s ease, box-shadow 0.28s ease, filter 0.28s ease;
+  animation: buttonGlow 2.4s ease-in-out infinite alternate;
+}
+
+#createGame:hover,
+#playAI:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 14px 32px rgba(59, 130, 246, 0.42), 0 0 26px rgba(147, 51, 234, 0.42);
+}
+
+#createGame:active,
+#playAI:active {
+  transform: scale(0.97);
+  filter: brightness(0.95);
 }
 
 /* 🎯 Board container */
@@ -214,7 +267,7 @@ button:disabled {
   color: #93c5fd;
 }
 
-/* 🎮 Actions */
+/* Actions */
 .actions {
   margin-top: 6px;
   display: flex;
@@ -438,6 +491,24 @@ button:disabled {
   to {
     transform: scale(1.03);
     box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.4), 0 0 20px rgba(34, 197, 94, 0.7);
+  }
+}
+
+@keyframes boardGlow {
+  from {
+    box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.14), 0 18px 36px rgba(2, 6, 23, 0.65), 0 0 20px rgba(99, 102, 241, 0.18);
+  }
+  to {
+    box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.26), 0 24px 54px rgba(2, 6, 23, 0.74), 0 0 34px rgba(99, 102, 241, 0.35);
+  }
+}
+
+@keyframes buttonGlow {
+  from {
+    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.28), 0 0 16px rgba(147, 51, 234, 0.26);
+  }
+  to {
+    box-shadow: 0 14px 32px rgba(59, 130, 246, 0.4), 0 0 26px rgba(147, 51, 234, 0.4);
   }
 }
 

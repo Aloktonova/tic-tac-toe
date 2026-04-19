@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Tic Tac Toe 🎮</title>
+  <title>Tic Tac Toe</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,19 +11,30 @@
 <!-- 🔝 Top Bar -->
 <div class="top-bar">
   <button id="settingsBtn">⚙️</button>
-  <h1 class="app-title" id="topTitle">Tic Tac Toe 🎮</h1>
   <div id="userInfo"></div>
 </div>
 
 <!-- 🏠 Home Screen -->
 <div id="homeScreen" class="screen">
-  <h1 id="homeTitle">Tic Tac Toe 🎮</h1>
+  <div class="home-board-preview" role="presentation" aria-hidden="true">
+    <div class="preview-cell">X</div>
+    <div class="preview-cell"></div>
+    <div class="preview-cell">O</div>
+    <div class="preview-cell"></div>
+    <div class="preview-cell">X</div>
+    <div class="preview-cell"></div>
+    <div class="preview-cell">O</div>
+    <div class="preview-cell"></div>
+    <div class="preview-cell">X</div>
+  </div>
 
-  <button id="createGame">👥 Play with Friend</button>
-  <button id="playAI">🤖 Play with Computer</button>
+  <div class="home-actions">
+    <button id="createGame">Play with Friend</button>
+    <button id="playAI">Play with Computer</button>
+  </div>
 </div>
 
-<!-- 🎮 Game Screen -->
+<!-- Game Screen -->
 <div id="gameScreen" class="screen hidden">
 
   <!-- 📊 Status -->
@@ -35,7 +46,7 @@
   <!-- 🎯 Game Board -->
   <div id="board"></div>
 
-  <!-- 🎮 Actions -->
+  <!-- Actions -->
   <div class="actions">
     <button id="inviteBtn">📩 Invite</button>
     <button id="restartBtn">🔁 Restart</button>
