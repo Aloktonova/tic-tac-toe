@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: radial-gradient(circle at 20% 0%, #1e1b4b 0%, #0b1120 45%, #020617 100%);
   color: #f8fafc;
@@ -13,21 +13,21 @@ body {
 }
 
 body.game-active {
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body.game-active .app-footer {
   display: none;
 }
 
-.app-container {
+.app {
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
   padding: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
   box-sizing: border-box;
   height: 100vh;
@@ -133,9 +133,17 @@ body.game-active .app-footer {
 
 /* 🏠 Screens */
 .screen {
-  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
   transition: opacity 0.2s ease;
   width: 100%;
+  min-height: 0;
 }
 
 .hidden {
@@ -149,32 +157,18 @@ body.game-active .app-footer {
 
 #homeScreen,
 #gameScreen {
-  max-width: 420px;
   width: 100%;
-  margin: 0 auto;
 }
 
 #homeScreen {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  box-sizing: border-box;
-  position: relative;
-  z-index: 25;
+  align-items: stretch;
 }
 
 #gameScreen {
   display: none;
-  height: 100vh;
-  overflow: hidden;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 10px;
-  box-sizing: border-box;
+  gap: 10px;
+  overflow: visible;
 }
 
 .main-content {
@@ -185,8 +179,15 @@ body.game-active .app-footer {
   align-items: center;
 }
 
+.home-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .home-game-image {
-  width: 90%;
+  width: 100%;
   max-width: 250px;
   margin: 0;
   aspect-ratio: 1 / 1;
@@ -285,15 +286,17 @@ button:disabled {
   border: 1px solid #1e3a8a;
   background: linear-gradient(145deg, #0f172a, #0b1220);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.6), inset 0 0 0 1px rgba(148, 163, 184, 0.15);
-  width: 90%;
+  width: 100%;
   max-width: 300px;
+  aspect-ratio: 1 / 1;
+  align-self: center;
 }
 
 /* 🔲 Cells */
 .cell {
   width: 100%;
   aspect-ratio: 1 / 1;
-  min-height: 96px;
+  min-height: 0;
   margin: 0;
   font-size: 32px;
   font-weight: bold;
@@ -383,14 +386,15 @@ button:disabled {
 .actions button {
   width: 100%;
   max-width: 320px;
-  margin: 10px 0;
+  margin: 10px auto;
   border-radius: 20px;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28), 0 0 15px rgba(37, 99, 235, 0.6);
 }
 
 /* 💬 Chat Box */
 #chatBox {
-  margin-top: 18px;
+  margin-top: 8px;
+  width: 100%;
   max-width: 360px;
   margin-left: auto;
   margin-right: auto;
@@ -402,7 +406,7 @@ button:disabled {
 
 /* 📩 Messages */
 #messages {
-  height: 160px;
+  height: clamp(96px, 20vh, 160px);
   overflow-y: auto;
   background: #0b1220;
   padding: 10px;
@@ -486,7 +490,7 @@ button:disabled {
 .modal-content {
   background: #1e293b;
   padding: 20px;
-  margin: 100px auto;
+  margin: min(10vh, 100px) auto;
   width: 80%;
   border-radius: 12px;
   max-width: 420px;
@@ -620,10 +624,9 @@ button:disabled {
 }
 
 .app-footer {
-  position: fixed;
-  left: 0;
-  bottom: 0;
+  position: static;
   width: 100%;
+  margin-top: auto;
   padding: 9px 12px;
   box-sizing: border-box;
   text-align: center;
@@ -703,7 +706,7 @@ button:disabled {
   }
 
   .cell {
-    min-height: 88px;
+    min-height: 0;
     font-size: 28px;
   }
 
@@ -714,11 +717,11 @@ button:disabled {
 
 @media (min-width: 768px) {
   #gameScreen {
-    max-width: 520px;
+    max-width: 100%;
   }
 
   #board {
-    max-width: 390px;
+    max-width: 300px;
   }
 }
 
