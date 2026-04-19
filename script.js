@@ -1041,12 +1041,6 @@ function createGame() {
 // 🤖 AI MODE
 // =======================
 function startAIGame() {
-  if (typeof window.startAIGame === "function") {
-    window.startAIGame();
-  }
-}
-
-window.startAIGame = function () {
   console.log("AI CLICKED");
 
   stopRoomListener();
@@ -1078,7 +1072,9 @@ window.startAIGame = function () {
   updateActionButtons();
   updateStatus();
   renderBoard();
-};
+}
+
+window.startAIGame = startAIGame;
 
 // 📩 Invite visibility
 function setInviteButtonState() {
