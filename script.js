@@ -1,6 +1,7 @@
 // 📱 Telegram
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = window.Telegram?.WebApp;
+if (tg?.expand) tg.expand();
+const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 
 let user = {};
 // Only use the real Telegram ID — no random fallback for online play
@@ -87,6 +88,7 @@ let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl;
 let inviteBtn, restartBtn, homeBtn;
+let settingsModal;
 
 // =======================
 // 🔔 TOAST
@@ -98,6 +100,16 @@ function showToast(msg, duration) {
   toast.style.display = "block";
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => { toast.style.display = "none"; }, duration || 2500);
+}
+
+function isRunningInsideTelegramWebApp() {
+  return !!(tg && typeof tg.openTelegramLink === "function" && tg.initData);
+}
+
+function openDeveloperTelegram(event) {
+  if (!isRunningInsideTelegramWebApp()) return;
+  event.preventDefault();
+  tg.openTelegramLink(DEVELOPER_TELEGRAM_URL);
 }
 
 // =======================
@@ -174,6 +186,12 @@ document.addEventListener("DOMContentLoaded", () => {
   inviteBtn = document.getElementById("inviteBtn");
   restartBtn = document.getElementById("restartBtn");
   homeBtn = document.getElementById("homeBtn");
+  settingsModal = document.getElementById("settingsModal");
+  const settingsBtn = document.getElementById("settingsBtn");
+  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  const backHomeBtn = document.getElementById("backHomeBtn");
+  const footerDeveloperLink = document.getElementById("footerDeveloperLink");
+  const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
   // 👤 Show user
   userInfo.innerText = "Player: " + currentUserName;
@@ -192,6 +210,17 @@ document.addEventListener("DOMContentLoaded", () => {
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
   homeBtn.addEventListener("click", goHome);
+  settingsBtn?.addEventListener("click", () => settingsModal?.classList.remove("hidden"));
+  closeSettingsBtn?.addEventListener("click", () => settingsModal?.classList.add("hidden"));
+  backHomeBtn?.addEventListener("click", () => {
+    settingsModal?.classList.add("hidden");
+    goHome();
+  });
+  settingsModal?.addEventListener("click", (event) => {
+    if (event.target === settingsModal) settingsModal.classList.add("hidden");
+  });
+  footerDeveloperLink?.addEventListener("click", openDeveloperTelegram);
+  aboutTelegramLink?.addEventListener("click", openDeveloperTelegram);
 
   autoJoinRoomFromLocation();
   window.addEventListener("hashchange", autoJoinRoomFromLocation);
@@ -661,9 +690,17 @@ function shareGame() {
 
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
 
-  tg.openTelegramLink(
-    "https://t.me/share/url?url=" + encodeURIComponent(link)
-  );
+  if (isRunningInsideTelegramWebApp()) {
+    tg.openTelegramLink(
+      "https://t.me/share/url?url=" + encodeURIComponent(link)
+    );
+  } else {
+    window.open(
+      "https://t.me/share/url?url=" + encodeURIComponent(link),
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
 }
 
 // =======================
