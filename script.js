@@ -665,6 +665,7 @@ function renderUserProfile() {
   const fullName = document.createElement("button");
   fullName.type = "button";
   fullName.className = "user-name user-name-link";
+  fullName.setAttribute("aria-label", "Open Telegram profile");
   fullName.innerText = currentUserName || t("guestPlayer");
   if (userId) {
     fullName.addEventListener("click", openCurrentUserTelegramProfile);
@@ -923,10 +924,6 @@ function createGame() {
 // =======================
 // 🤖 AI MODE
 // =======================
-function playAI() {
-  startAIGame();
-}
-
 function startAIGame() {
   console.log("AI Mode");
 
