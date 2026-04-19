@@ -487,11 +487,12 @@ function incrementWinnerStats(winnerUserId, winnerName, roomAwardKey) {
   const playerStatsRef = db.ref("players/" + winnerUserId);
   playerStatsRef.transaction((current) => {
     const existing = current && typeof current === "object" ? current : {};
-    if (existing.lastAwardedKey === roomAwardKey) return;
+    if (existing.lastAwardedKey === roomAwardKey) return undefined;
+    const existingName = typeof existing.name === "string" ? existing.name.trim() : "";
 
     return {
       ...existing,
-      name: (typeof existing.name === "string" && existing.name.trim()) ? existing.name.trim() : (winnerName || t("guestPlayer")),
+      name: existingName || winnerName || t("guestPlayer"),
       wins: normalizeWins(existing.wins) + 1,
       lastWinRoomId: roomId,
       lastAwardedKey: roomAwardKey
@@ -531,7 +532,7 @@ function maybeAwardWinnerStats(normalizedData) {
 
   isWinAwardInFlight = true;
   roomRef.child("stats/awardedKey").transaction((existingKey) => {
-    if (existingKey) return;
+    if (existingKey) return undefined;
     return roomAwardKey;
   }, (error, committed) => {
     isWinAwardInFlight = false;
