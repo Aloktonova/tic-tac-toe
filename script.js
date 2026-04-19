@@ -38,6 +38,7 @@ const translations = {
     playerO: "Player O",
     waiting: "Waiting...",
     guestPlayer: "Guest Player",
+    winsLabel: "Wins",
     typeMessage: "Type message...",
     chatUnavailable: "Chat unavailable",
     chatDisabledAIPlaceholder: "Chat is disabled in AI mode",
@@ -82,6 +83,7 @@ const translations = {
     playerO: "प्लेयर O",
     waiting: "इंतज़ार...",
     guestPlayer: "गेस्ट प्लेयर",
+    winsLabel: "जीत",
     typeMessage: "संदेश लिखें...",
     chatUnavailable: "चैट उपलब्ध नहीं",
     chatDisabledAIPlaceholder: "AI मोड में चैट बंद है",
@@ -126,6 +128,7 @@ const translations = {
     playerO: "اللاعب O",
     waiting: "بانتظار...",
     guestPlayer: "لاعب ضيف",
+    winsLabel: "الانتصارات",
     typeMessage: "اكتب رسالة...",
     chatUnavailable: "الدردشة غير متاحة",
     chatDisabledAIPlaceholder: "الدردشة معطلة في وضع الذكاء الاصطناعي",
@@ -170,6 +173,7 @@ const translations = {
     playerO: "Игрок O",
     waiting: "Ожидание...",
     guestPlayer: "Гость",
+    winsLabel: "Победы",
     typeMessage: "Введите сообщение...",
     chatUnavailable: "Чат недоступен",
     chatDisabledAIPlaceholder: "Чат отключен в режиме ИИ",
@@ -214,6 +218,7 @@ const translations = {
     playerO: "플레이어 O",
     waiting: "대기 중...",
     guestPlayer: "게스트 플레이어",
+    winsLabel: "승리",
     typeMessage: "메시지를 입력하세요...",
     chatUnavailable: "채팅을 사용할 수 없음",
     chatDisabledAIPlaceholder: "AI 모드에서는 채팅이 비활성화됩니다",
@@ -258,6 +263,7 @@ const translations = {
     playerO: "プレイヤーO",
     waiting: "待機中...",
     guestPlayer: "ゲストプレイヤー",
+    winsLabel: "勝利",
     typeMessage: "メッセージを入力...",
     chatUnavailable: "チャットは利用できません",
     chatDisabledAIPlaceholder: "AIモードではチャットできません",
@@ -402,6 +408,149 @@ function getMessageUserId(messageData) {
   return "";
 }
 
+function normalizeWins(rawWins) {
+  const wins = Number(rawWins);
+  if (!Number.isFinite(wins) || wins < 0) return 0;
+  return Math.floor(wins);
+}
+
+function getCurrentMatchId(roomData) {
+  const matchId = Number(roomData?.stats?.matchId);
+  if (!Number.isFinite(matchId) || matchId < 1) return 1;
+  return Math.floor(matchId);
+}
+
+function getAwardKey(roomIdValue, matchId) {
+  if (!roomIdValue) return null;
+  return `${roomIdValue}:${matchId}`;
+}
+
+function ensurePlayerProfileForCurrentUser() {
+  const resolvedUserId = ensureNormalizedUserId();
+  if (!resolvedUserId) return Promise.resolve();
+  const playerName = currentUserName || t("guestPlayer");
+
+  return db.ref("players/" + resolvedUserId).transaction((current) => {
+    if (!current || typeof current !== "object") {
+      return {
+        name: playerName,
+        wins: 0
+      };
+    }
+
+    const next = { ...current };
+    next.name = playerName;
+    if (typeof next.wins !== "number" || !Number.isFinite(next.wins) || next.wins < 0) {
+      next.wins = 0;
+    }
+    return next;
+  }).catch((error) => {
+    console.error("Failed ensuring player profile:", error);
+  });
+}
+
+function stopPlayerStatsListeners() {
+  playerStatsSubscriptions.forEach(({ ref, listener }) => {
+    ref.off("value", listener);
+  });
+  playerStatsSubscriptions = [];
+  subscribedPlayerStatsKey = "";
+  playerStatsByUserId = {};
+}
+
+function subscribeToPlayerStats(normalizedData) {
+  const xId = normalizePlayerId(normalizedData?.players?.X?.id);
+  const oId = normalizePlayerId(normalizedData?.players?.O?.id);
+  const subscriptionKey = `${xId || ""}|${oId || ""}`;
+  if (subscriptionKey === subscribedPlayerStatsKey) return;
+
+  stopPlayerStatsListeners();
+  subscribedPlayerStatsKey = subscriptionKey;
+
+  [xId, oId].forEach((playerId) => {
+    if (!playerId) return;
+    const ref = db.ref("players/" + playerId);
+    const listener = (snapshot) => {
+      const data = snapshot.val() || {};
+      playerStatsByUserId[playerId] = {
+        wins: normalizeWins(data.wins)
+      };
+      updatePlayersText();
+    };
+    ref.on("value", listener);
+    playerStatsSubscriptions.push({ ref, listener });
+  });
+}
+
+function incrementWinnerStats(winnerUserId, winnerName, roomAwardKey) {
+  if (!winnerUserId || !roomAwardKey || !roomId) return;
+  const playerStatsRef = db.ref("players/" + winnerUserId);
+  playerStatsRef.transaction((current) => {
+    const existing = current && typeof current === "object" ? current : {};
+    if (existing.lastAwardedKey === roomAwardKey) return undefined;
+    const existingName = typeof existing.name === "string" ? existing.name.trim() : "";
+
+    return {
+      ...existing,
+      name: existingName || winnerName || t("guestPlayer"),
+      wins: normalizeWins(existing.wins) + 1,
+      lastWinRoomId: roomId,
+      lastAwardedKey: roomAwardKey
+    };
+  }).catch((error) => {
+    console.error("Failed incrementing winner stats:", error);
+  });
+}
+
+function maybeAwardWinnerStats(normalizedData) {
+  if (gameMode !== "online" || !roomRef || !roomId || isWinAwardInFlight) return;
+
+  const roomWinner = normalizedData?.winner;
+  if (roomWinner !== "X" && roomWinner !== "O") return;
+
+  const winnerPlayer = normalizedData?.players?.[roomWinner];
+  const winnerUserId = normalizePlayerId(winnerPlayer?.id);
+  if (!winnerUserId) return;
+
+  const matchId = getCurrentMatchId(normalizedData);
+  const roomAwardKey = getAwardKey(roomId, matchId);
+  const currentAwardedKey = typeof normalizedData?.stats?.awardedKey === "string" ? normalizedData.stats.awardedKey : null;
+  if (!roomAwardKey) return;
+
+  if (currentAwardedKey === roomAwardKey) {
+    if (lastProcessedAwardKey === roomAwardKey) return;
+    lastProcessedAwardKey = roomAwardKey;
+    incrementWinnerStats(
+      winnerUserId,
+      typeof winnerPlayer?.name === "string" ? winnerPlayer.name.trim() : "",
+      roomAwardKey
+    );
+    return;
+  }
+
+  if (currentAwardedKey && currentAwardedKey !== roomAwardKey) return;
+
+  isWinAwardInFlight = true;
+  roomRef.child("stats/awardedKey").transaction((existingKey) => {
+    if (existingKey) return undefined;
+    return roomAwardKey;
+  }, (error, committed) => {
+    isWinAwardInFlight = false;
+    if (error) {
+      console.error("Failed claiming room award key:", error);
+      return;
+    }
+    if (!committed) return;
+
+    lastProcessedAwardKey = roomAwardKey;
+    incrementWinnerStats(
+      winnerUserId,
+      typeof winnerPlayer?.name === "string" ? winnerPlayer.name.trim() : "",
+      roomAwardKey
+    );
+  });
+}
+
 syncTelegramUserContext();
 lang = getInitialLanguage();
 
@@ -427,6 +576,9 @@ let roomId = null;
 let roomRef = null;
 let roomValueListener = null;
 let chatMessagesRef = null;
+let playerStatsSubscriptions = [];
+let subscribedPlayerStatsKey = "";
+let playerStatsByUserId = {};
 let chatEnabled = false;
 
 // Tracks room readiness and the current user's role
@@ -434,6 +586,8 @@ let roomLoaded = false;
 let myRole = null;        // "X", "O", or null (spectator)
 let hasAttemptedJoin = false;
 let isJoinAttemptInFlight = false;
+let isWinAwardInFlight = false;
+let lastProcessedAwardKey = null;
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -552,6 +706,10 @@ function normalizeRoomData(raw) {
     turn: raw.turn || null,
     winner: raw.winner || null,
     winningCells: Array.isArray(raw.winningCells) ? raw.winningCells : [],
+    stats: {
+      matchId: getCurrentMatchId(raw),
+      awardedKey: typeof raw.stats?.awardedKey === "string" ? raw.stats.awardedKey : null
+    },
     players: {
       X: raw.players?.X || null,
       O: raw.players?.O || null
@@ -592,6 +750,7 @@ function updateActionButtons() {
 // =======================
 document.addEventListener("DOMContentLoaded", () => {
   syncTelegramUserContext();
+  ensurePlayerProfileForCurrentUser();
 
   console.log("App Loaded ✅");
 
@@ -709,6 +868,10 @@ function createGame() {
     turn: "X",
     winner: null,
     winningCells: [],
+    stats: {
+      matchId: 1,
+      awardedKey: null
+    },
     players: {
       X: {
         id: normalizedUserId,
@@ -759,7 +922,37 @@ function updatePlayersText() {
   const data = window.currentRoomData;
   const x = data?.players?.X?.name || t("playerX");
   const o = data?.players?.O?.name || t("waiting");
-  playersDiv.innerText = t("playerVs", { x, o });
+  const xId = normalizePlayerId(data?.players?.X?.id);
+  const oId = normalizePlayerId(data?.players?.O?.id);
+  const xWins = xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0;
+  const oWins = oId ? normalizeWins(playerStatsByUserId[oId]?.wins) : 0;
+
+  playersDiv.innerHTML = "";
+
+  const xBlock = document.createElement("div");
+  xBlock.className = "player-stat-block";
+  const xName = document.createElement("div");
+  xName.className = "player-name-line";
+  xName.innerText = `❌ ${x}`;
+  const xWinsText = document.createElement("div");
+  xWinsText.className = "player-wins-line";
+  xWinsText.innerText = `${t("winsLabel")}: ${xWins}`;
+  xBlock.appendChild(xName);
+  xBlock.appendChild(xWinsText);
+
+  const oBlock = document.createElement("div");
+  oBlock.className = "player-stat-block";
+  const oName = document.createElement("div");
+  oName.className = "player-name-line";
+  oName.innerText = `⭕ ${o}`;
+  const oWinsText = document.createElement("div");
+  oWinsText.className = "player-wins-line";
+  oWinsText.innerText = `${t("winsLabel")}: ${oWins}`;
+  oBlock.appendChild(oName);
+  oBlock.appendChild(oWinsText);
+
+  playersDiv.appendChild(xBlock);
+  playersDiv.appendChild(oBlock);
 }
 
 // =======================
@@ -834,6 +1027,8 @@ function listenRoom() {
     console.log("join debug: players.X.id =", xId);
     console.log("join debug: players.O.id =", oId);
 
+    subscribeToPlayerStats(normalizedData);
+    maybeAwardWinnerStats(normalizedData);
     updatePlayersText();
 
     updateStatus();
@@ -1107,11 +1302,18 @@ function restartGame() {
     return;
   }
 
+  const nextMatchId = getCurrentMatchId(window.currentRoomData) + 1;
+  lastProcessedAwardKey = null;
+
   roomRef.update({
     board: ["","","","","","","","",""],
     turn: "X",
     winner: null,
-    winningCells: []
+    winningCells: [],
+    stats: {
+      matchId: nextMatchId,
+      awardedKey: null
+    }
   }).catch(err => {
     console.error("Restart failed:", err);
     showToast(t("restartFailed"));
@@ -1169,6 +1371,9 @@ function stopRoomListener() {
   myRole = null;
   hasAttemptedJoin = false;
   isJoinAttemptInFlight = false;
+  isWinAwardInFlight = false;
+  lastProcessedAwardKey = null;
+  stopPlayerStatsListeners();
   window.currentRoomData = null;
 }
 

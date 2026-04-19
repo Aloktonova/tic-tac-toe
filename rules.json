@@ -3,6 +3,18 @@
     ".read": false,
     ".write": false,
 
+    "players": {
+      "$userId": {
+        ".read": true,
+        ".write": "(!data.exists() && newData.hasChildren(['name', 'wins']) && newData.child('name').isString() && newData.child('wins').isNumber() && newData.child('wins').val() === 0) || (data.exists() && newData.hasChildren(['name', 'wins']) && newData.child('name').isString() && newData.child('wins').isNumber() && newData.child('wins').val() === data.child('wins').val() && (!newData.child('lastWinRoomId').exists() || newData.child('lastWinRoomId').val() === data.child('lastWinRoomId').val()) && (!newData.child('lastAwardedKey').exists() || newData.child('lastAwardedKey').val() === data.child('lastAwardedKey').val())) || (data.exists() && newData.hasChildren(['name', 'wins', 'lastWinRoomId', 'lastAwardedKey']) && newData.child('name').isString() && newData.child('wins').isNumber() && data.child('wins').isNumber() && newData.child('wins').val() === data.child('wins').val() + 1 && newData.child('lastWinRoomId').isString() && newData.child('lastAwardedKey').isString() && (!data.child('lastAwardedKey').exists() || data.child('lastAwardedKey').val() !== newData.child('lastAwardedKey').val()) && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('stats').child('awardedKey').val() === newData.child('lastAwardedKey').val() && ((root.child('rooms').child(newData.child('lastWinRoomId').val()).child('winner').val() === 'X' && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('players').child('X').child('id').val() === $userId) || (root.child('rooms').child(newData.child('lastWinRoomId').val()).child('winner').val() === 'O' && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('players').child('O').child('id').val() === $userId)))",
+        "name": { ".validate": "newData.isString()" },
+        "wins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "lastWinRoomId": { ".validate": "newData.val() === null || newData.isString()" },
+        "lastAwardedKey": { ".validate": "newData.val() === null || newData.isString()" },
+        "$other": { ".validate": false }
+      }
+    },
+
     "rooms": {
       "$roomId": {
         ".read": true,
@@ -27,6 +39,16 @@
           "$i": {
             ".validate": "newData.isNumber()"
           }
+        },
+
+        "stats": {
+          "matchId": {
+            ".validate": "newData.isNumber() && newData.val() >= 1"
+          },
+          "awardedKey": {
+            ".validate": "newData.val() === null || (newData.isString() && newData.val().matches(/^[-_A-Za-z0-9]+:[0-9]+$/))"
+          },
+          "$other": { ".validate": false }
         },
 
         "players": {
