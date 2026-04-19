@@ -7,6 +7,20 @@ body {
   padding: 0 16px 56px;
   min-height: 100vh;
   box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 /* 🔝 Top bar */
@@ -17,6 +31,7 @@ body {
   gap: 10px;
   padding: 14px 0 10px;
   font-size: 14px;
+  width: 100%;
 }
 
 #settingsBtn {
@@ -74,6 +89,31 @@ body {
   text-overflow: ellipsis;
 }
 
+.user-name-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: right;
+}
+
+.user-name-link:hover {
+  transform: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+.user-name-link:active {
+  transform: none;
+}
+
+.user-name-link.disabled {
+  cursor: default;
+  text-decoration: none;
+}
+
 /* 🏠 Screens */
 .screen {
   padding: 16px 0;
@@ -85,7 +125,8 @@ body {
 
 #homeScreen,
 #gameScreen {
-  max-width: 430px;
+  max-width: 420px;
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -100,7 +141,9 @@ body {
 }
 
 .home-game-image {
-  width: min(88vw, 360px);
+  width: 90%;
+  max-width: 250px;
+  margin: 20px auto 0;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 20px;
@@ -110,7 +153,8 @@ body {
 }
 
 .home-actions {
-  width: min(90%, 360px);
+  width: 100%;
+  max-width: 300px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -153,11 +197,12 @@ button:disabled {
 #createGame,
 #playAI {
   width: 100%;
-  margin: 0;
-  border-radius: 22px;
+  max-width: 300px;
+  margin: 10px auto;
+  border-radius: 20px;
   padding: 16px 20px;
   background: linear-gradient(120deg, #3b82f6 0%, #6366f1 52%, #9333ea 100%);
-  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 20px rgba(147, 51, 234, 0.34);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 15px rgba(37, 99, 235, 0.6);
   transition: transform 0.2s ease, box-shadow 0.28s ease, filter 0.28s ease;
   animation: buttonGlow 2.4s ease-in-out infinite alternate;
 }
@@ -177,7 +222,7 @@ button:disabled {
 /* 🎯 Board container */
 #board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   justify-content: center;
   margin: 14px auto 18px;
@@ -186,7 +231,8 @@ button:disabled {
   border: 1px solid #1e3a8a;
   background: linear-gradient(145deg, #0f172a, #0b1220);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.6), inset 0 0 0 1px rgba(148, 163, 184, 0.15);
-  max-width: 360px;
+  width: 90%;
+  max-width: 300px;
 }
 
 /* 🔲 Cells */
@@ -272,14 +318,19 @@ button:disabled {
 .actions {
   margin-top: 6px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 8px;
+  width: 100%;
 }
 
 .actions button {
-  margin: 0;
-  min-width: 108px;
+  width: 100%;
+  max-width: 300px;
+  margin: 10px auto;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28), 0 0 15px rgba(37, 99, 235, 0.6);
 }
 
 /* 💬 Chat Box */

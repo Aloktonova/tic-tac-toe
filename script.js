@@ -46,6 +46,7 @@ const translations = {
     noMessagesYet: "No messages yet",
     unableVerifyIdentity: "Unable to verify identity",
     failedCreateRoom: "Failed to create room. Try again.",
+    noUsernameAvailable: "No username available",
     youAreSpectating: "You are spectating",
     notYourTurn: "Not your turn",
     moveFailed: "Move failed. Please try again.",
@@ -91,6 +92,7 @@ const translations = {
     noMessagesYet: "अभी तक कोई संदेश नहीं",
     unableVerifyIdentity: "पहचान सत्यापित नहीं हो सकी",
     failedCreateRoom: "रूम नहीं बन पाया। फिर से कोशिश करें।",
+    noUsernameAvailable: "यूज़रनेम उपलब्ध नहीं है",
     youAreSpectating: "आप दर्शक हैं",
     notYourTurn: "यह आपकी बारी नहीं है",
     moveFailed: "चाल असफल रही। फिर प्रयास करें।",
@@ -136,6 +138,7 @@ const translations = {
     noMessagesYet: "لا توجد رسائل بعد",
     unableVerifyIdentity: "تعذر التحقق من الهوية",
     failedCreateRoom: "فشل إنشاء الغرفة. حاول مرة أخرى.",
+    noUsernameAvailable: "اسم المستخدم غير متوفر",
     youAreSpectating: "أنت متفرج",
     notYourTurn: "ليس دورك",
     moveFailed: "فشلت الحركة. حاول مرة أخرى.",
@@ -181,6 +184,7 @@ const translations = {
     noMessagesYet: "Пока нет сообщений",
     unableVerifyIdentity: "Не удалось проверить личность",
     failedCreateRoom: "Не удалось создать комнату. Попробуйте снова.",
+    noUsernameAvailable: "Имя пользователя недоступно",
     youAreSpectating: "Вы наблюдатель",
     notYourTurn: "Сейчас не ваш ход",
     moveFailed: "Ход не выполнен. Попробуйте снова.",
@@ -226,6 +230,7 @@ const translations = {
     noMessagesYet: "아직 메시지가 없습니다",
     unableVerifyIdentity: "사용자 확인에 실패했습니다",
     failedCreateRoom: "방 생성에 실패했습니다. 다시 시도하세요.",
+    noUsernameAvailable: "사용자 이름이 없습니다",
     youAreSpectating: "관전 중입니다",
     notYourTurn: "당신 차례가 아닙니다",
     moveFailed: "수를 둘 수 없습니다. 다시 시도하세요.",
@@ -271,6 +276,7 @@ const translations = {
     noMessagesYet: "まだメッセージがありません",
     unableVerifyIdentity: "ユーザー確認ができませんでした",
     failedCreateRoom: "ルーム作成に失敗しました。再試行してください。",
+    noUsernameAvailable: "ユーザー名がありません",
     youAreSpectating: "観戦中です",
     notYourTurn: "あなたの番ではありません",
     moveFailed: "操作に失敗しました。再試行してください。",
@@ -285,6 +291,7 @@ let userId = null;
 let normalizedUserId = null;
 let currentUserName = "";
 let currentUserPhotoUrl = "";
+let currentTelegramUsername = "";
 let lang = DEFAULT_LANGUAGE;
 let currentMessages = [];
 let currentChatPlaceholderKey = "chatDisabledAIPlaceholder";
@@ -359,6 +366,7 @@ function syncTelegramUserContext() {
   normalizedUserId = userId === null ? fallbackId : String(userId);
   currentUserName = getDisplayName(user);
   currentUserPhotoUrl = typeof user.photo_url === "string" ? user.photo_url : "";
+  currentTelegramUsername = typeof user.username === "string" ? user.username.trim() : "";
 }
 
 function ensureNormalizedUserId() {
@@ -620,6 +628,20 @@ function openDeveloperTelegram(event) {
   tg.openTelegramLink(DEVELOPER_TELEGRAM_URL);
 }
 
+function openCurrentUserTelegramProfile(event) {
+  event?.preventDefault?.();
+  if (!userId) return;
+  if (!currentTelegramUsername) {
+    showToast(t("noUsernameAvailable"));
+    return;
+  }
+  if (isRunningInsideTelegramWebApp()) {
+    tg.openTelegramLink("https://t.me/" + currentTelegramUsername);
+  } else {
+    window.open("https://t.me/" + currentTelegramUsername, "_blank", "noopener,noreferrer");
+  }
+}
+
 function renderUserProfile() {
   if (!userInfo) return;
   userInfo.innerHTML = "";
@@ -640,9 +662,16 @@ function renderUserProfile() {
     profile.appendChild(avatarFallback);
   }
 
-  const fullName = document.createElement("span");
-  fullName.className = "user-name";
+  const fullName = document.createElement("button");
+  fullName.type = "button";
+  fullName.className = "user-name user-name-link";
   fullName.innerText = currentUserName || t("guestPlayer");
+  if (userId) {
+    fullName.addEventListener("click", openCurrentUserTelegramProfile);
+  } else {
+    fullName.classList.add("disabled");
+    fullName.disabled = true;
+  }
   profile.appendChild(fullName);
 
   userInfo.appendChild(profile);
@@ -782,7 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
-  aiBtn.addEventListener("click", playAI);
+  aiBtn.onclick = startAIGame;
   sendBtnEl.addEventListener("click", sendChatMessage);
   chatInputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -895,6 +924,10 @@ function createGame() {
 // 🤖 AI MODE
 // =======================
 function playAI() {
+  startAIGame();
+}
+
+function startAIGame() {
   console.log("AI Mode");
 
   gameMode = "ai";
