@@ -10,21 +10,22 @@
 
 <div class="app-container">
 
-<!-- 🔝 Top Bar -->
-<div class="top-bar">
-  <button id="settingsBtn">⚙️</button>
-  <div id="userInfo"></div>
-</div>
-
 <!-- 🏠 Home Screen -->
 <div id="homeScreen" class="screen">
-  <img
-    class="home-game-image"
-    src="assets/tic-tac-toe-board.svg"
-    alt="Tic Tac Toe board"
-  />
+  <div class="top-bar">
+    <button id="settingsBtn">⚙️</button>
+    <div id="userInfo"></div>
+  </div>
 
-  <div class="home-actions">
+  <div class="main-content">
+    <img
+      class="home-game-image"
+      src="assets/tic-tac-toe-board.svg"
+      alt="Tic Tac Toe board"
+    />
+  </div>
+
+  <div class="actions home-actions">
     <button id="createGame">Play with Friend</button>
     <button id="playAI" onclick="startAIGame()">Play with Computer</button>
   </div>
