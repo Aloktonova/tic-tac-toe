@@ -299,8 +299,6 @@ let profileStatsByUserId = {};
 let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
-let lastAIGameStartAt = 0;
-const AI_GAME_START_DEBOUNCE_MS = 350;
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -902,8 +900,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
   if (aiBtn) {
-    aiBtn.addEventListener("click", startAIGameFromHome);
-    aiBtn.addEventListener("pointerup", startAIGameFromHome);
+    aiBtn.onclick = startAIGame;
   }
   sendBtnEl.addEventListener("click", sendChatMessage);
   chatInputEl.addEventListener("keydown", (e) => {
@@ -1020,18 +1017,8 @@ function createGame() {
 // =======================
 // 🤖 AI MODE
 // =======================
-function startAIGameFromHome(event) {
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  const now = Date.now();
-  // Prevent duplicate fire when click/pointer events are emitted together.
-  if (now - lastAIGameStartAt < AI_GAME_START_DEBOUNCE_MS) return;
-  lastAIGameStartAt = now;
-  startAIGame();
-}
-
 function startAIGame() {
-  console.log("AI Mode");
+  console.log("AI button clicked");
 
   stopRoomListener();
   stopChatListener();
@@ -1047,6 +1034,7 @@ function startAIGame() {
   winningCells = [];
 
   showGame();
+  if (chatBoxEl) chatBoxEl.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
   setInviteButtonState();
@@ -1061,6 +1049,7 @@ function setInviteButtonState() {
   if (!inviteBtn) return;
   const isOnlineMode = gameMode === "online";
   inviteBtn.style.display = isOnlineMode ? "" : "none";
+  if (isOnlineMode && chatBoxEl) chatBoxEl.style.display = "";
   setChatVisibility(isOnlineMode);
 }
 
@@ -1526,6 +1515,7 @@ function goHome() {
   roomId = null;
   roomRef = null;
   aiResultAwarded = false;
+  if (chatBoxEl) chatBoxEl.style.display = "";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
