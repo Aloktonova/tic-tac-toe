@@ -374,19 +374,32 @@ function generateFallbackUserId() {
   if (window.crypto?.randomUUID) {
     return "user_" + window.crypto.randomUUID().replace(/-/g, "");
   }
-  return "user_" + Date.now().toString(36) + "_" + (window.performance?.now?.() || 0).toString().replace(".", "");
+  let counter = 0;
+  try {
+    counter = Number(localStorage.getItem("fallbackIdCounter") || "0") + 1;
+    localStorage.setItem("fallbackIdCounter", String(counter));
+  } catch (err) {
+    counter = Date.now();
+  }
+  return "user_" + Date.now().toString(36) + "_" + counter.toString(36);
 }
 
 function generateRoomId() {
   if (window.crypto?.getRandomValues) {
     const bytes = new Uint8Array(4);
     window.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 6);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
   if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+    return window.crypto.randomUUID().replace(/-/g, "").slice(0, 8);
   }
-  return Date.now().toString(36).slice(-6);
+  return Date.now().toString(36).slice(-8);
+}
+
+function getMessageUserId(messageData) {
+  if (messageData?.userId !== null && messageData?.userId !== undefined) return String(messageData.userId);
+  if (messageData?.senderId !== null && messageData?.senderId !== undefined) return String(messageData.senderId);
+  return "";
 }
 
 syncTelegramUserContext();
@@ -1178,7 +1191,7 @@ function startChatListener() {
       if (!text) return;
 
       messages.push({
-        userId: data.userId !== null && data.userId !== undefined ? String(data.userId) : (data.senderId !== null && data.senderId !== undefined ? String(data.senderId) : ""),
+        userId: getMessageUserId(data),
         name: (typeof data.name === "string" && data.name.trim())
           ? data.name.trim()
           : ((typeof data.senderName === "string" && data.senderName.trim()) ? data.senderName.trim() : t("guestPlayer")),
