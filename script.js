@@ -1,6 +1,6 @@
 // 📱 Telegram
 const tg = window.Telegram?.WebApp;
-if (typeof tg?.expand === "function") tg.expand();
+if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 
 let user = {};
@@ -103,11 +103,7 @@ function showToast(msg, duration) {
 }
 
 function isRunningInsideTelegramWebApp() {
-  return !!(
-    tg &&
-    typeof tg.openTelegramLink === "function" &&
-    tg.initData !== undefined
-  );
+  return tg && typeof tg.openTelegramLink === "function" && tg.initData !== undefined;
 }
 
 function openDeveloperTelegram(event) {
