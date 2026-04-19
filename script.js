@@ -426,10 +426,28 @@ function normalizeWins(rawWins) {
   return Math.floor(wins);
 }
 
+function normalizeLosses(rawLosses) {
+  const losses = Number(rawLosses);
+  if (!Number.isFinite(losses) || losses < 0) return 0;
+  return Math.floor(losses);
+}
+
+function normalizeDraws(rawDraws) {
+  const draws = Number(rawDraws);
+  if (!Number.isFinite(draws) || draws < 0) return 0;
+  return Math.floor(draws);
+}
+
 function normalizeGames(rawGames) {
   const games = Number(rawGames);
   if (!Number.isFinite(games) || games < 0) return 0;
   return Math.floor(games);
+}
+
+function normalizeXp(rawXp) {
+  const xp = Number(rawXp);
+  if (!Number.isFinite(xp) || xp < 0) return 0;
+  return Math.floor(xp);
 }
 
 function getCurrentMatchId(roomData) {
@@ -460,7 +478,10 @@ function ensurePlayerProfileForCurrentUser() {
           return {
             name: playerName,
             wins: legacyWins,
-            games: 0
+            losses: 0,
+            draws: 0,
+            games: 0,
+            xp: 0
           };
         }
 
@@ -473,6 +494,15 @@ function ensurePlayerProfileForCurrentUser() {
         }
         if (typeof next.games !== "number" || !Number.isFinite(next.games) || next.games < 0) {
           next.games = 0;
+        }
+        if (typeof next.losses !== "number" || !Number.isFinite(next.losses) || next.losses < 0) {
+          next.losses = 0;
+        }
+        if (typeof next.draws !== "number" || !Number.isFinite(next.draws) || next.draws < 0) {
+          next.draws = 0;
+        }
+        if (typeof next.xp !== "number" || !Number.isFinite(next.xp) || next.xp < 0) {
+          next.xp = 0;
         }
         return next;
       });
@@ -511,7 +541,10 @@ function subscribeToPlayerStats(normalizedData) {
           const legacyData = legacySnapshot.val() || {};
           playerStatsByUserId[playerId] = {
             wins: normalizeWins(legacyData.wins),
-            games: 0
+            losses: 0,
+            draws: 0,
+            games: 0,
+            xp: 0
           };
           updatePlayersText();
         }).catch((error) => {
@@ -521,7 +554,10 @@ function subscribeToPlayerStats(normalizedData) {
       }
       playerStatsByUserId[playerId] = {
         wins: normalizeWins(data.wins),
-        games: normalizeGames(data.games)
+        losses: normalizeLosses(data.losses),
+        draws: normalizeDraws(data.draws),
+        games: normalizeGames(data.games),
+        xp: normalizeXp(data.xp)
       };
       updatePlayersText();
     };
@@ -530,11 +566,15 @@ function subscribeToPlayerStats(normalizedData) {
   });
 }
 
-function incrementUserMatchStats(userIdValue, userNameValue, isWinner, roomAwardKey) {
+function incrementUserMatchStats(userIdValue, userNameValue, resultOutcome, roomAwardKey) {
   if (!db) return;
   if (!userIdValue || !roomAwardKey) return;
   const playerStatsRef = db.ref("users/" + userIdValue);
   const relatedRoomId = roomId || null;
+  const didWin = resultOutcome === "win";
+  const didDraw = resultOutcome === "draw";
+  const didLose = resultOutcome === "loss";
+  const xpGain = didWin ? XP_GAIN_WIN : (didDraw ? XP_GAIN_DRAW : XP_GAIN_LOSS);
   playerStatsRef.transaction((current) => {
     const existing = current && typeof current === "object" ? current : {};
     if (existing.lastAwardedKey === roomAwardKey) return undefined;
@@ -543,8 +583,11 @@ function incrementUserMatchStats(userIdValue, userNameValue, isWinner, roomAward
     return {
       ...existing,
       name: existingName || userNameValue || t("guestPlayer"),
-      wins: normalizeWins(existing.wins) + (isWinner ? 1 : 0),
+      wins: normalizeWins(existing.wins) + (didWin ? 1 : 0),
+      losses: normalizeLosses(existing.losses) + (didLose ? 1 : 0),
+      draws: normalizeDraws(existing.draws) + (didDraw ? 1 : 0),
       games: normalizeGames(existing.games) + 1,
+      xp: normalizeXp(existing.xp) + xpGain,
       lastWinRoomId: relatedRoomId,
       lastAwardedKey: roomAwardKey
     };
@@ -576,10 +619,13 @@ function maybeAwardMatchStats(normalizedData) {
     if (lastProcessedAwardKey === roomAwardKey) return;
     lastProcessedAwardKey = roomAwardKey;
     participants.forEach((participant) => {
+      let outcome = "loss";
+      if (roomWinner === "draw") outcome = "draw";
+      else if (roomWinner === participant.symbol) outcome = "win";
       incrementUserMatchStats(
         participant.id,
         participant.name,
-        roomWinner === participant.symbol,
+        outcome,
         roomAwardKey
       );
     });
@@ -659,6 +705,12 @@ let isWinAwardInFlight = false;
 let lastProcessedAwardKey = null;
 
 const MAX_MESSAGE_LENGTH = 500;
+const XP_PER_LEVEL = 100;
+const XP_GAIN_WIN = 10;
+const XP_GAIN_DRAW = 7;
+const XP_GAIN_LOSS = 5;
+const AUTO_RESTART_DELAY_MS = 2000;
+const LOCAL_MATCH_ID = 1;
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
@@ -666,7 +718,9 @@ let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl, chatBoxEl;
 let inviteBtn, restartBtn, homeBtn;
 let settingsModal;
-let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileGamesValue;
+let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileLossesValue, profileDrawsValue, profileGamesValue, profileLevelValue, profileXpValue, profileXpBarFill, profileXpPercentValue;
+let autoRestartTimer = null;
+let lastAutoRestartKey = "";
 
 // =======================
 // 🔔 TOAST
@@ -695,7 +749,10 @@ function getProfileStatsForUser(playerId) {
     return {
       name: currentUserName || t("guestPlayer"),
       wins: 0,
-      games: 0
+      losses: 0,
+      draws: 0,
+      games: 0,
+      xp: 0
     };
   }
 
@@ -703,16 +760,28 @@ function getProfileStatsForUser(playerId) {
   return {
     name: (typeof data.name === "string" && data.name.trim()) ? data.name.trim() : (currentUserName || t("guestPlayer")),
     wins: normalizeWins(data.wins),
-    games: normalizeGames(data.games)
+    losses: normalizeLosses(data.losses),
+    draws: normalizeDraws(data.draws),
+    games: normalizeGames(data.games),
+    xp: normalizeXp(data.xp)
   };
 }
 
 function updateProfileModalContent(playerId) {
-  if (!profileNameValue || !profileWinsValue || !profileGamesValue) return;
+  if (!profileNameValue || !profileWinsValue || !profileLossesValue || !profileDrawsValue || !profileGamesValue || !profileLevelValue || !profileXpValue || !profileXpBarFill || !profileXpPercentValue) return;
   const stats = getProfileStatsForUser(playerId || ensureNormalizedUserId());
+  const level = Math.floor(stats.xp / XP_PER_LEVEL);
+  const xpInCurrentLevel = stats.xp % XP_PER_LEVEL;
+  const xpProgressPercent = Math.floor((xpInCurrentLevel / XP_PER_LEVEL) * 100);
   profileNameValue.innerText = stats.name;
   profileWinsValue.innerText = String(stats.wins);
+  profileLossesValue.innerText = String(stats.losses);
+  profileDrawsValue.innerText = String(stats.draws);
   profileGamesValue.innerText = String(stats.games);
+  profileLevelValue.innerText = String(level);
+  profileXpValue.innerText = String(stats.xp);
+  profileXpBarFill.style.width = `${xpProgressPercent}%`;
+  profileXpPercentValue.innerText = `${xpProgressPercent}%`;
 }
 
 function startCurrentUserStatsListener() {
@@ -727,7 +796,10 @@ function startCurrentUserStatsListener() {
     profileStatsByUserId[playerId] = {
       name: typeof data.name === "string" ? data.name : currentUserName,
       wins: normalizeWins(data.wins),
-      games: normalizeGames(data.games)
+      losses: normalizeLosses(data.losses),
+      draws: normalizeDraws(data.draws),
+      games: normalizeGames(data.games),
+      xp: normalizeXp(data.xp)
     };
     updateProfileModalContent(playerId);
   };
@@ -906,7 +978,13 @@ document.addEventListener("DOMContentLoaded", () => {
   closeProfileBtn = document.getElementById("closeProfileBtn");
   profileNameValue = document.getElementById("profileNameValue");
   profileWinsValue = document.getElementById("profileWinsValue");
+  profileLossesValue = document.getElementById("profileLossesValue");
+  profileDrawsValue = document.getElementById("profileDrawsValue");
   profileGamesValue = document.getElementById("profileGamesValue");
+  profileLevelValue = document.getElementById("profileLevelValue");
+  profileXpValue = document.getElementById("profileXpValue");
+  profileXpBarFill = document.getElementById("profileXpBarFill");
+  profileXpPercentValue = document.getElementById("profileXpPercentValue");
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const backHomeBtn = document.getElementById("backHomeBtn");
@@ -1056,11 +1134,12 @@ function startAIGame() {
   currentPlayer = "X";
   winner = null;
   winningCells = [];
-
-  const home = document.getElementById("homeScreen");
-  const game = document.getElementById("gameScreen");
-  if (home) home.classList.add("hidden");
-  if (game) game.classList.remove("hidden");
+  lastAutoRestartKey = "";
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
+  showGame();
 
   const chat = document.getElementById("chatBox");
   if (chat) chat.style.display = "none";
@@ -1406,10 +1485,11 @@ function maybeAwardAIMatchStats() {
   aiResultAwarded = true;
   const uniquePart = db.ref("users").push().key || `${Date.now().toString(36)}_${generateRoomId()}`;
   const aiAwardKey = `ai:${uniquePart}`;
+  const outcome = winner === "draw" ? "draw" : (winner === "X" ? "win" : "loss");
   incrementUserMatchStats(
     resolvedUserId,
     currentUserName || t("guestPlayer"),
-    winner === "X",
+    outcome,
     aiAwardKey
   );
 }
@@ -1442,14 +1522,36 @@ function playRandom() {
   makeAIMove(move);
 }
 
+function scheduleAutoRestartIfNeeded() {
+  if (winner !== "X" && winner !== "O" && winner !== "draw") {
+    lastAutoRestartKey = "";
+    if (autoRestartTimer) {
+      clearTimeout(autoRestartTimer);
+      autoRestartTimer = null;
+    }
+    return;
+  }
+
+  const matchId = gameMode === "online" ? getCurrentMatchId(window.currentRoomData) : LOCAL_MATCH_ID;
+  const restartKey = `${gameMode}:${roomId || "local"}:${matchId}:${winner}`;
+  if (lastAutoRestartKey === restartKey || autoRestartTimer) return;
+  lastAutoRestartKey = restartKey;
+  autoRestartTimer = setTimeout(() => {
+    autoRestartTimer = null;
+    restartGame();
+  }, AUTO_RESTART_DELAY_MS);
+}
+
 // =======================
 // 📊 STATUS
 // =======================
 function updateStatus() {
   if (gameMode === "ai") {
-    if (winner === "draw") return statusText.innerText = t("draw");
-    if (winner) return statusText.innerText = winner === "X" ? t("win") : t("opponentWinsAI");
-    return statusText.innerText = currentPlayer === "X" ? t("yourTurn") : t("aiThinking");
+    if (winner === "draw") statusText.innerText = t("draw");
+    else if (winner) statusText.innerText = winner === "X" ? t("win") : t("opponentWinsAI");
+    else statusText.innerText = currentPlayer === "X" ? t("yourTurn") : t("aiThinking");
+    scheduleAutoRestartIfNeeded();
+    return;
   }
 
   const data = window.currentRoomData;
@@ -1469,12 +1571,19 @@ function updateStatus() {
   else if (!myRole) statusText.innerText = t("turnOf", { player: currentPlayer });
   else if (myRole === currentPlayer) statusText.innerText = t("yourTurn");
   else statusText.innerText = t("opponentTurn");
+
+  scheduleAutoRestartIfNeeded();
 }
 
 // =======================
 // 🔁 RESTART
 // =======================
 function restartGame() {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
+  lastAutoRestartKey = "";
   if (gameMode === "ai") {
     aiResultAwarded = false;
     board = ["","","","","","","","",""];
@@ -1539,6 +1648,10 @@ function shareGame() {
 function showGame() {
   homeScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
+  if (homeScreen) homeScreen.style.display = "none";
+  if (gameScreen) gameScreen.style.display = "flex";
+  document.body.classList.add("game-active");
+  window.scrollTo(0, 0);
 }
 
 function goHome() {
@@ -1548,11 +1661,20 @@ function goHome() {
   roomId = null;
   roomRef = null;
   aiResultAwarded = false;
+  lastAutoRestartKey = "";
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
   if (chatBoxEl) chatBoxEl.style.display = "";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
+  if (gameScreen) gameScreen.style.display = "none";
+  if (homeScreen) homeScreen.style.display = "flex";
+  document.body.classList.remove("game-active");
+  window.scrollTo(0, 0);
 }
 
 function stopRoomListener() {
