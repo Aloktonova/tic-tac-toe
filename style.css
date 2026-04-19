@@ -30,7 +30,18 @@ body.game-active .app-footer {
   align-items: stretch;
   gap: 0;
   box-sizing: border-box;
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-container {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 10px;
 }
 
 /* 🔝 Top bar */
@@ -373,21 +384,24 @@ button:disabled {
 
 /* Actions */
 .actions {
-  margin-top: 0;
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  gap: 8px;
   width: 100%;
-  max-width: 320px;
+  max-width: 360px;
+  margin: 10px auto;
+  box-sizing: border-box;
+  padding: 0 10px;
 }
 
 .actions button {
-  width: 100%;
-  max-width: 320px;
-  margin: 10px auto;
-  border-radius: 20px;
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  font-size: 13px;
+  border-radius: 12px;
+  white-space: nowrap;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28), 0 0 15px rgba(37, 99, 235, 0.6);
 }
 
