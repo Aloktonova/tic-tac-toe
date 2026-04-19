@@ -1034,7 +1034,7 @@ function startAIGame() {
   winningCells = [];
 
   showGame();
-  const chatBox = document.getElementById("chatBox");
+  const chatBox = chatBoxEl || document.getElementById("chatBox");
   if (chatBox) chatBox.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
@@ -1050,6 +1050,7 @@ function setInviteButtonState() {
   if (!inviteBtn) return;
   const isOnlineMode = gameMode === "online";
   inviteBtn.style.display = isOnlineMode ? "" : "none";
+  if (isOnlineMode && chatBoxEl) chatBoxEl.style.display = "";
   setChatVisibility(isOnlineMode);
 }
 
@@ -1515,6 +1516,7 @@ function goHome() {
   roomId = null;
   roomRef = null;
   aiResultAwarded = false;
+  if (chatBoxEl) chatBoxEl.style.display = "";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
@@ -1662,6 +1664,5 @@ function disableChatForAI() {
 
 function setChatVisibility(visible) {
   if (!chatBoxEl) return;
-  if (visible) chatBoxEl.style.display = "";
   chatBoxEl.classList.toggle("hidden", !visible);
 }
