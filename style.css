@@ -1,121 +1,217 @@
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: white;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: radial-gradient(circle at top, #172554 0%, #0b1120 45%, #020617 100%);
+  color: #f8fafc;
   text-align: center;
-  padding-bottom: 44px;
+  padding: 0 12px 56px;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
 /* 🔝 Top bar */
 .top-bar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: #1e293b;
+  gap: 10px;
+  padding: 12px 0 8px;
   font-size: 14px;
+}
+
+.app-title {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-align: center;
+  color: #f8fafc;
+}
+
+#settingsBtn {
+  margin: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+#userInfo {
+  min-width: 44px;
+  color: #93c5fd;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 
 /* 🏠 Screens */
 .screen {
-  padding: 20px;
+  padding: 16px 0;
 }
 
 .hidden {
   display: none;
 }
 
+#homeScreen,
+#gameScreen {
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+#homeScreen h1 {
+  margin: 14px 0 18px;
+  font-size: 32px;
+}
+
 /* 🎮 Buttons */
 button {
   padding: 12px 16px;
-  margin: 8px;
+  margin: 6px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
+  color: #fff;
   font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+  touch-action: manipulation;
 }
 
 /* ✨ Hover */
 button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.32);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+#createGame,
+#playAI {
+  width: calc(100% - 12px);
+  margin: 8px 6px;
 }
 
 /* 🎯 Board container */
 #board {
   display: grid;
-  grid-template-columns: repeat(3, 90px);
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   justify-content: center;
-  margin: 20px auto;
-  padding: 15px;
-  border-radius: 15px;
-  background: #020617;
-  box-shadow: 0 0 20px rgba(59,130,246,0.3);
+  margin: 14px auto 18px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid #1e3a8a;
+  background: linear-gradient(145deg, #0f172a, #0b1220);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.6), inset 0 0 0 1px rgba(148, 163, 184, 0.15);
+  max-width: 360px;
 }
 
 /* 🔲 Cells */
 .cell {
-  width: 90px;
-  height: 90px;
-  font-size: 28px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-height: 96px;
+  margin: 0;
+  font-size: 32px;
   font-weight: bold;
-  border-radius: 12px;
-  background: #1e293b;
-  border: none;
-  color: white;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #1e293b, #0f172a);
+  border: 1px solid #334155;
+  color: #f8fafc;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.15);
+  animation: cellIn 0.22s ease;
 }
 
 /* ✨ Cell hover */
 .cell:not(:disabled):hover {
-  background: #334155;
+  background: linear-gradient(160deg, #334155, #1e293b);
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(191, 219, 254, 0.2);
 }
 
 /* 👇 Click effect */
 .cell:active {
-  transform: scale(0.9);
+  transform: scale(0.94);
 }
 
 /* ❌ Disabled */
 .cell:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+.cell.winning {
+  border-color: #22c55e;
+  background: linear-gradient(160deg, #14532d, #166534);
+  color: #dcfce7;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25), 0 0 18px rgba(34, 197, 94, 0.55);
+  animation: winGlow 0.8s ease-in-out infinite alternate;
+}
+
+#statusText {
+  margin: 8px 0 14px;
+  font-size: 26px;
+  line-height: 1.2;
+  min-height: 32px;
+  color: #e2e8f0;
+  letter-spacing: 0.2px;
 }
 
 /* 👤 Players */
 #players {
-  margin: 10px;
-  font-weight: bold;
-  font-size: 16px;
+  margin: 0 0 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #93c5fd;
 }
 
 /* 🎮 Actions */
 .actions {
-  margin-top: 15px;
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.actions button {
+  margin: 0;
+  min-width: 108px;
 }
 
 /* 💬 Chat Box */
 #chatBox {
-  margin-top: 20px;
-  max-width: 320px;
+  margin-top: 18px;
+  max-width: 360px;
   margin-left: auto;
   margin-right: auto;
-  background: #0b1220;
+  background: rgba(15, 23, 42, 0.82);
   border: 1px solid #334155;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 10px;
 }
 
 /* 📩 Messages */
 #messages {
-  height: 180px;
+  height: 160px;
   overflow-y: auto;
-  background: #111827;
+  background: #0b1220;
   padding: 10px;
   border-radius: 10px;
   text-align: left;
@@ -128,18 +224,22 @@ button:hover {
 /* 🧠 Chat input */
 .chat-input {
   display: flex;
+  gap: 8px;
   margin-top: 10px;
 }
 
 .chat-input input {
   flex: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #111827;
+  color: #f8fafc;
 }
 
 .chat-input button {
-  margin-left: 5px;
+  margin: 0;
+  padding-inline: 14px;
 }
 
 .chat-input input:disabled,
@@ -149,7 +249,7 @@ button:hover {
 }
 
 .message-item {
-  background: #1e293b;
+  background: #0f172a;
   border-radius: 8px;
   padding: 8px 10px;
   border: 1px solid #334155;
@@ -233,7 +333,7 @@ button:hover {
   bottom: 54px;
   left: 50%;
   transform: translateX(-50%);
-  background: #111;
+  background: #111827;
   padding: 10px 20px;
   border-radius: 10px;
   display: none;
@@ -264,20 +364,60 @@ button:hover {
 }
 
 /* 🎉 Win animation */
-@keyframes winPulse {
-  from { transform: scale(1); }
-  to { transform: scale(1.15); }
+@keyframes cellIn {
+  from {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes winGlow {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25), 0 0 12px rgba(34, 197, 94, 0.45);
+  }
+  to {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.4), 0 0 20px rgba(34, 197, 94, 0.7);
+  }
 }
 
 /* 📱 Mobile */
 @media (max-width: 400px) {
   #board {
-    grid-template-columns: repeat(3, 70px);
+    max-width: 330px;
+    gap: 10px;
   }
 
   .cell {
-    width: 70px;
-    height: 70px;
+    min-height: 88px;
+    font-size: 28px;
+  }
+
+  #statusText {
     font-size: 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  #gameScreen {
+    max-width: 520px;
+  }
+
+  #board {
+    max-width: 390px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

@@ -443,7 +443,7 @@ function renderBoard() {
     btn.innerText = cell;
 
     if (winningCells.includes(i)) {
-      btn.style.background = "#22c55e";
+      btn.classList.add("winning");
     }
 
     let disabled;
@@ -626,8 +626,8 @@ function playRandom() {
 // =======================
 function updateStatus() {
   if (gameMode === "ai") {
-    if (winner === "draw") return statusText.innerText = "Draw";
-    if (winner) return statusText.innerText = winner === "X" ? "You Win 🎉" : "AI Wins 🤖";
+    if (winner === "draw") return statusText.innerText = "Draw 🤝";
+    if (winner) return statusText.innerText = winner === "X" ? "You Win 🎉" : "Opponent Wins 🤖";
     return statusText.innerText = currentPlayer === "X" ? "Your Turn" : "AI Thinking…";
   }
 
@@ -638,15 +638,16 @@ function updateStatus() {
   }
 
   if (!data.players.O) {
-    statusText.innerText = "Waiting for player...";
+    statusText.innerText = "Waiting for Opponent...";
     return;
   }
 
-  if (winner === "draw") statusText.innerText = "Draw!";
+  if (winner === "draw") statusText.innerText = "Draw 🤝";
+  else if (winner && myRole) statusText.innerText = winner === myRole ? "You Win 🎉" : "Opponent Wins";
   else if (winner) statusText.innerText = winner + " Wins! 🎉";
-  else if (!myRole) statusText.innerText = currentPlayer + "'s Turn (you are spectating)";
-  else if (myRole === currentPlayer) statusText.innerText = "Your Turn (" + myRole + ")";
-  else statusText.innerText = "Waiting for " + currentPlayer + "...";
+  else if (!myRole) statusText.innerText = currentPlayer + "'s Turn";
+  else if (myRole === currentPlayer) statusText.innerText = "Your Turn";
+  else statusText.innerText = "Opponent Turn";
 }
 
 // =======================
