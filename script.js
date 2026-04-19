@@ -32,7 +32,7 @@ const translations = {
     waitingOpponent: "Waiting for Opponent...",
     opponentTurn: "Opponent Turn",
     turnOf: "{player}'s Turn",
-    symbolWins: "{symbol} Wins! 🎉",
+    symbolWins: "{symbol} Wins 🎉",
     playerVs: "❌ {x} vs ⭕ {o}",
     playerX: "Player X",
     playerO: "Player O",
@@ -77,7 +77,7 @@ const translations = {
     waitingOpponent: "प्रतिद्वंदी का इंतज़ार...",
     opponentTurn: "प्रतिद्वंदी की बारी",
     turnOf: "{player} की बारी",
-    playerVs: "❌ {x} बनाम ⭕ {o}",
+    playerVs: "❌ {x} विरुद्ध ⭕ {o}",
     playerX: "प्लेयर X",
     playerO: "प्लेयर O",
     waiting: "इंतज़ार...",
@@ -314,7 +314,7 @@ function getDisplayName(rawUser) {
   if (!rawUser || typeof rawUser !== "object") return t("guestPlayer");
   const firstName = typeof rawUser.first_name === "string" ? rawUser.first_name.trim() : "";
   const lastName = typeof rawUser.last_name === "string" ? rawUser.last_name.trim() : "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ");
   return fullName || t("guestPlayer");
 }
 
@@ -482,7 +482,7 @@ function renderUserProfile() {
   } else {
     const avatarFallback = document.createElement("div");
     avatarFallback.className = "user-avatar user-avatar-fallback";
-    avatarFallback.innerText = (currentUserName || t("guestPlayer")).charAt(0).toUpperCase();
+    avatarFallback.innerText = (Array.from(currentUserName || t("guestPlayer"))[0] || "G").toUpperCase();
     profile.appendChild(avatarFallback);
   }
 
