@@ -594,7 +594,7 @@ const MAX_MESSAGE_LENGTH = 500;
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
-let messagesDiv, chatInputEl, sendBtnEl;
+let messagesDiv, chatInputEl, sendBtnEl, chatBoxEl;
 let inviteBtn, restartBtn, homeBtn;
 let settingsModal;
 
@@ -666,16 +666,16 @@ function applyTranslations() {
 
   if (createBtn) createBtn.innerText = t("playFriend");
   if (aiBtn) aiBtn.innerText = t("playAI");
-  if (inviteButton) inviteButton.innerText = `📩 ${t("invite")}`;
-  if (restartButton) restartButton.innerText = `🔁 ${t("restart")}`;
-  if (homeButton) homeButton.innerText = `🏠 ${t("home")}`;
+  if (inviteButton) inviteButton.innerText = t("invite");
+  if (restartButton) restartButton.innerText = t("restart");
+  if (homeButton) homeButton.innerText = t("home");
   if (sendButton) sendButton.innerText = t("send");
   if (settingsTitle) settingsTitle.innerText = t("settings");
   if (languageLabel) languageLabel.innerText = t("language");
   if (aboutTitle) aboutTitle.innerText = t("about");
   if (developerText) developerText.innerText = t("developer");
   if (telegramLabel) telegramLabel.innerText = t("telegram");
-  if (backHomeButton) backHomeButton.innerText = `🏠 ${t("backHome")}`;
+  if (backHomeButton) backHomeButton.innerText = t("backHome");
   if (closeSettingsButton) closeSettingsButton.innerText = t("close");
 
   if (chatInputEl) {
@@ -762,6 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   homeScreen = document.getElementById("homeScreen");
   gameScreen = document.getElementById("gameScreen");
+  chatBoxEl = document.getElementById("chatBox");
   messagesDiv = document.getElementById("messages");
   chatInputEl = document.getElementById("chatInput");
   sendBtnEl = document.getElementById("sendBtn");
@@ -915,6 +916,7 @@ function setInviteButtonState() {
   if (!inviteBtn) return;
   const isOnlineMode = gameMode === "online";
   inviteBtn.style.display = isOnlineMode ? "" : "none";
+  setChatVisibility(isOnlineMode);
 }
 
 function updatePlayersText() {
@@ -1358,6 +1360,7 @@ function goHome() {
   roomId = null;
   roomRef = null;
   setChatEnabled(false, "chatDisabledAIPlaceholder");
+  setChatVisibility(true);
   gameScreen.classList.add("hidden");
   homeScreen.classList.remove("hidden");
 }
@@ -1498,4 +1501,10 @@ function setChatEnabled(enabled, placeholderText) {
 function disableChatForAI() {
   stopChatListener();
   setChatEnabled(false, "chatDisabledAIPlaceholder");
+  setChatVisibility(false);
+}
+
+function setChatVisibility(visible) {
+  if (!chatBoxEl) return;
+  chatBoxEl.classList.toggle("hidden", !visible);
 }

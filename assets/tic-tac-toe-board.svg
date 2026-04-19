@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="line" x1="256" y1="128" x2="768" y2="896" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="72" fill="url(#bg)"/>
+  <g opacity="0.95">
+    <rect x="330" y="128" width="24" height="768" rx="12" fill="url(#line)"/>
+    <rect x="670" y="128" width="24" height="768" rx="12" fill="url(#line)"/>
+    <rect x="128" y="330" width="768" height="24" rx="12" fill="url(#line)"/>
+    <rect x="128" y="670" width="768" height="24" rx="12" fill="url(#line)"/>
+  </g>
+  <g opacity="0.82" stroke-linecap="round" stroke-width="26" stroke="url(#line)">
+    <line x1="200" y1="200" x2="288" y2="288"/>
+    <line x1="288" y1="200" x2="200" y2="288"/>
+    <circle cx="512" cy="512" r="56"/>
+    <line x1="736" y1="736" x2="824" y2="824"/>
+    <line x1="824" y1="736" x2="736" y2="824"/>
+  </g>
+</svg>
