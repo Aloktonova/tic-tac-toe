@@ -1034,8 +1034,7 @@ function startAIGame() {
   winningCells = [];
 
   showGame();
-  const chatBox = chatBoxEl;
-  if (chatBox) chatBox.style.display = "none";
+  if (chatBoxEl) chatBoxEl.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
   setInviteButtonState();
