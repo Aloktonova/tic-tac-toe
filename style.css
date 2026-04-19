@@ -112,6 +112,7 @@ body {
 .user-name-link.disabled {
   cursor: default;
   text-decoration: none;
+  pointer-events: none;
 }
 
 /* 🏠 Screens */
