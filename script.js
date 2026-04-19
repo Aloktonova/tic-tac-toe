@@ -1034,7 +1034,7 @@ function startAIGame() {
   winningCells = [];
 
   showGame();
-  const chatBox = chatBoxEl || document.getElementById("chatBox");
+  const chatBox = chatBoxEl;
   if (chatBox) chatBox.style.display = "none";
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(false);
