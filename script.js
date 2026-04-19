@@ -689,7 +689,7 @@ function autoJoinRoomFromLocation() {
 }
 
 // =======================
-// 🎮 CREATE GAME
+// CREATE GAME
 // =======================
 function createGame() {
   if (!normalizedUserId) {
@@ -870,7 +870,7 @@ function checkWinner(b) {
 }
 
 // =======================
-// 🎮 RENDER
+// RENDER
 // =======================
 function renderBoard() {
   boardDiv.innerHTML = "";
