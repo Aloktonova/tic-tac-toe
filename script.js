@@ -574,7 +574,7 @@ function incrementUserMatchStats(userIdValue, userNameValue, resultOutcome, room
   const didWin = resultOutcome === "win";
   const didDraw = resultOutcome === "draw";
   const didLose = resultOutcome === "loss";
-  const xpGain = didWin ? 10 : (didDraw ? 7 : 5);
+  const xpGain = didWin ? XP_GAIN_WIN : (didDraw ? XP_GAIN_DRAW : XP_GAIN_LOSS);
   playerStatsRef.transaction((current) => {
     const existing = current && typeof current === "object" ? current : {};
     if (existing.lastAwardedKey === roomAwardKey) return undefined;
@@ -705,6 +705,12 @@ let isWinAwardInFlight = false;
 let lastProcessedAwardKey = null;
 
 const MAX_MESSAGE_LENGTH = 500;
+const XP_PER_LEVEL = 100;
+const XP_GAIN_WIN = 10;
+const XP_GAIN_DRAW = 7;
+const XP_GAIN_LOSS = 5;
+const AUTO_RESTART_DELAY_MS = 2000;
+const LOCAL_MATCH_ID = 1;
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
@@ -764,8 +770,9 @@ function getProfileStatsForUser(playerId) {
 function updateProfileModalContent(playerId) {
   if (!profileNameValue || !profileWinsValue || !profileLossesValue || !profileDrawsValue || !profileGamesValue || !profileLevelValue || !profileXpValue || !profileXpBarFill || !profileXpPercentValue) return;
   const stats = getProfileStatsForUser(playerId || ensureNormalizedUserId());
-  const level = Math.floor(stats.xp / 100);
-  const xpPercent = stats.xp % 100;
+  const level = Math.floor(stats.xp / XP_PER_LEVEL);
+  const xpInCurrentLevel = stats.xp % XP_PER_LEVEL;
+  const xpProgressPercent = Math.floor((xpInCurrentLevel / XP_PER_LEVEL) * 100);
   profileNameValue.innerText = stats.name;
   profileWinsValue.innerText = String(stats.wins);
   profileLossesValue.innerText = String(stats.losses);
@@ -773,8 +780,8 @@ function updateProfileModalContent(playerId) {
   profileGamesValue.innerText = String(stats.games);
   profileLevelValue.innerText = String(level);
   profileXpValue.innerText = String(stats.xp);
-  profileXpBarFill.style.width = `${xpPercent}%`;
-  profileXpPercentValue.innerText = `${xpPercent}%`;
+  profileXpBarFill.style.width = `${xpProgressPercent}%`;
+  profileXpPercentValue.innerText = `${xpProgressPercent}%`;
 }
 
 function startCurrentUserStatsListener() {
@@ -1525,14 +1532,14 @@ function scheduleAutoRestartIfNeeded() {
     return;
   }
 
-  const matchId = gameMode === "online" ? getCurrentMatchId(window.currentRoomData) : 1;
+  const matchId = gameMode === "online" ? getCurrentMatchId(window.currentRoomData) : LOCAL_MATCH_ID;
   const restartKey = `${gameMode}:${roomId || "local"}:${matchId}:${winner}`;
   if (lastAutoRestartKey === restartKey || autoRestartTimer) return;
   lastAutoRestartKey = restartKey;
   autoRestartTimer = setTimeout(() => {
     autoRestartTimer = null;
     restartGame();
-  }, 2000);
+  }, AUTO_RESTART_DELAY_MS);
 }
 
 // =======================
