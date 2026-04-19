@@ -295,6 +295,11 @@ let currentTelegramUsername = "";
 let lang = DEFAULT_LANGUAGE;
 let currentMessages = [];
 let currentChatPlaceholderKey = "chatDisabledAIPlaceholder";
+let profileStatsByUserId = {};
+let userStatsRef = null;
+let userStatsListener = null;
+let aiResultAwarded = false;
+let lastAIGameStartAt = 0;
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -347,7 +352,7 @@ function setLanguage(nextLanguage, persist = true) {
 }
 
 function syncTelegramUserContext() {
-  user = tg.initDataUnsafe?.user || {};
+  user = tg?.initDataUnsafe?.user || {};
   userId = user.id ?? null;
   let fallbackId = null;
   try {
@@ -422,6 +427,12 @@ function normalizeWins(rawWins) {
   return Math.floor(wins);
 }
 
+function normalizeGames(rawGames) {
+  const games = Number(rawGames);
+  if (!Number.isFinite(games) || games < 0) return 0;
+  return Math.floor(games);
+}
+
 function getCurrentMatchId(roomData) {
   const matchId = Number(roomData?.stats?.matchId);
   if (!Number.isFinite(matchId) || matchId < 1) return 1;
@@ -438,11 +449,12 @@ function ensurePlayerProfileForCurrentUser() {
   if (!resolvedUserId) return Promise.resolve();
   const playerName = currentUserName || t("guestPlayer");
 
-  return db.ref("players/" + resolvedUserId).transaction((current) => {
+  return db.ref("users/" + resolvedUserId).transaction((current) => {
     if (!current || typeof current !== "object") {
       return {
         name: playerName,
-        wins: 0
+        wins: 0,
+        games: 0
       };
     }
 
@@ -450,6 +462,9 @@ function ensurePlayerProfileForCurrentUser() {
     next.name = playerName;
     if (typeof next.wins !== "number" || !Number.isFinite(next.wins) || next.wins < 0) {
       next.wins = 0;
+    }
+    if (typeof next.games !== "number" || !Number.isFinite(next.games) || next.games < 0) {
+      next.games = 0;
     }
     return next;
   }).catch((error) => {
@@ -477,11 +492,12 @@ function subscribeToPlayerStats(normalizedData) {
 
   [xId, oId].forEach((playerId) => {
     if (!playerId) return;
-    const ref = db.ref("players/" + playerId);
+    const ref = db.ref("users/" + playerId);
     const listener = (snapshot) => {
       const data = snapshot.val() || {};
       playerStatsByUserId[playerId] = {
-        wins: normalizeWins(data.wins)
+        wins: normalizeWins(data.wins),
+        games: normalizeGames(data.games)
       };
       updatePlayersText();
     };
@@ -490,9 +506,10 @@ function subscribeToPlayerStats(normalizedData) {
   });
 }
 
-function incrementWinnerStats(winnerUserId, winnerName, roomAwardKey) {
-  if (!winnerUserId || !roomAwardKey || !roomId) return;
-  const playerStatsRef = db.ref("players/" + winnerUserId);
+function incrementUserMatchStats(userIdValue, userNameValue, isWinner, roomAwardKey) {
+  if (!userIdValue || !roomAwardKey) return;
+  const playerStatsRef = db.ref("users/" + userIdValue);
+  const relatedRoomId = roomId || null;
   playerStatsRef.transaction((current) => {
     const existing = current && typeof current === "object" ? current : {};
     if (existing.lastAwardedKey === roomAwardKey) return undefined;
@@ -500,39 +517,51 @@ function incrementWinnerStats(winnerUserId, winnerName, roomAwardKey) {
 
     return {
       ...existing,
-      name: existingName || winnerName || t("guestPlayer"),
-      wins: normalizeWins(existing.wins) + 1,
-      lastWinRoomId: roomId,
+      name: existingName || userNameValue || t("guestPlayer"),
+      wins: normalizeWins(existing.wins) + (isWinner ? 1 : 0),
+      games: normalizeGames(existing.games) + 1,
+      lastWinRoomId: relatedRoomId,
       lastAwardedKey: roomAwardKey
     };
   }).catch((error) => {
-    console.error("Failed incrementing winner stats:", error);
+    console.error("Failed incrementing user match stats:", error);
   });
 }
 
-function maybeAwardWinnerStats(normalizedData) {
+function maybeAwardMatchStats(normalizedData) {
   if (gameMode !== "online" || !roomRef || !roomId || isWinAwardInFlight) return;
 
   const roomWinner = normalizedData?.winner;
-  if (roomWinner !== "X" && roomWinner !== "O") return;
-
-  const winnerPlayer = normalizedData?.players?.[roomWinner];
-  const winnerUserId = normalizePlayerId(winnerPlayer?.id);
-  if (!winnerUserId) return;
+  if (roomWinner !== "X" && roomWinner !== "O" && roomWinner !== "draw") return;
 
   const matchId = getCurrentMatchId(normalizedData);
   const roomAwardKey = getAwardKey(roomId, matchId);
   const currentAwardedKey = typeof normalizedData?.stats?.awardedKey === "string" ? normalizedData.stats.awardedKey : null;
   if (!roomAwardKey) return;
 
-  if (currentAwardedKey === roomAwardKey) {
+  const xPlayer = normalizedData?.players?.X;
+  const oPlayer = normalizedData?.players?.O;
+  const participants = [
+    { symbol: "X", id: normalizePlayerId(xPlayer?.id), name: typeof xPlayer?.name === "string" ? xPlayer.name.trim() : "" },
+    { symbol: "O", id: normalizePlayerId(oPlayer?.id), name: typeof oPlayer?.name === "string" ? oPlayer.name.trim() : "" }
+  ].filter((entry) => !!entry.id);
+  if (!participants.length) return;
+
+  const applyAward = () => {
     if (lastProcessedAwardKey === roomAwardKey) return;
     lastProcessedAwardKey = roomAwardKey;
-    incrementWinnerStats(
-      winnerUserId,
-      typeof winnerPlayer?.name === "string" ? winnerPlayer.name.trim() : "",
-      roomAwardKey
-    );
+    participants.forEach((participant) => {
+      incrementUserMatchStats(
+        participant.id,
+        participant.name,
+        roomWinner === participant.symbol,
+        roomAwardKey
+      );
+    });
+  };
+
+  if (currentAwardedKey === roomAwardKey) {
+    applyAward();
     return;
   }
 
@@ -549,13 +578,7 @@ function maybeAwardWinnerStats(normalizedData) {
       return;
     }
     if (!committed) return;
-
-    lastProcessedAwardKey = roomAwardKey;
-    incrementWinnerStats(
-      winnerUserId,
-      typeof winnerPlayer?.name === "string" ? winnerPlayer.name.trim() : "",
-      roomAwardKey
-    );
+    applyAward();
   });
 }
 
@@ -605,6 +628,7 @@ let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl, chatBoxEl;
 let inviteBtn, restartBtn, homeBtn;
 let settingsModal;
+let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileGamesValue;
 
 // =======================
 // 🔔 TOAST
@@ -628,18 +652,59 @@ function openDeveloperTelegram(event) {
   tg.openTelegramLink(DEVELOPER_TELEGRAM_URL);
 }
 
-function openCurrentUserTelegramProfile(event) {
+function getProfileStatsForUser(playerId) {
+  if (!playerId) {
+    return {
+      name: currentUserName || t("guestPlayer"),
+      wins: 0,
+      games: 0
+    };
+  }
+
+  const data = profileStatsByUserId[playerId] || {};
+  return {
+    name: (typeof data.name === "string" && data.name.trim()) ? data.name.trim() : (currentUserName || t("guestPlayer")),
+    wins: normalizeWins(data.wins),
+    games: normalizeGames(data.games)
+  };
+}
+
+function updateProfileModalContent(playerId) {
+  if (!profileNameValue || !profileWinsValue || !profileGamesValue) return;
+  const stats = getProfileStatsForUser(playerId || ensureNormalizedUserId());
+  profileNameValue.innerText = stats.name;
+  profileWinsValue.innerText = String(stats.wins);
+  profileGamesValue.innerText = String(stats.games);
+}
+
+function startCurrentUserStatsListener() {
+  const playerId = ensureNormalizedUserId();
+  if (!playerId) return;
+  if (userStatsRef && userStatsListener) return;
+
+  userStatsRef = db.ref("users/" + playerId);
+  userStatsListener = (snapshot) => {
+    const data = snapshot.val() || {};
+    profileStatsByUserId[playerId] = {
+      name: typeof data.name === "string" ? data.name : currentUserName,
+      wins: normalizeWins(data.wins),
+      games: normalizeGames(data.games)
+    };
+    updateProfileModalContent(playerId);
+  };
+  userStatsRef.on("value", userStatsListener);
+}
+
+function openCurrentUserProfile(event) {
   event?.preventDefault?.();
-  if (!userId) return;
-  if (!currentTelegramUsername) {
-    showToast(t("noUsernameAvailable"));
-    return;
-  }
-  if (isRunningInsideTelegramWebApp()) {
-    tg.openTelegramLink("https://t.me/" + currentTelegramUsername);
-  } else {
-    window.open("https://t.me/" + currentTelegramUsername, "_blank", "noopener,noreferrer");
-  }
+  ensurePlayerProfileForCurrentUser();
+  startCurrentUserStatsListener();
+  updateProfileModalContent();
+  profileModal?.classList.remove("hidden");
+}
+
+function closeCurrentUserProfile() {
+  profileModal?.classList.add("hidden");
 }
 
 function renderUserProfile() {
@@ -666,14 +731,8 @@ function renderUserProfile() {
   fullName.type = "button";
   fullName.className = "user-name user-name-link";
   fullName.innerText = currentUserName || t("guestPlayer");
-  if (userId) {
-    fullName.setAttribute("aria-label", "Open Telegram profile");
-    fullName.addEventListener("click", openCurrentUserTelegramProfile);
-  } else {
-    fullName.setAttribute("aria-label", "Profile unavailable for guest users");
-    fullName.classList.add("disabled");
-    fullName.disabled = true;
-  }
+  fullName.setAttribute("aria-label", "Open player profile");
+  fullName.addEventListener("click", openCurrentUserProfile);
   profile.appendChild(fullName);
 
   userInfo.appendChild(profile);
@@ -804,6 +863,11 @@ document.addEventListener("DOMContentLoaded", () => {
   restartBtn = document.getElementById("restartBtn");
   homeBtn = document.getElementById("homeBtn");
   settingsModal = document.getElementById("settingsModal");
+  profileModal = document.getElementById("profileModal");
+  closeProfileBtn = document.getElementById("closeProfileBtn");
+  profileNameValue = document.getElementById("profileNameValue");
+  profileWinsValue = document.getElementById("profileWinsValue");
+  profileGamesValue = document.getElementById("profileGamesValue");
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const backHomeBtn = document.getElementById("backHomeBtn");
@@ -813,7 +877,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 🔥 BUTTON FIX (IMPORTANT)
   createBtn.addEventListener("click", createGame);
-  aiBtn.onclick = startAIGame;
+  if (aiBtn) {
+    aiBtn.addEventListener("click", startAIGameFromHome);
+    aiBtn.addEventListener("touchend", startAIGameFromHome, { passive: false });
+  }
   sendBtnEl.addEventListener("click", sendChatMessage);
   chatInputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -833,6 +900,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   settingsModal?.addEventListener("click", (event) => {
     if (event.target === settingsModal) settingsModal.classList.add("hidden");
+  });
+  closeProfileBtn?.addEventListener("click", closeCurrentUserProfile);
+  profileModal?.addEventListener("click", (event) => {
+    if (event.target === profileModal) closeCurrentUserProfile();
   });
   footerDeveloperLink?.addEventListener("click", openDeveloperTelegram);
   aboutTelegramLink?.addEventListener("click", openDeveloperTelegram);
@@ -925,10 +996,25 @@ function createGame() {
 // =======================
 // 🤖 AI MODE
 // =======================
+function startAIGameFromHome(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const now = Date.now();
+  if (now - lastAIGameStartAt < 350) return;
+  lastAIGameStartAt = now;
+  startAIGame();
+}
+
 function startAIGame() {
   console.log("AI Mode");
 
+  stopRoomListener();
+  stopChatListener();
+  roomId = null;
+  roomRef = null;
+  window.currentRoomData = null;
   gameMode = "ai";
+  aiResultAwarded = false;
 
   board = ["","","","","","","","",""];
   currentPlayer = "X";
@@ -936,8 +1022,11 @@ function startAIGame() {
   winningCells = [];
 
   showGame();
-  disableChatForAI();
+  setChatEnabled(false, "chatDisabledAIPlaceholder");
+  setChatVisibility(false);
   setInviteButtonState();
+  updatePlayersText();
+  updateActionButtons();
   updateStatus();
   renderBoard();
 }
@@ -1061,7 +1150,7 @@ function listenRoom() {
     console.log("join debug: players.O.id =", oId);
 
     subscribeToPlayerStats(normalizedData);
-    maybeAwardWinnerStats(normalizedData);
+    maybeAwardMatchStats(normalizedData);
     updatePlayersText();
 
     updateStatus();
@@ -1141,6 +1230,7 @@ function makeMove(i) {
     if (res) {
       winner = res.winner;
       winningCells = res.cells;
+      maybeAwardAIMatchStats();
     } else {
       currentPlayer = "O";
       setTimeout(aiMove, 400);
@@ -1251,12 +1341,29 @@ function makeAIMove(i) {
   if (res) {
     winner = res.winner;
     winningCells = res.cells;
+    maybeAwardAIMatchStats();
   } else {
     currentPlayer = "X";
   }
 
   updateStatus();
   renderBoard();
+}
+
+function maybeAwardAIMatchStats() {
+  if (gameMode !== "ai" || aiResultAwarded) return;
+  if (winner !== "X" && winner !== "O" && winner !== "draw") return;
+
+  const resolvedUserId = ensureNormalizedUserId();
+  if (!resolvedUserId) return;
+  aiResultAwarded = true;
+  const aiAwardKey = `ai:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+  incrementUserMatchStats(
+    resolvedUserId,
+    currentUserName || t("guestPlayer"),
+    winner === "X",
+    aiAwardKey
+  );
 }
 
 // 🎯 Smart positioning (not perfect)
@@ -1321,6 +1428,7 @@ function updateStatus() {
 // =======================
 function restartGame() {
   if (gameMode === "ai") {
+    aiResultAwarded = false;
     board = ["","","","","","","","",""];
     currentPlayer = "X";
     winner = null;
@@ -1386,10 +1494,12 @@ function showGame() {
 }
 
 function goHome() {
+  closeCurrentUserProfile();
   stopRoomListener();
   stopChatListener();
   roomId = null;
   roomRef = null;
+  aiResultAwarded = false;
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
