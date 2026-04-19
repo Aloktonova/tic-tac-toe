@@ -1091,7 +1091,6 @@ function handleRoomUnavailable(message, delayMs = 0) {
   clearRoomExpiryRedirectTimer();
   if (delayMs > 0) {
     roomExpiryRedirectTimer = setTimeout(() => {
-      roomExpiryRedirectTimer = null;
       goHome();
     }, delayMs);
     return;
@@ -1256,10 +1255,9 @@ function listenRoom() {
     }
 
     if (isRoomExpired(data)) {
-      const expiredRoomRef = roomRef;
       handleRoomUnavailable(t("gameExpired"), ROOM_EXPIRED_REDIRECT_DELAY_MS);
-      if (expiredRoomRef) {
-        expiredRoomRef.remove().catch((error) => {
+      if (roomRef) {
+        roomRef.remove().catch((error) => {
           console.warn("Failed to remove expired room:", error);
         });
       }
