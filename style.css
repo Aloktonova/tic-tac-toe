@@ -1,10 +1,11 @@
 body {
   margin: 0;
+  overflow: hidden;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: radial-gradient(circle at 20% 0%, #1e1b4b 0%, #0b1120 45%, #020617 100%);
   color: #f8fafc;
   text-align: center;
-  padding: 0 16px 56px;
+  padding: 0;
   min-height: 100vh;
   box-sizing: border-box;
   display: flex;
@@ -23,12 +24,13 @@ body.game-active .app-footer {
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
-  padding: 10px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   box-sizing: border-box;
+  height: 100vh;
 }
 
 /* 🔝 Top bar */
@@ -37,7 +39,7 @@ body.game-active .app-footer {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 14px 0 10px;
+  padding: 0;
   font-size: 14px;
   width: 100%;
 }
@@ -131,8 +133,9 @@ body.game-active .app-footer {
 
 /* 🏠 Screens */
 .screen {
-  padding: 16px 0;
+  padding: 0;
   transition: opacity 0.2s ease;
+  width: 100%;
 }
 
 .hidden {
@@ -152,13 +155,13 @@ body.game-active .app-footer {
 }
 
 #homeScreen {
-  min-height: calc(100vh - 150px);
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 28px 0 24px;
+  padding: 20px;
+  box-sizing: border-box;
   position: relative;
   z-index: 25;
 }
@@ -170,12 +173,22 @@ body.game-active .app-footer {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .home-game-image {
   width: 90%;
   max-width: 250px;
-  margin: 20px auto 0;
+  margin: 0;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 20px;
@@ -185,12 +198,10 @@ body.game-active .app-footer {
 }
 
 .home-actions {
-  width: 100%;
-  max-width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 24px;
+  gap: 0;
+  margin-top: 0;
   padding-top: 0;
   position: relative;
   z-index: 26;
@@ -268,7 +279,7 @@ button:disabled {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   justify-content: center;
-  margin: 14px auto 18px;
+  margin: 0 auto;
   padding: 14px;
   border-radius: 18px;
   border: 1px solid #1e3a8a;
@@ -323,7 +334,7 @@ button:disabled {
 }
 
 #statusText {
-  margin: 8px 0 14px;
+  margin: 0 0 10px;
   font-size: 26px;
   line-height: 1.2;
   min-height: 32px;
@@ -333,7 +344,7 @@ button:disabled {
 
 /* 👤 Players */
 #players {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-weight: 600;
   font-size: 14px;
   color: #93c5fd;
@@ -359,19 +370,20 @@ button:disabled {
 
 /* Actions */
 .actions {
-  margin-top: 6px;
+  margin-top: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   width: 100%;
+  max-width: 320px;
 }
 
 .actions button {
   width: 100%;
-  max-width: 300px;
-  margin: 10px auto;
+  max-width: 320px;
+  margin: 10px 0;
   border-radius: 20px;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28), 0 0 15px rgba(37, 99, 235, 0.6);
 }
