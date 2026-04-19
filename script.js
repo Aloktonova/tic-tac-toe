@@ -449,28 +449,38 @@ function ensurePlayerProfileForCurrentUser() {
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return Promise.resolve();
   const playerName = currentUserName || t("guestPlayer");
+  const userRef = db.ref("users/" + resolvedUserId);
+  const legacyRef = db.ref("players/" + resolvedUserId);
 
-  return db.ref("users/" + resolvedUserId).transaction((current) => {
-    if (!current || typeof current !== "object") {
-      return {
-        name: playerName,
-        wins: 0,
-        games: 0
-      };
-    }
+  return Promise.all([userRef.once("value"), legacyRef.once("value")])
+    .then(([, legacySnapshot]) => {
+      const legacyWins = normalizeWins(legacySnapshot.val()?.wins);
 
-    const next = { ...current };
-    next.name = playerName;
-    if (typeof next.wins !== "number" || !Number.isFinite(next.wins) || next.wins < 0) {
-      next.wins = 0;
-    }
-    if (typeof next.games !== "number" || !Number.isFinite(next.games) || next.games < 0) {
-      next.games = 0;
-    }
-    return next;
-  }).catch((error) => {
-    console.error("Failed ensuring player profile:", error);
-  });
+      return userRef.transaction((current) => {
+        if (!current || typeof current !== "object") {
+          return {
+            name: playerName,
+            wins: legacyWins,
+            games: 0
+          };
+        }
+
+        const next = { ...current };
+        next.name = playerName;
+        if (typeof next.wins !== "number" || !Number.isFinite(next.wins) || next.wins < 0) {
+          next.wins = legacyWins;
+        } else {
+          next.wins = Math.max(normalizeWins(next.wins), legacyWins);
+        }
+        if (typeof next.games !== "number" || !Number.isFinite(next.games) || next.games < 0) {
+          next.games = 0;
+        }
+        return next;
+      });
+    })
+    .catch((error) => {
+      console.error("Failed ensuring player profile:", error);
+    });
 }
 
 function stopPlayerStatsListeners() {
@@ -496,6 +506,19 @@ function subscribeToPlayerStats(normalizedData) {
     const ref = db.ref("users/" + playerId);
     const listener = (snapshot) => {
       const data = snapshot.val() || {};
+      if (!snapshot.exists()) {
+        db.ref("players/" + playerId).once("value").then((legacySnapshot) => {
+          const legacyData = legacySnapshot.val() || {};
+          playerStatsByUserId[playerId] = {
+            wins: normalizeWins(legacyData.wins),
+            games: 0
+          };
+          updatePlayersText();
+        }).catch((error) => {
+          console.error("Failed loading legacy player stats:", error);
+        });
+        return;
+      }
       playerStatsByUserId[playerId] = {
         wins: normalizeWins(data.wins),
         games: normalizeGames(data.games)
@@ -880,7 +903,7 @@ document.addEventListener("DOMContentLoaded", () => {
   createBtn.addEventListener("click", createGame);
   if (aiBtn) {
     aiBtn.addEventListener("click", startAIGameFromHome);
-    aiBtn.addEventListener("touchend", startAIGameFromHome, { passive: false });
+    aiBtn.addEventListener("pointerup", startAIGameFromHome);
   }
   sendBtnEl.addEventListener("click", sendChatMessage);
   chatInputEl.addEventListener("keydown", (e) => {
@@ -1001,6 +1024,7 @@ function startAIGameFromHome(event) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   const now = Date.now();
+  // Prevent duplicate fire when click/pointer events are emitted together.
   if (now - lastAIGameStartAt < AI_GAME_START_DEBOUNCE_MS) return;
   lastAIGameStartAt = now;
   startAIGame();
@@ -1358,9 +1382,7 @@ function maybeAwardAIMatchStats() {
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return;
   aiResultAwarded = true;
-  const uniquePart = window.crypto?.randomUUID
-    ? window.crypto.randomUUID()
-    : `${Date.now().toString(36)}_${generateRoomId()}`;
+  const uniquePart = db.ref("users").push().key || `${Date.now().toString(36)}_${generateRoomId()}`;
   const aiAwardKey = `ai:${uniquePart}`;
   incrementUserMatchStats(
     resolvedUserId,
