@@ -178,8 +178,10 @@ body.game-active .app-footer {
 #gameScreen {
   display: none;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 6px;
   overflow: visible;
+  padding-top: max(10px, env(safe-area-inset-top));
 }
 
 .main-content {
@@ -348,7 +350,7 @@ button:disabled {
 }
 
 #statusText {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: 26px;
   line-height: 1.2;
   min-height: 32px;
@@ -358,18 +360,30 @@ button:disabled {
 
 /* 👤 Players */
 #players {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-weight: 600;
   font-size: 14px;
   color: #93c5fd;
   display: flex;
-  justify-content: center;
-  gap: 18px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  flex-wrap: nowrap;
 }
 
 .player-stat-block {
-  min-width: 140px;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-stat-block:first-child {
+  text-align: left;
+}
+
+.player-stat-block:last-child {
+  text-align: right;
 }
 
 .player-name-line {
@@ -390,7 +404,7 @@ button:disabled {
   gap: 8px;
   width: 100%;
   max-width: 360px;
-  margin: 10px auto;
+  margin: 8px auto 0;
   box-sizing: border-box;
   padding: 0 10px;
 }
@@ -717,6 +731,10 @@ button:disabled {
   #board {
     max-width: 330px;
     gap: 10px;
+  }
+
+  #players {
+    max-width: 330px;
   }
 
   .cell {

@@ -301,6 +301,8 @@ let profileStatsByUserId = {};
 let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
+const PLAYER_LABEL_YOU = "You";
+const PLAYER_LABEL_COMPUTER = "Computer";
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -1199,8 +1201,8 @@ function setInviteButtonState() {
 function updatePlayersText() {
   if (!playersDiv) return;
   const data = window.currentRoomData;
-  const x = data?.players?.X?.name || t("playerX");
-  const o = data?.players?.O?.name || t("waiting");
+  const x = PLAYER_LABEL_YOU;
+  const o = PLAYER_LABEL_COMPUTER;
   const xId = normalizePlayerId(data?.players?.X?.id);
   const oId = normalizePlayerId(data?.players?.O?.id);
   const xWins = xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0;
