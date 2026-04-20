@@ -525,7 +525,8 @@ function normalizeLocationValue(value) {
 }
 
 function shouldRefreshUserCountry(userData, now) {
-  const hasCountry = typeof userData?.country === "string" && userData.country.trim().length > 0;
+  const normalizedCountry = typeof userData?.country === "string" ? userData.country.trim() : "";
+  const hasCountry = normalizedCountry.length > 0 && normalizedCountry.toLowerCase() !== UNKNOWN_LOCATION_VALUE.toLowerCase();
   const lastLocationUpdate = Number(userData?.lastLocationUpdate);
   const hasRecentLocationUpdate = Number.isFinite(lastLocationUpdate) && (now - lastLocationUpdate) < LOCATION_REFRESH_INTERVAL_MS;
   return !hasCountry || !hasRecentLocationUpdate;
@@ -533,10 +534,7 @@ function shouldRefreshUserCountry(userData, now) {
 
 async function fetchUserLocationFromIpApi() {
   if (typeof fetch !== "function") {
-    return {
-      country: UNKNOWN_LOCATION_VALUE,
-      city: UNKNOWN_LOCATION_VALUE
-    };
+    return null;
   }
 
   try {
@@ -554,11 +552,8 @@ async function fetchUserLocationFromIpApi() {
       city: normalizeLocationValue(data?.city)
     };
   } catch (error) {
-    console.warn("Failed fetching IP-based location; using Unknown values:", error);
-    return {
-      country: UNKNOWN_LOCATION_VALUE,
-      city: UNKNOWN_LOCATION_VALUE
-    };
+    console.warn("Failed fetching IP-based location:", error);
+    return null;
   }
 }
 
@@ -581,6 +576,10 @@ function ensurePlayerProfileForCurrentUser() {
         }
 
         const location = await fetchUserLocationFromIpApi();
+        if (!location) {
+          await userRef.child("lastActive").set(now);
+          return;
+        }
         await userRef.transaction((current) => {
           if (current && typeof current === "object") {
             return {
@@ -597,6 +596,8 @@ function ensurePlayerProfileForCurrentUser() {
 
       const legacyWins = normalizeWins(legacySnapshot.val()?.wins);
       const location = await fetchUserLocationFromIpApi();
+      const resolvedCountry = normalizeLocationValue(location?.country);
+      const resolvedCity = normalizeLocationValue(location?.city);
       return userRef.transaction((current) => {
         if (current && typeof current === "object") {
           return {
@@ -607,9 +608,9 @@ function ensurePlayerProfileForCurrentUser() {
 
         return {
           name: playerName,
-          country: location.country,
-          city: location.city,
-          lastLocationUpdate: now,
+          country: resolvedCountry,
+          city: resolvedCity,
+          ...(location ? { lastLocationUpdate: now } : {}),
           createdAt: now,
           lastActive: now,
           wins: legacyWins,
