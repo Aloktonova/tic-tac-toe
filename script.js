@@ -3,6 +3,8 @@ const tg = window.Telegram?.WebApp;
 if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
+const DEFAULT_AI_MODE = "medium";
+const AI_MODE_STORAGE_KEY = "aiMode";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
 
@@ -17,6 +19,11 @@ const translations = {
     send: "Send",
     settings: "Settings",
     language: "Language",
+    aiMode: "AI Mode",
+    aiMode_easy: "Easy",
+    aiMode_medium: "Medium",
+    aiMode_hard: "Hard",
+    aiMode_adaptive: "Adaptive",
     about: "About",
     developer: "Developer: Alok Maurya",
     telegram: "Telegram:",
@@ -301,11 +308,55 @@ let profileStatsByUserId = {};
 let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
+let aiMode = DEFAULT_AI_MODE;
+let aiModeSelectEl = null;
+let aiThreatCellsBeforePlayerMove = [];
+let playerStats = createEmptyPlayerStats();
+
+function createEmptyPlayerStats() {
+  return {
+    centerFirst: 0,
+    cornerMoves: 0,
+    blockMoves: 0,
+    totalMoves: 0
+  };
+}
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
   const normalized = code.toLowerCase().split("-")[0];
   return SUPPORTED_LANGS.includes(normalized) ? normalized : null;
+}
+
+function normalizeAIMode(mode) {
+  const normalized = typeof mode === "string" ? mode.toLowerCase().trim() : "";
+  if (normalized === "easy" || normalized === "medium" || normalized === "hard" || normalized === "adaptive") {
+    return normalized;
+  }
+  return DEFAULT_AI_MODE;
+}
+
+function getInitialAIMode() {
+  let storedMode = null;
+  try {
+    storedMode = localStorage.getItem(AI_MODE_STORAGE_KEY);
+  } catch (err) {
+    console.warn("Unable to read aiMode from localStorage:", err);
+  }
+  return normalizeAIMode(storedMode);
+}
+
+function setAIMode(nextMode, persist = true) {
+  aiMode = normalizeAIMode(nextMode);
+  if (aiModeSelectEl) {
+    aiModeSelectEl.value = aiMode;
+  }
+  if (!persist) return;
+  try {
+    localStorage.setItem(AI_MODE_STORAGE_KEY, aiMode);
+  } catch (err) {
+    console.warn("Unable to persist aiMode:", err);
+  }
 }
 
 function getInitialLanguage() {
@@ -715,6 +766,16 @@ const AUTO_RESTART_DELAY_MS = 2000;
 const ROOM_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const ROOM_EXPIRED_REDIRECT_DELAY_MS = 2000;
 const LOCAL_MATCH_ID = 1;
+const AI_DELAY_MIN_MS = 300;
+const AI_DELAY_MAX_MS = 800;
+const CENTER_PREFERENCE_RATE = 0.8;
+const CORNER_PREFERENCE_RATE = 0.8;
+const MEDIUM_BLOCK_SKIP_RATE = 0.2;
+const MEDIUM_RANDOM_RATE = 0.35;
+const HARD_MISTAKE_RATE = 0.08;
+const MIN_BLOCKS_FOR_DEFENSIVE = 2;
+const DEFENSIVE_BLOCK_RATE = 0.4;
+const AGGRESSIVE_CORNER_RATE = 0.6;
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
@@ -864,6 +925,8 @@ function applyTranslations() {
   const sendButton = document.getElementById("sendBtn");
   const settingsTitle = document.getElementById("settingsTitle");
   const languageLabel = document.getElementById("languageLabel");
+  const aiModeLabel = document.getElementById("aiModeLabel");
+  const aiModeSelect = document.getElementById("aiModeSelect");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
   const telegramLabel = document.getElementById("telegramLabel");
@@ -878,6 +941,12 @@ function applyTranslations() {
   if (sendButton) sendButton.innerText = t("send");
   if (settingsTitle) settingsTitle.innerText = t("settings");
   if (languageLabel) languageLabel.innerText = t("language");
+  if (aiModeLabel) aiModeLabel.innerText = t("aiMode");
+  if (aiModeSelect) {
+    Array.from(aiModeSelect.options).forEach((option) => {
+      option.text = t(`aiMode_${option.value}`);
+    });
+  }
   if (aboutTitle) aboutTitle.innerText = t("about");
   if (developerText) developerText.innerText = t("developer");
   if (telegramLabel) telegramLabel.innerText = t("telegram");
@@ -994,6 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const backHomeBtn = document.getElementById("backHomeBtn");
   const languageSelect = document.getElementById("languageSelect");
+  aiModeSelectEl = document.getElementById("aiModeSelect");
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
@@ -1031,10 +1101,14 @@ document.addEventListener("DOMContentLoaded", () => {
   languageSelect?.addEventListener("change", (event) => {
     setLanguage(event.target.value);
   });
+  aiModeSelectEl?.addEventListener("change", (event) => {
+    setAIMode(event.target.value);
+  });
 
   if (languageSelect) {
     languageSelect.value = lang;
   }
+  setAIMode(getInitialAIMode(), false);
   setLanguage(lang, false);
 
   autoJoinRoomFromLocation();
@@ -1166,6 +1240,8 @@ function startAIGame() {
   currentPlayer = "X";
   winner = null;
   winningCells = [];
+  playerStats = createEmptyPlayerStats();
+  aiThreatCellsBeforePlayerMove = [];
   lastAutoRestartKey = "";
   if (autoRestartTimer) {
     clearTimeout(autoRestartTimer);
@@ -1394,7 +1470,9 @@ function makeMove(i) {
   if (board[i] !== "" || winner) return;
 
   if (gameMode === "ai") {
+    aiThreatCellsBeforePlayerMove = getImmediateWinningMoves("O");
     board[i] = "X";
+    trackPlayerMove(i);
 
     let res = checkWinner(board);
     if (res) {
@@ -1403,7 +1481,7 @@ function makeMove(i) {
       maybeAwardAIMatchStats();
     } else {
       currentPlayer = "O";
-      setTimeout(aiMove, 400);
+      setTimeout(aiMove, getAIMoveDelayMs());
     }
 
     updateStatus();
@@ -1459,47 +1537,177 @@ function normalizePlayerId(id) {
 }
 
 // 🤖 AI MOVE
-function aiMove() {
-
-  // 🎲 40% chance to play RANDOM (to make it beatable)
-  if (Math.random() < 0.4) {
-    playRandom();
-    return;
-  }
-
-  // 1️⃣ Try to WIN
-  let move = findBestMove("O");
-  if (move !== null) {
-    makeAIMove(move);
-    return;
-  }
-
-  // 🎲 30% chance to IGNORE blocking (intentional mistake)
-  if (Math.random() < 0.3) {
-    playSmartPosition();
-    return;
-  }
-
-  // 2️⃣ Block player WIN
-  move = findBestMove("X");
-  if (move !== null) {
-    makeAIMove(move);
-    return;
-  }
-
-  // 3️⃣ Smart positioning
-  playSmartPosition();
+function getAIMoveDelayMs() {
+  return AI_DELAY_MIN_MS + Math.round(Math.random() * (AI_DELAY_MAX_MS - AI_DELAY_MIN_MS));
 }
 
-function findBestMove(symbol) {
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] !== "") continue;
-    const testBoard = [...board];
+function getEmptyCells(boardState = board) {
+  return boardState
+    .map((value, index) => (value === "" ? index : null))
+    .filter((index) => index !== null);
+}
+
+function getImmediateWinningMoves(symbol, boardState = board) {
+  const wins = [];
+  for (let i = 0; i < boardState.length; i++) {
+    if (boardState[i] !== "") continue;
+    const testBoard = [...boardState];
     testBoard[i] = symbol;
     const result = checkWinner(testBoard);
-    if (result?.winner === symbol) return i;
+    if (result?.winner === symbol) wins.push(i);
   }
-  return null;
+  return wins;
+}
+
+function findBestMove(symbol, boardState = board) {
+  const wins = getImmediateWinningMoves(symbol, boardState);
+  return wins.length ? wins[0] : null;
+}
+
+function getRandomMove(boardState = board) {
+  const empty = getEmptyCells(boardState);
+  if (!empty.length) return null;
+  return empty[Math.floor(Math.random() * empty.length)];
+}
+
+function getSmartPositionMove(boardState = board) {
+  if (boardState[4] === "" && Math.random() < CENTER_PREFERENCE_RATE) return 4;
+  const corners = [0, 2, 6, 8].filter((index) => boardState[index] === "");
+  if (corners.length && Math.random() < CORNER_PREFERENCE_RATE) {
+    return corners[Math.floor(Math.random() * corners.length)];
+  }
+  return getRandomMove(boardState);
+}
+
+function minimax(boardState, depth, isMaximizing, alpha, beta) {
+  const result = checkWinner(boardState);
+  if (result?.winner === "O") return 10 - depth;
+  if (result?.winner === "X") return depth - 10;
+  if (result?.winner === "draw") return 0;
+
+  if (isMaximizing) {
+    let maxEval = -Infinity;
+    for (const index of getEmptyCells(boardState)) {
+      boardState[index] = "O";
+      const evalScore = minimax(boardState, depth + 1, false, alpha, beta);
+      boardState[index] = "";
+      maxEval = Math.max(maxEval, evalScore);
+      alpha = Math.max(alpha, evalScore);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  }
+
+  let minEval = Infinity;
+  for (const index of getEmptyCells(boardState)) {
+    boardState[index] = "X";
+    const evalScore = minimax(boardState, depth + 1, true, alpha, beta);
+    boardState[index] = "";
+    minEval = Math.min(minEval, evalScore);
+    beta = Math.min(beta, evalScore);
+    if (beta <= alpha) break;
+  }
+  return minEval;
+}
+
+function getMinimaxMove(boardState = board) {
+  const empty = getEmptyCells(boardState);
+  if (!empty.length) return null;
+
+  let bestScore = -Infinity;
+  let bestMove = empty[0];
+
+  for (const index of empty) {
+    const testBoard = [...boardState];
+    testBoard[index] = "O";
+    const score = minimax(testBoard, 0, false, -Infinity, Infinity);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = index;
+    }
+  }
+
+  return bestMove;
+}
+
+function getMediumMove(boardState = board) {
+  const winMove = findBestMove("O", boardState);
+  if (winMove !== null) return winMove;
+
+  const blockMove = findBestMove("X", boardState);
+  if (blockMove !== null && Math.random() >= MEDIUM_BLOCK_SKIP_RATE) return blockMove;
+
+  if (Math.random() < MEDIUM_RANDOM_RATE) return getRandomMove(boardState);
+  return getSmartPositionMove(boardState);
+}
+
+function getHardMove(boardState = board) {
+  if (Math.random() < HARD_MISTAKE_RATE) {
+    return getMediumMove(boardState);
+  }
+  return getMinimaxMove(boardState);
+}
+
+function trackPlayerMove(index) {
+  if (gameMode !== "ai") return;
+  playerStats.totalMoves += 1;
+  if (playerStats.totalMoves === 1 && index === 4) {
+    playerStats.centerFirst += 1;
+  }
+  if ([0, 2, 6, 8].includes(index)) {
+    playerStats.cornerMoves += 1;
+  }
+  if (aiThreatCellsBeforePlayerMove.includes(index)) {
+    playerStats.blockMoves += 1;
+  }
+  aiThreatCellsBeforePlayerMove = [];
+}
+
+function detectStyle(stats) {
+  if (stats.totalMoves < 3) return "random";
+  const totalMoves = stats.totalMoves;
+  const cornerRate = stats.cornerMoves / totalMoves;
+  const blockRate = stats.blockMoves / totalMoves;
+  if (stats.blockMoves >= MIN_BLOCKS_FOR_DEFENSIVE && blockRate >= DEFENSIVE_BLOCK_RATE) return "defensive";
+  if (stats.centerFirst > 0 || cornerRate >= AGGRESSIVE_CORNER_RATE) return "aggressive";
+  return "random";
+}
+
+function getAdaptiveMove(boardState = board) {
+  const style = detectStyle(playerStats);
+  const winMove = findBestMove("O", boardState);
+  const blockMove = findBestMove("X", boardState);
+
+  if (style === "aggressive") {
+    if (blockMove !== null) return blockMove;
+    if (winMove !== null) return winMove;
+    return getHardMove(boardState);
+  }
+
+  if (style === "defensive") {
+    if (winMove !== null) return winMove;
+    const strategicMove = getSmartPositionMove(boardState);
+    if (strategicMove !== null) return strategicMove;
+    if (blockMove !== null) return blockMove;
+    return getHardMove(boardState);
+  }
+
+  return getMediumMove(boardState);
+}
+
+function getAIMove(boardState = board) {
+  const mode = normalizeAIMode(aiMode);
+  if (mode === "easy") return getRandomMove(boardState);
+  if (mode === "medium") return getMediumMove(boardState);
+  if (mode === "hard") return getHardMove(boardState);
+  return getAdaptiveMove(boardState);
+}
+
+function aiMove() {
+  if (gameMode !== "ai" || currentPlayer !== "O" || winner) return;
+  const move = getAIMove(board);
+  if (move === null) return;
+  makeAIMove(move);
 }
 
 function makeAIMove(i) {
@@ -1537,34 +1745,6 @@ function maybeAwardAIMatchStats() {
     outcome,
     aiAwardKey
   );
-}
-
-// 🎯 Smart positioning (not perfect)
-function playSmartPosition() {
-
-  // Take center sometimes
-  if (board[4] === "" && Math.random() < 0.7) {
-    makeAIMove(4);
-    return;
-  }
-
-  // Take corner sometimes
-  const corners = [0,2,6,8].filter(i => board[i] === "");
-  if (corners.length && Math.random() < 0.7) {
-    const move = corners[Math.floor(Math.random() * corners.length)];
-    makeAIMove(move);
-    return;
-  }
-
-  // Otherwise random
-  playRandom();
-}
-
-// 🎲 Random move
-function playRandom() {
-  const empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
-  const move = empty[Math.floor(Math.random()*empty.length)];
-  makeAIMove(move);
 }
 
 function scheduleAutoRestartIfNeeded() {
@@ -1635,6 +1815,8 @@ function restartGame() {
     currentPlayer = "X";
     winner = null;
     winningCells = [];
+    playerStats = createEmptyPlayerStats();
+    aiThreatCellsBeforePlayerMove = [];
     updateStatus();
     renderBoard();
     return;
