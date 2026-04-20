@@ -5,6 +5,7 @@ const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_AI_MODE = "medium";
 const UNKNOWN_LOCATION_VALUE = "Unknown";
+const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
@@ -523,6 +524,13 @@ function normalizeLocationValue(value) {
   return normalized || UNKNOWN_LOCATION_VALUE;
 }
 
+function shouldRefreshUserCountry(userData, now) {
+  const hasCountry = typeof userData?.country === "string" && userData.country.trim().length > 0;
+  const lastLocationUpdate = Number(userData?.lastLocationUpdate);
+  const hasRecentLocationUpdate = Number.isFinite(lastLocationUpdate) && (now - lastLocationUpdate) < LOCATION_REFRESH_INTERVAL_MS;
+  return !hasCountry || !hasRecentLocationUpdate;
+}
+
 async function fetchUserLocationFromIpApi() {
   if (typeof fetch !== "function") {
     return {
@@ -566,7 +574,24 @@ function ensurePlayerProfileForCurrentUser() {
     .then(async ([userSnapshot, legacySnapshot]) => {
       const now = Date.now();
       if (userSnapshot.exists()) {
-        await userRef.child("lastActive").set(now);
+        const userData = userSnapshot.val() || {};
+        if (!shouldRefreshUserCountry(userData, now)) {
+          await userRef.child("lastActive").set(now);
+          return;
+        }
+
+        const location = await fetchUserLocationFromIpApi();
+        await userRef.transaction((current) => {
+          if (current && typeof current === "object") {
+            return {
+              ...current,
+              country: location.country,
+              lastLocationUpdate: now,
+              lastActive: now
+            };
+          }
+          return current;
+        });
         return;
       }
 
@@ -584,6 +609,7 @@ function ensurePlayerProfileForCurrentUser() {
           name: playerName,
           country: location.country,
           city: location.city,
+          lastLocationUpdate: now,
           createdAt: now,
           lastActive: now,
           wins: legacyWins,
