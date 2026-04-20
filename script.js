@@ -5,6 +5,7 @@ const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_AI_MODE = "medium";
 const UNKNOWN_LOCATION_VALUE = "Unknown";
+const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
@@ -523,12 +524,17 @@ function normalizeLocationValue(value) {
   return normalized || UNKNOWN_LOCATION_VALUE;
 }
 
+function shouldRefreshUserCountry(userData, now) {
+  const normalizedCountry = typeof userData?.country === "string" ? userData.country.trim() : "";
+  const hasCountry = normalizedCountry.length > 0 && normalizedCountry.toLowerCase() !== UNKNOWN_LOCATION_VALUE.toLowerCase();
+  const lastLocationUpdate = Number(userData?.lastLocationUpdate);
+  const hasRecentLocationUpdate = Number.isFinite(lastLocationUpdate) && (now - lastLocationUpdate) < LOCATION_REFRESH_INTERVAL_MS;
+  return !hasCountry || !hasRecentLocationUpdate;
+}
+
 async function fetchUserLocationFromIpApi() {
   if (typeof fetch !== "function") {
-    return {
-      country: UNKNOWN_LOCATION_VALUE,
-      city: UNKNOWN_LOCATION_VALUE
-    };
+    return null;
   }
 
   try {
@@ -546,11 +552,8 @@ async function fetchUserLocationFromIpApi() {
       city: normalizeLocationValue(data?.city)
     };
   } catch (error) {
-    console.warn("Failed fetching IP-based location; using Unknown values:", error);
-    return {
-      country: UNKNOWN_LOCATION_VALUE,
-      city: UNKNOWN_LOCATION_VALUE
-    };
+    console.warn("Failed fetching IP-based location:", error);
+    return null;
   }
 }
 
@@ -566,12 +569,35 @@ function ensurePlayerProfileForCurrentUser() {
     .then(async ([userSnapshot, legacySnapshot]) => {
       const now = Date.now();
       if (userSnapshot.exists()) {
-        await userRef.child("lastActive").set(now);
+        const userData = userSnapshot.val() || {};
+        if (!shouldRefreshUserCountry(userData, now)) {
+          await userRef.child("lastActive").set(now);
+          return;
+        }
+
+        const location = await fetchUserLocationFromIpApi();
+        if (!location) {
+          await userRef.child("lastActive").set(now);
+          return;
+        }
+        await userRef.transaction((current) => {
+          if (current && typeof current === "object") {
+            return {
+              ...current,
+              country: location.country,
+              lastLocationUpdate: now,
+              lastActive: now
+            };
+          }
+          return current;
+        });
         return;
       }
 
       const legacyWins = normalizeWins(legacySnapshot.val()?.wins);
       const location = await fetchUserLocationFromIpApi();
+      const resolvedCountry = normalizeLocationValue(location?.country);
+      const resolvedCity = normalizeLocationValue(location?.city);
       return userRef.transaction((current) => {
         if (current && typeof current === "object") {
           return {
@@ -582,8 +608,9 @@ function ensurePlayerProfileForCurrentUser() {
 
         return {
           name: playerName,
-          country: location.country,
-          city: location.city,
+          country: resolvedCountry,
+          city: resolvedCity,
+          ...(location ? { lastLocationUpdate: now } : {}),
           createdAt: now,
           lastActive: now,
           wins: legacyWins,
