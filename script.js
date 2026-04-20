@@ -4,6 +4,7 @@ if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_AI_MODE = "medium";
+const UNKNOWN_LOCATION_VALUE = "Unknown";
 const AI_MODE_STORAGE_KEY = "aiMode";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
@@ -516,6 +517,43 @@ function getAwardKey(roomIdValue, matchId) {
   return `${roomIdValue}:${matchId}`;
 }
 
+function normalizeLocationValue(value) {
+  if (typeof value !== "string") return UNKNOWN_LOCATION_VALUE;
+  const normalized = value.trim();
+  return normalized || UNKNOWN_LOCATION_VALUE;
+}
+
+async function fetchUserLocationFromIpApi() {
+  if (typeof fetch !== "function") {
+    return {
+      country: UNKNOWN_LOCATION_VALUE,
+      city: UNKNOWN_LOCATION_VALUE
+    };
+  }
+
+  try {
+    const response = await fetch("https://ipapi.co/json/", {
+      method: "GET",
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      throw new Error(`ipapi request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      country: normalizeLocationValue(data?.country_name || data?.country),
+      city: normalizeLocationValue(data?.city)
+    };
+  } catch (error) {
+    console.warn("Failed fetching IP-based location; using Unknown values:", error);
+    return {
+      country: UNKNOWN_LOCATION_VALUE,
+      city: UNKNOWN_LOCATION_VALUE
+    };
+  }
+}
+
 function ensurePlayerProfileForCurrentUser() {
   if (!db) return Promise.resolve();
   const resolvedUserId = ensureNormalizedUserId();
@@ -525,41 +563,35 @@ function ensurePlayerProfileForCurrentUser() {
   const legacyRef = db.ref("players/" + resolvedUserId);
 
   return Promise.all([userRef.once("value"), legacyRef.once("value")])
-    .then(([, legacySnapshot]) => {
-      const legacyWins = normalizeWins(legacySnapshot.val()?.wins);
+    .then(async ([userSnapshot, legacySnapshot]) => {
+      const now = Date.now();
+      if (userSnapshot.exists()) {
+        await userRef.child("lastActive").set(now);
+        return;
+      }
 
+      const legacyWins = normalizeWins(legacySnapshot.val()?.wins);
+      const location = await fetchUserLocationFromIpApi();
       return userRef.transaction((current) => {
-        if (!current || typeof current !== "object") {
+        if (current && typeof current === "object") {
           return {
-            name: playerName,
-            wins: legacyWins,
-            losses: 0,
-            draws: 0,
-            games: 0,
-            xp: 0
+            ...current,
+            lastActive: now
           };
         }
 
-        const next = { ...current };
-        next.name = playerName;
-        if (typeof next.wins !== "number" || !Number.isFinite(next.wins) || next.wins < 0) {
-          next.wins = legacyWins;
-        } else {
-          next.wins = Math.max(normalizeWins(next.wins), legacyWins);
-        }
-        if (typeof next.games !== "number" || !Number.isFinite(next.games) || next.games < 0) {
-          next.games = 0;
-        }
-        if (typeof next.losses !== "number" || !Number.isFinite(next.losses) || next.losses < 0) {
-          next.losses = 0;
-        }
-        if (typeof next.draws !== "number" || !Number.isFinite(next.draws) || next.draws < 0) {
-          next.draws = 0;
-        }
-        if (typeof next.xp !== "number" || !Number.isFinite(next.xp) || next.xp < 0) {
-          next.xp = 0;
-        }
-        return next;
+        return {
+          name: playerName,
+          country: location.country,
+          city: location.city,
+          createdAt: now,
+          lastActive: now,
+          wins: legacyWins,
+          losses: 0,
+          draws: 0,
+          games: 0,
+          xp: 0
+        };
       });
     })
     .catch((error) => {
