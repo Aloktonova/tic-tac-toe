@@ -766,6 +766,16 @@ const AUTO_RESTART_DELAY_MS = 2000;
 const ROOM_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const ROOM_EXPIRED_REDIRECT_DELAY_MS = 2000;
 const LOCAL_MATCH_ID = 1;
+const AI_DELAY_MIN_MS = 300;
+const AI_DELAY_MAX_MS = 800;
+const CENTER_PREFERENCE_RATE = 0.8;
+const CORNER_PREFERENCE_RATE = 0.8;
+const MEDIUM_BLOCK_SKIP_RATE = 0.2;
+const MEDIUM_RANDOM_RATE = 0.35;
+const HARD_MISTAKE_RATE = 0.08;
+const MIN_BLOCKS_FOR_DEFENSIVE = 2;
+const DEFENSIVE_BLOCK_RATE = 0.4;
+const AGGRESSIVE_CORNER_RATE = 0.6;
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
@@ -1528,7 +1538,7 @@ function normalizePlayerId(id) {
 
 // 🤖 AI MOVE
 function getAIMoveDelayMs() {
-  return 300 + Math.floor(Math.random() * 501);
+  return AI_DELAY_MIN_MS + Math.round(Math.random() * (AI_DELAY_MAX_MS - AI_DELAY_MIN_MS));
 }
 
 function getEmptyCells(boardState = board) {
@@ -1561,9 +1571,9 @@ function getRandomMove(boardState = board) {
 }
 
 function getSmartPositionMove(boardState = board) {
-  if (boardState[4] === "" && Math.random() < 0.8) return 4;
+  if (boardState[4] === "" && Math.random() < CENTER_PREFERENCE_RATE) return 4;
   const corners = [0, 2, 6, 8].filter((index) => boardState[index] === "");
-  if (corners.length && Math.random() < 0.8) {
+  if (corners.length && Math.random() < CORNER_PREFERENCE_RATE) {
     return corners[Math.floor(Math.random() * corners.length)];
   }
   return getRandomMove(boardState);
@@ -1625,14 +1635,14 @@ function getMediumMove(boardState = board) {
   if (winMove !== null) return winMove;
 
   const blockMove = findBestMove("X", boardState);
-  if (blockMove !== null && Math.random() >= 0.2) return blockMove;
+  if (blockMove !== null && Math.random() >= MEDIUM_BLOCK_SKIP_RATE) return blockMove;
 
-  if (Math.random() < 0.35) return getRandomMove(boardState);
+  if (Math.random() < MEDIUM_RANDOM_RATE) return getRandomMove(boardState);
   return getSmartPositionMove(boardState);
 }
 
 function getHardMove(boardState = board) {
-  if (Math.random() < 0.08) {
+  if (Math.random() < HARD_MISTAKE_RATE) {
     return getMediumMove(boardState);
   }
   return getMinimaxMove(boardState);
@@ -1655,11 +1665,11 @@ function trackPlayerMove(index) {
 
 function detectStyle(stats) {
   if (stats.totalMoves < 3) return "random";
-  const totalMoves = Math.max(stats.totalMoves, 1);
+  const totalMoves = stats.totalMoves;
   const cornerRate = stats.cornerMoves / totalMoves;
   const blockRate = stats.blockMoves / totalMoves;
-  if (stats.blockMoves >= 2 && blockRate >= 0.4) return "defensive";
-  if (stats.centerFirst > 0 || cornerRate >= 0.6) return "aggressive";
+  if (stats.blockMoves >= MIN_BLOCKS_FOR_DEFENSIVE && blockRate >= DEFENSIVE_BLOCK_RATE) return "defensive";
+  if (stats.centerFirst > 0 || cornerRate >= AGGRESSIVE_CORNER_RATE) return "aggressive";
   return "random";
 }
 
@@ -1676,8 +1686,8 @@ function getAdaptiveMove(boardState = board) {
 
   if (style === "defensive") {
     if (winMove !== null) return winMove;
-    const attackingMove = getSmartPositionMove(boardState);
-    if (attackingMove !== null) return attackingMove;
+    const strategicMove = getSmartPositionMove(boardState);
+    if (strategicMove !== null) return strategicMove;
     if (blockMove !== null) return blockMove;
     return getHardMove(boardState);
   }
@@ -1696,7 +1706,7 @@ function getAIMove(boardState = board) {
 function aiMove() {
   if (gameMode !== "ai" || currentPlayer !== "O" || winner) return;
   const move = getAIMove(board);
-  if (move === null || move === undefined) return;
+  if (move === null) return;
   makeAIMove(move);
 }
 
