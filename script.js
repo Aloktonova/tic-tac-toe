@@ -34,6 +34,8 @@ const translations = {
     turnOf: "{player}'s Turn",
     symbolWins: "{symbol} Wins 🎉",
     playerVs: "❌ {x} vs ⭕ {o}",
+    labelYou: "You",
+    labelComputer: "Computer",
     playerX: "Player X",
     playerO: "Player O",
     waiting: "Waiting...",
@@ -301,8 +303,6 @@ let profileStatsByUserId = {};
 let userStatsRef = null;
 let userStatsListener = null;
 let aiResultAwarded = false;
-const PLAYER_LABEL_YOU = "You";
-const PLAYER_LABEL_COMPUTER = "Computer";
 
 function normalizeLangCode(code) {
   if (!code || typeof code !== "string") return null;
@@ -1201,8 +1201,8 @@ function setInviteButtonState() {
 function updatePlayersText() {
   if (!playersDiv) return;
   const data = window.currentRoomData;
-  const x = PLAYER_LABEL_YOU;
-  const o = PLAYER_LABEL_COMPUTER;
+  const x = t("labelYou");
+  const o = t("labelComputer");
   const xId = normalizePlayerId(data?.players?.X?.id);
   const oId = normalizePlayerId(data?.players?.O?.id);
   const xWins = xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0;
