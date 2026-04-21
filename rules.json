@@ -41,6 +41,14 @@
           }
         },
 
+        "playerXWins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        "playerOWins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
         "stats": {
           "matchId": {
             ".validate": "newData.isNumber() && newData.val() >= 1"

@@ -1101,6 +1101,8 @@ function normalizeRoomData(raw) {
     turn: raw.turn || null,
     winner: raw.winner || null,
     winningCells: Array.isArray(raw.winningCells) ? raw.winningCells : [],
+    playerXWins: normalizeWins(raw.playerXWins),
+    playerOWins: normalizeWins(raw.playerOWins),
     stats: {
       matchId: getCurrentMatchId(raw),
       awardedKey: typeof raw.stats?.awardedKey === "string" ? raw.stats.awardedKey : null
@@ -1343,6 +1345,13 @@ function autoJoinRoomFromLocation(prefetchedRoomId) {
   roomId = detectedRoomId;
   roomRef = db.ref("rooms/" + roomId);
   gameMode = "online";
+  board = ["","","","","","","","",""];
+  currentPlayer = "X";
+  winner = null;
+  winningCells = [];
+  roomLoaded = false;
+  myRole = null;
+  window.currentRoomData = null;
 
   showGame();
   setInviteButtonState();
@@ -1420,6 +1429,8 @@ function createGame() {
     turn: "X",
     winner: null,
     winningCells: [],
+    playerXWins: 0,
+    playerOWins: 0,
     createdAt: Date.now(),
     stats: {
       matchId: 1,
@@ -1527,10 +1538,8 @@ function updatePlayersText() {
     : (typeof data?.players?.O?.name === "string" && data.players.O.name.trim()
       ? data.players.O.name.trim()
       : t("waiting"));
-  const xId = normalizePlayerId(data?.players?.X?.id);
-  const oId = normalizePlayerId(data?.players?.O?.id);
-  const xWins = isAIMode ? aiWins.player : (xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0);
-  const oWins = isAIMode ? aiWins.computer : (oId ? normalizeWins(playerStatsByUserId[oId]?.wins) : 0);
+  const xWins = isAIMode ? aiWins.player : normalizeWins(data?.playerXWins);
+  const oWins = isAIMode ? aiWins.computer : normalizeWins(data?.playerOWins);
 
   playersDiv.innerHTML = "";
 
@@ -1751,11 +1760,23 @@ function makeMove(i) {
   const res = checkWinner(newBoard);
 
   if (res) {
+    const firebaseIncrement = window.firebase?.database?.ServerValue?.increment;
+    const winnerCounterKey = res.winner === "X"
+      ? "playerXWins"
+      : (res.winner === "O" ? "playerOWins" : null);
+    const winnerCounterUpdate = {};
+    if (winnerCounterKey && typeof firebaseIncrement === "function") {
+      winnerCounterUpdate[winnerCounterKey] = firebaseIncrement(1);
+    }
     roomRef.update({
       board: newBoard,
       winner: res.winner,
       winningCells: res.cells,
-      turn: null
+      turn: null,
+      ...winnerCounterUpdate
+    }).then(() => {
+      if (!winnerCounterKey || typeof firebaseIncrement === "function") return null;
+      return roomRef.child(winnerCounterKey).transaction((value) => normalizeWins(value) + 1);
     }).catch(err => {
       console.error("Move failed:", err);
       showToast(t("moveFailed"));
