@@ -65,7 +65,8 @@ const translations = {
     restartFailed: "Restart failed. Try again.",
     failedSendMessage: "Failed to send message.",
     gameNotFound: "Game not found",
-    gameExpired: "This game has expired ⏳"
+    gameExpired: "This game has expired ⏳",
+    inviteShareText: "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n"
   },
   hi: {
     appTitle: "टिक टैक टो",
@@ -823,10 +824,13 @@ const XP_PER_LEVEL = 100;
 const XP_GAIN_WIN = 10;
 const XP_GAIN_DRAW = 7;
 const XP_GAIN_LOSS = 5;
-const AUTO_RESTART_DELAY_MS = 2000;
+const AUTO_RESTART_DELAY_MS = 900;
 const ROOM_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const ROOM_EXPIRED_REDIRECT_DELAY_MS = 2000;
 const LOCAL_MATCH_ID = 1;
+const FIRST_TIME_EXPERIENCE_KEY = "hasSeenFirstGameExperience";
+const POST_GAME_RESTART_LABEL = "🔁 Play Again";
+const POST_GAME_INVITE_LABEL = "📩 Invite Friend";
 const AI_DELAY_MIN_MS = 300;
 const AI_DELAY_MAX_MS = 800;
 const CENTER_PREFERENCE_RATE = 0.8;
@@ -1172,7 +1176,9 @@ document.addEventListener("DOMContentLoaded", () => {
   setAIMode(getInitialAIMode(), false);
   setLanguage(lang, false);
 
-  autoJoinRoomFromLocation();
+  const initialRoomId = getRoomIdFromLocation();
+  autoJoinRoomFromLocation(initialRoomId);
+  maybeStartFirstGameExperience(initialRoomId);
   window.addEventListener("hashchange", autoJoinRoomFromLocation);
 });
 
@@ -1187,9 +1193,9 @@ function getRoomIdFromLocation() {
   return null;
 }
 
-function autoJoinRoomFromLocation() {
+function autoJoinRoomFromLocation(prefetchedRoomId) {
   if (!db) return;
-  const detectedRoomId = getRoomIdFromLocation();
+  const detectedRoomId = prefetchedRoomId || getRoomIdFromLocation();
   if (!detectedRoomId) return;
   if (roomId === detectedRoomId && roomRef) return;
 
@@ -1205,6 +1211,23 @@ function autoJoinRoomFromLocation() {
   listenRoom();
 
   console.log("Joined Room:", roomId);
+}
+
+function maybeStartFirstGameExperience(prefetchedRoomId) {
+  if (prefetchedRoomId || getRoomIdFromLocation()) return;
+  let hasSeenFirstGame;
+  try {
+    hasSeenFirstGame = localStorage.getItem(FIRST_TIME_EXPERIENCE_KEY) === "true";
+  } catch (err) {
+    hasSeenFirstGame = false;
+  }
+  if (hasSeenFirstGame) return;
+  try {
+    localStorage.setItem(FIRST_TIME_EXPERIENCE_KEY, "true");
+  } catch (err) {
+    console.warn("Unable to persist first-time experience key:", err);
+  }
+  startAIGame();
 }
 
 function clearRoomExpiryRedirectTimer() {
@@ -1267,7 +1290,7 @@ function createGame() {
     players: {
       X: {
         id: normalizedUserId,
-        name: currentUserName
+        name: currentUserName || t("guestPlayer")
       },
       O: null
     }
@@ -1327,10 +1350,22 @@ window.startAIGame = startAIGame;
 // 📩 Invite visibility
 function setInviteButtonState() {
   if (!inviteBtn) return;
+  const hasEnded = hasGameEnded();
   const isOnlineMode = gameMode === "online";
-  inviteBtn.style.display = isOnlineMode ? "" : "none";
-  if (isOnlineMode && chatBoxEl) chatBoxEl.style.display = "";
+  inviteBtn.style.display = (isOnlineMode || hasEnded) ? "" : "none";
+  if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
   setChatVisibility(isOnlineMode);
+  updatePostGameActionLabels();
+}
+
+function hasGameEnded() {
+  return winner === "X" || winner === "O" || winner === "draw";
+}
+
+function updatePostGameActionLabels() {
+  const hasEnded = hasGameEnded();
+  if (restartBtn) restartBtn.innerText = hasEnded ? POST_GAME_RESTART_LABEL : t("restart");
+  if (inviteBtn) inviteBtn.innerText = hasEnded ? POST_GAME_INVITE_LABEL : t("invite");
 }
 
 function updatePlayersText() {
@@ -1836,6 +1871,8 @@ function updateStatus() {
     if (winner === "draw") statusText.innerText = t("draw");
     else if (winner) statusText.innerText = winner === "X" ? t("win") : t("opponentWinsAI");
     else statusText.innerText = currentPlayer === "X" ? t("yourTurn") : t("aiThinking");
+    updatePostGameActionLabels();
+    setInviteButtonState();
     scheduleAutoRestartIfNeeded();
     return;
   }
@@ -1858,6 +1895,8 @@ function updateStatus() {
   else if (myRole === currentPlayer) statusText.innerText = t("yourTurn");
   else statusText.innerText = t("opponentTurn");
 
+  updatePostGameActionLabels();
+  setInviteButtonState();
   scheduleAutoRestartIfNeeded();
 }
 
@@ -1911,22 +1950,25 @@ function restartGame() {
 // =======================
 function shareGame() {
   if (gameMode !== "online" || !roomId) {
-    console.warn("Invite is only available in online mode with a valid room.");
+    if (!db) {
+      showToast(t("failedCreateRoom"));
+      return;
+    }
+    createGame();
     return;
   }
 
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
+  const inviteText = t("inviteShareText");
+  const shareUrl = "https://t.me/share/url?url="
+    + encodeURIComponent(link)
+    + "&text="
+    + encodeURIComponent(inviteText);
 
   if (isRunningInsideTelegramWebApp()) {
-    tg.openTelegramLink(
-      "https://t.me/share/url?url=" + encodeURIComponent(link)
-    );
+    tg.openTelegramLink(shareUrl);
   } else {
-    window.open(
-      "https://t.me/share/url?url=" + encodeURIComponent(link),
-      "_blank",
-      "noopener,noreferrer"
-    );
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
   }
 }
 
