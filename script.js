@@ -1217,13 +1217,13 @@ function maybeStartFirstGameExperience(prefetchedRoomId) {
   if (prefetchedRoomId || getRoomIdFromLocation()) return;
   let hasSeenFirstGame;
   try {
-    hasSeenFirstGame = localStorage.getItem(FIRST_TIME_EXPERIENCE_KEY) === "1";
+    hasSeenFirstGame = localStorage.getItem(FIRST_TIME_EXPERIENCE_KEY) === "true";
   } catch (err) {
     hasSeenFirstGame = false;
   }
   if (hasSeenFirstGame) return;
   try {
-    localStorage.setItem(FIRST_TIME_EXPERIENCE_KEY, "1");
+    localStorage.setItem(FIRST_TIME_EXPERIENCE_KEY, "true");
   } catch (err) {
     console.warn("Unable to persist first-time experience key:", err);
   }
