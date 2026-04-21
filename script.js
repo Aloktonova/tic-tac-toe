@@ -8,6 +8,8 @@ const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
 const AI_WINS_STORAGE_KEY = "aiWins";
+const PLAYER_WINS_STORAGE_KEY = "playerWins";
+const COMPUTER_WINS_STORAGE_KEY = "computerWins";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
 
@@ -23,10 +25,12 @@ const translations = {
     settings: "Settings",
     language: "Language",
     aiMode: "AI Mode",
+    difficulty: "Difficulty",
+    difficultyButton: "Difficulty",
     aiMode_easy: "Easy",
     aiMode_medium: "Medium",
     aiMode_hard: "Hard",
-    aiMode_adaptive: "Adaptive",
+    aiMode_adaptive: "Adaptive AI",
     about: "About",
     developer: "Developer: Alok Maurya",
     telegram: "Telegram:",
@@ -316,6 +320,10 @@ let userStatsListener = null;
 let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
+let difficultyControlEl = null;
+let difficultyBtnEl = null;
+let difficultyMenuEl = null;
+let difficultyOptionEls = [];
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
 let aiWins = getInitialAIWins();
@@ -355,27 +363,35 @@ function getInitialAIMode() {
 }
 
 function setAIMode(nextMode, persist = true) {
-  aiMode = normalizeAIMode(nextMode);
+  const normalizedMode = normalizeAIMode(nextMode);
+  const changed = normalizedMode !== aiMode;
+  aiMode = normalizedMode;
   if (aiModeSelectEl) {
     aiModeSelectEl.value = aiMode;
   }
-  if (!persist) return;
-  try {
-    localStorage.setItem(AI_MODE_STORAGE_KEY, aiMode);
-  } catch (err) {
-    console.warn("Unable to persist aiMode:", err);
+  if (persist) {
+    try {
+      localStorage.setItem(AI_MODE_STORAGE_KEY, aiMode);
+    } catch (err) {
+      console.warn("Unable to persist aiMode:", err);
+    }
   }
+  updateDifficultyUI();
+  return changed;
 }
 
 function getInitialAIWins() {
   const initial = { player: 0, computer: 0 };
   try {
     const raw = localStorage.getItem(AI_WINS_STORAGE_KEY);
-    if (!raw) return initial;
-    const parsed = JSON.parse(raw);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const playerRaw = localStorage.getItem(PLAYER_WINS_STORAGE_KEY);
+    const computerRaw = localStorage.getItem(COMPUTER_WINS_STORAGE_KEY);
+    const legacyPlayerWins = playerRaw === null ? null : Number(playerRaw);
+    const legacyComputerWins = computerRaw === null ? null : Number(computerRaw);
     return {
-      player: normalizeWins(parsed?.player),
-      computer: normalizeWins(parsed?.computer)
+      player: normalizeWins(legacyPlayerWins ?? parsed?.player),
+      computer: normalizeWins(legacyComputerWins ?? parsed?.computer)
     };
   } catch (err) {
     console.warn("Unable to read ai wins:", err);
@@ -386,6 +402,8 @@ function getInitialAIWins() {
 function persistAIWins() {
   try {
     localStorage.setItem(AI_WINS_STORAGE_KEY, JSON.stringify(aiWins));
+    localStorage.setItem(PLAYER_WINS_STORAGE_KEY, String(normalizeWins(aiWins.player)));
+    localStorage.setItem(COMPUTER_WINS_STORAGE_KEY, String(normalizeWins(aiWins.computer)));
   } catch (err) {
     console.warn("Unable to persist ai wins:", err);
   }
@@ -862,6 +880,7 @@ const AI_DELAY_MIN_MS = 300;
 const AI_DELAY_MAX_MS = 800;
 const CENTER_PREFERENCE_RATE = 0.8;
 const CORNER_PREFERENCE_RATE = 0.8;
+const EASY_MISTAKE_RATE = 0.38;
 const MEDIUM_BLOCK_SKIP_RATE = 0.2;
 const MEDIUM_RANDOM_RATE = 0.35;
 const HARD_MISTAKE_RATE = 0.08;
@@ -1019,6 +1038,7 @@ function applyTranslations() {
   const languageLabel = document.getElementById("languageLabel");
   const aiModeLabel = document.getElementById("aiModeLabel");
   const aiModeSelect = document.getElementById("aiModeSelect");
+  const difficultyOptions = document.querySelectorAll(".difficulty-option");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
   const telegramLabel = document.getElementById("telegramLabel");
@@ -1039,6 +1059,11 @@ function applyTranslations() {
       option.text = t(`aiMode_${option.value}`);
     });
   }
+  if (difficultyOptions.length) {
+    difficultyOptions.forEach((option) => {
+      option.innerText = t(`aiMode_${option.dataset.mode}`);
+    });
+  }
   if (aboutTitle) aboutTitle.innerText = t("about");
   if (developerText) developerText.innerText = t("developer");
   if (telegramLabel) telegramLabel.innerText = t("telegram");
@@ -1052,6 +1077,7 @@ function applyTranslations() {
   renderUserProfile();
   updateStatus();
   updatePlayersText();
+  updateDifficultyUI();
   if (messagesDiv) {
     if (!chatEnabled && gameMode === "ai") setChatEnabled(false, "chatDisabledAIPlaceholder");
     else renderMessages(currentMessages);
@@ -1113,6 +1139,62 @@ function updateActionButtons() {
   }
 }
 
+function getAIModeLabel(mode) {
+  return t(`aiMode_${normalizeAIMode(mode)}`);
+}
+
+function setDifficultyMenuOpen(open) {
+  if (!difficultyMenuEl || !difficultyBtnEl) return;
+  difficultyMenuEl.classList.toggle("hidden", !open);
+  difficultyBtnEl.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function updateDifficultyUI() {
+  if (aiModeSelectEl) {
+    aiModeSelectEl.value = normalizeAIMode(aiMode);
+  }
+  if (difficultyBtnEl) {
+    difficultyBtnEl.innerText = `${t("difficulty")}: ${getAIModeLabel(aiMode)}`;
+    difficultyBtnEl.setAttribute("aria-label", `${t("difficulty")}: ${getAIModeLabel(aiMode)}`);
+  }
+  if (difficultyOptionEls.length) {
+    difficultyOptionEls.forEach((option) => {
+      const optionMode = normalizeAIMode(option.dataset.mode);
+      const isSelected = optionMode === normalizeAIMode(aiMode);
+      option.classList.toggle("selected", isSelected);
+      option.setAttribute("aria-selected", isSelected ? "true" : "false");
+    });
+  }
+}
+
+function resetAIGameBoardPreservingWins() {
+  if (gameMode !== "ai") return;
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
+  lastAutoRestartKey = "";
+  aiResultAwarded = false;
+  aiWinAwarded = false;
+  board = ["","","","","","","","",""];
+  currentPlayer = "X";
+  winner = null;
+  winningCells = [];
+  playerStats = createEmptyPlayerStats();
+  aiThreatCellsBeforePlayerMove = [];
+  updatePlayersText();
+  updateStatus();
+  renderBoard();
+}
+
+function changeAIMode(nextMode) {
+  const changed = setAIMode(nextMode);
+  if (changed) {
+    setDifficultyMenuOpen(false);
+    resetAIGameBoardPreservingWins();
+  }
+}
+
 // =======================
 // 🚀 INIT
 // =======================
@@ -1157,6 +1239,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const backHomeBtn = document.getElementById("backHomeBtn");
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
+  difficultyControlEl = document.getElementById("difficultyControl");
+  difficultyBtnEl = document.getElementById("difficultyBtn");
+  difficultyMenuEl = document.getElementById("difficultyMenu");
+  difficultyOptionEls = Array.from(document.querySelectorAll(".difficulty-option"));
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
@@ -1195,13 +1281,35 @@ document.addEventListener("DOMContentLoaded", () => {
     setLanguage(event.target.value);
   });
   aiModeSelectEl?.addEventListener("change", (event) => {
-    setAIMode(event.target.value);
+    changeAIMode(event.target.value);
+  });
+  difficultyBtnEl?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const nextOpen = difficultyMenuEl?.classList.contains("hidden");
+    setDifficultyMenuOpen(!!nextOpen);
+  });
+  difficultyOptionEls.forEach((option) => {
+    option.addEventListener("click", () => {
+      changeAIMode(option.dataset.mode);
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (!difficultyControlEl || !difficultyMenuEl || difficultyMenuEl.classList.contains("hidden")) return;
+    if (!difficultyControlEl.contains(event.target)) {
+      setDifficultyMenuOpen(false);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setDifficultyMenuOpen(false);
+    }
   });
 
   if (languageSelect) {
     languageSelect.value = lang;
   }
   setAIMode(getInitialAIMode(), false);
+  setDifficultyMenuOpen(false);
   setLanguage(lang, false);
 
   const initialRoomId = getRoomIdFromLocation();
@@ -1380,8 +1488,16 @@ window.startAIGame = startAIGame;
 function setInviteButtonState() {
   if (!inviteBtn) return;
   const isOnlineMode = gameMode === "online";
+  const isAIMode = gameMode === "ai";
   inviteBtn.style.display = isOnlineMode ? "" : "none";
   if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
+  if (difficultyControlEl) {
+    difficultyControlEl.classList.toggle("hidden", !isAIMode);
+  }
+  if (!isAIMode) {
+    setDifficultyMenuOpen(false);
+  }
+  updateDifficultyUI();
   setChatVisibility(isOnlineMode);
   updatePostGameActionLabels();
 }
@@ -1773,6 +1889,13 @@ function getMediumMove(boardState = board) {
   return getSmartPositionMove(boardState);
 }
 
+function getEasyMove(boardState = board) {
+  if (Math.random() < EASY_MISTAKE_RATE) {
+    return getRandomMove(boardState);
+  }
+  return getMediumMove(boardState);
+}
+
 function getHardMove(boardState = board) {
   if (Math.random() < HARD_MISTAKE_RATE) {
     return getMediumMove(boardState);
@@ -1829,7 +1952,7 @@ function getAdaptiveMove(boardState = board) {
 
 function getAIMove(boardState = board) {
   const mode = normalizeAIMode(aiMode);
-  if (mode === "easy") return getRandomMove(boardState);
+  if (mode === "easy") return getEasyMove(boardState);
   if (mode === "medium") return getMediumMove(boardState);
   if (mode === "hard") return getHardMove(boardState);
   return getAdaptiveMove(boardState);
@@ -1860,16 +1983,25 @@ function makeAIMove(i) {
   renderBoard();
 }
 
+function updateAIWinsForWinner(resolvedWinner) {
+  if (resolvedWinner === "X") {
+    aiWins.player += 1;
+  } else if (resolvedWinner === "O") {
+    aiWins.computer += 1;
+  } else {
+    return;
+  }
+  persistAIWins();
+  updatePlayersText();
+}
+
 function maybeAwardAIMatchStats() {
   if (gameMode !== "ai") return;
   if (winner !== "X" && winner !== "O" && winner !== "draw") return;
 
   if (!aiWinAwarded) {
-    if (winner === "X") aiWins.player += 1;
-    else if (winner === "O") aiWins.computer += 1;
+    updateAIWinsForWinner(winner);
     aiWinAwarded = true;
-    persistAIWins();
-    updatePlayersText();
   }
 
   if (aiResultAwarded || !db) return;
@@ -2044,6 +2176,7 @@ function goHome() {
     autoRestartTimer = null;
   }
   if (chatBoxEl) chatBoxEl.style.display = "";
+  setDifficultyMenuOpen(false);
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
