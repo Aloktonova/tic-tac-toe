@@ -387,8 +387,10 @@ function getInitialAIWins() {
     const parsed = raw ? JSON.parse(raw) : {};
     const playerRaw = localStorage.getItem(PLAYER_WINS_STORAGE_KEY);
     const computerRaw = localStorage.getItem(COMPUTER_WINS_STORAGE_KEY);
-    const legacyPlayerWins = playerRaw === null ? null : Number(playerRaw);
-    const legacyComputerWins = computerRaw === null ? null : Number(computerRaw);
+    const legacyPlayerParsed = playerRaw === null ? null : Number(playerRaw);
+    const legacyComputerParsed = computerRaw === null ? null : Number(computerRaw);
+    const legacyPlayerWins = Number.isFinite(legacyPlayerParsed) ? legacyPlayerParsed : null;
+    const legacyComputerWins = Number.isFinite(legacyComputerParsed) ? legacyComputerParsed : null;
     return {
       player: normalizeWins(legacyPlayerWins ?? parsed?.player),
       computer: normalizeWins(legacyComputerWins ?? parsed?.computer)
@@ -1189,8 +1191,8 @@ function resetAIGameBoardPreservingWins() {
 
 function changeAIMode(nextMode) {
   const changed = setAIMode(nextMode);
+  setDifficultyMenuOpen(false);
   if (changed) {
-    setDifficultyMenuOpen(false);
     resetAIGameBoardPreservingWins();
   }
 }
@@ -1984,11 +1986,14 @@ function makeAIMove(i) {
 }
 
 function updateAIWinsForWinner(resolvedWinner) {
+  aiWins.player = normalizeWins(aiWins.player);
+  aiWins.computer = normalizeWins(aiWins.computer);
   if (resolvedWinner === "X") {
     aiWins.player += 1;
   } else if (resolvedWinner === "O") {
     aiWins.computer += 1;
   } else {
+    updatePlayersText();
     return;
   }
   persistAIWins();
