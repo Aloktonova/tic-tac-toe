@@ -7,6 +7,7 @@ const DEFAULT_AI_MODE = "medium";
 const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
+const AI_WINS_STORAGE_KEY = "aiWins";
 const SUPPORTED_LANGS = ["en", "hi", "ar", "ru", "ko", "ja"];
 const RTL_LANGS = ["ar"];
 
@@ -35,7 +36,7 @@ const translations = {
     win: "You Win 🎉",
     draw: "Draw 🤝",
     opponentWins: "Opponent Wins",
-    opponentWinsAI: "Opponent Wins 🤖",
+    opponentWinsAI: "Computer Wins 🤖",
     aiThinking: "AI Thinking…",
     loadingRoom: "Loading room...",
     waitingOpponent: "Waiting for Opponent...",
@@ -317,6 +318,8 @@ let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
+let aiWins = getInitialAIWins();
+let aiWinAwarded = false;
 
 function createEmptyPlayerStats() {
   return {
@@ -361,6 +364,30 @@ function setAIMode(nextMode, persist = true) {
     localStorage.setItem(AI_MODE_STORAGE_KEY, aiMode);
   } catch (err) {
     console.warn("Unable to persist aiMode:", err);
+  }
+}
+
+function getInitialAIWins() {
+  const initial = { player: 0, computer: 0 };
+  try {
+    const raw = localStorage.getItem(AI_WINS_STORAGE_KEY);
+    if (!raw) return initial;
+    const parsed = JSON.parse(raw);
+    return {
+      player: normalizeWins(parsed?.player),
+      computer: normalizeWins(parsed?.computer)
+    };
+  } catch (err) {
+    console.warn("Unable to read ai wins:", err);
+    return initial;
+  }
+}
+
+function persistAIWins() {
+  try {
+    localStorage.setItem(AI_WINS_STORAGE_KEY, JSON.stringify(aiWins));
+  } catch (err) {
+    console.warn("Unable to persist ai wins:", err);
   }
 }
 
@@ -824,7 +851,7 @@ const XP_PER_LEVEL = 100;
 const XP_GAIN_WIN = 10;
 const XP_GAIN_DRAW = 7;
 const XP_GAIN_LOSS = 5;
-const AUTO_RESTART_DELAY_MS = 900;
+const AUTO_RESTART_DELAY_MS = 1500;
 const ROOM_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const ROOM_EXPIRED_REDIRECT_DELAY_MS = 2000;
 const LOCAL_MATCH_ID = 1;
@@ -1069,6 +1096,7 @@ function canWrite() {
 // =======================
 function updateActionButtons() {
   if (!restartBtn) return;
+  restartBtn.style.display = gameMode === "ai" ? "none" : "";
   if (gameMode === "online") {
     restartBtn.disabled = !roomLoaded || !myRole;
     // Chat is available for everyone in online rooms
@@ -1319,6 +1347,7 @@ function startAIGame() {
 
   gameMode = "ai";
   aiResultAwarded = false;
+  aiWinAwarded = false;
 
   board = ["","","","","","","","",""];
   currentPlayer = "X";
@@ -1350,9 +1379,8 @@ window.startAIGame = startAIGame;
 // 📩 Invite visibility
 function setInviteButtonState() {
   if (!inviteBtn) return;
-  const hasEnded = hasGameEnded();
   const isOnlineMode = gameMode === "online";
-  inviteBtn.style.display = (isOnlineMode || hasEnded) ? "" : "none";
+  inviteBtn.style.display = isOnlineMode ? "" : "none";
   if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
   setChatVisibility(isOnlineMode);
   updatePostGameActionLabels();
@@ -1363,20 +1391,28 @@ function hasGameEnded() {
 }
 
 function updatePostGameActionLabels() {
-  const hasEnded = hasGameEnded();
-  if (restartBtn) restartBtn.innerText = hasEnded ? POST_GAME_RESTART_LABEL : t("restart");
-  if (inviteBtn) inviteBtn.innerText = hasEnded ? POST_GAME_INVITE_LABEL : t("invite");
+  if (restartBtn) restartBtn.innerText = t("restart");
+  if (inviteBtn) inviteBtn.innerText = t("invite");
 }
 
 function updatePlayersText() {
   if (!playersDiv) return;
   const data = window.currentRoomData;
-  const x = t("labelYou");
-  const o = t("labelComputer");
+  const isAIMode = gameMode === "ai";
+  const x = isAIMode
+    ? t("labelYou")
+    : (typeof data?.players?.X?.name === "string" && data.players.X.name.trim()
+      ? data.players.X.name.trim()
+      : t("playerX"));
+  const o = isAIMode
+    ? t("labelComputer")
+    : (typeof data?.players?.O?.name === "string" && data.players.O.name.trim()
+      ? data.players.O.name.trim()
+      : t("waiting"));
   const xId = normalizePlayerId(data?.players?.X?.id);
   const oId = normalizePlayerId(data?.players?.O?.id);
-  const xWins = xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0;
-  const oWins = oId ? normalizeWins(playerStatsByUserId[oId]?.wins) : 0;
+  const xWins = isAIMode ? aiWins.player : (xId ? normalizeWins(playerStatsByUserId[xId]?.wins) : 0);
+  const oWins = isAIMode ? aiWins.computer : (oId ? normalizeWins(playerStatsByUserId[oId]?.wins) : 0);
 
   playersDiv.innerHTML = "";
 
@@ -1825,9 +1861,18 @@ function makeAIMove(i) {
 }
 
 function maybeAwardAIMatchStats() {
-  if (gameMode !== "ai" || aiResultAwarded) return;
+  if (gameMode !== "ai") return;
   if (winner !== "X" && winner !== "O" && winner !== "draw") return;
-  if (!db) return;
+
+  if (!aiWinAwarded) {
+    if (winner === "X") aiWins.player += 1;
+    else if (winner === "O") aiWins.computer += 1;
+    aiWinAwarded = true;
+    persistAIWins();
+    updatePlayersText();
+  }
+
+  if (aiResultAwarded || !db) return;
 
   const resolvedUserId = ensureNormalizedUserId();
   if (!resolvedUserId) return;
@@ -1911,6 +1956,7 @@ function restartGame() {
   lastAutoRestartKey = "";
   if (gameMode === "ai") {
     aiResultAwarded = false;
+    aiWinAwarded = false;
     board = ["","","","","","","","",""];
     currentPlayer = "X";
     winner = null;
