@@ -324,9 +324,6 @@ let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let difficultyControlEl = null;
-let difficultyLabelEl = null;
-let difficultyBtnEl = null;
-let difficultyMenuEl = null;
 let difficultyOptionEls = [];
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
@@ -1162,23 +1159,9 @@ function updateActionButtons() {
   }
 }
 
-function getAIModeLabel(mode) {
-  return t(`aiMode_${normalizeAIMode(mode)}`);
-}
-
-function setDifficultyMenuOpen(open) {
-  if (!difficultyMenuEl || !difficultyBtnEl) return;
-  difficultyMenuEl.classList.toggle("hidden", !open);
-  difficultyBtnEl.setAttribute("aria-expanded", open ? "true" : "false");
-}
-
 function updateDifficultyUI() {
   if (aiModeSelectEl) {
     aiModeSelectEl.value = normalizeAIMode(aiMode);
-  }
-  if (difficultyBtnEl) {
-    difficultyBtnEl.innerText = `${t("difficulty")}: ${getAIModeLabel(aiMode)}`;
-    difficultyBtnEl.setAttribute("aria-label", `${t("difficulty")}: ${getAIModeLabel(aiMode)}`);
   }
   if (difficultyOptionEls.length) {
     difficultyOptionEls.forEach((option) => {
@@ -1212,7 +1195,6 @@ function resetAIGameBoardPreservingWins() {
 
 function changeAIMode(nextMode) {
   setAIMode(nextMode);
-  setDifficultyMenuOpen(false);
   if (gameMode === "ai") {
     resetAIGameBoardPreservingWins();
   }
@@ -1263,9 +1245,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
   difficultyControlEl = document.getElementById("difficultyControl");
-  difficultyLabelEl = document.getElementById("difficultyLabel");
-  difficultyBtnEl = document.getElementById("difficultyBtn");
-  difficultyMenuEl = document.getElementById("difficultyMenu");
   difficultyOptionEls = Array.from(document.querySelectorAll(".difficulty-option"));
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
@@ -1307,33 +1286,16 @@ document.addEventListener("DOMContentLoaded", () => {
   aiModeSelectEl?.addEventListener("change", (event) => {
     changeAIMode(event.target.value);
   });
-  difficultyBtnEl?.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const nextOpen = difficultyMenuEl?.classList.contains("hidden");
-    setDifficultyMenuOpen(!!nextOpen);
-  });
   difficultyOptionEls.forEach((option) => {
     option.addEventListener("click", () => {
       changeAIMode(option.dataset.mode);
     });
-  });
-  document.addEventListener("click", (event) => {
-    if (!difficultyControlEl || !difficultyMenuEl || difficultyMenuEl.classList.contains("hidden")) return;
-    if (!difficultyControlEl.contains(event.target)) {
-      setDifficultyMenuOpen(false);
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      setDifficultyMenuOpen(false);
-    }
   });
 
   if (languageSelect) {
     languageSelect.value = lang;
   }
   setAIMode(getInitialAIMode(), false);
-  setDifficultyMenuOpen(false);
   setLanguage(lang, false);
 
   const initialRoomId = getRoomIdFromLocation();
@@ -1530,9 +1492,6 @@ function setInviteButtonState() {
   if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
   if (difficultyControlEl) {
     difficultyControlEl.classList.toggle("hidden", !isAIMode);
-  }
-  if (!isAIMode) {
-    setDifficultyMenuOpen(false);
   }
   updateDifficultyUI();
   setChatVisibility(isOnlineMode);
@@ -2267,7 +2226,6 @@ function goHome() {
     autoRestartTimer = null;
   }
   if (chatBoxEl) chatBoxEl.style.display = "";
-  setDifficultyMenuOpen(false);
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");
