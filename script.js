@@ -1552,7 +1552,9 @@ function updatePlayersText() {
   const hasDuplicateIdentity = !!(xId && oId && xId === oId);
   const x = isAIMode
     ? t("labelYou")
-    : `${xId === currentUserId ? t("labelYou") : t("labelFriend")} (X)`;
+    : (xId
+      ? `${xId === currentUserId ? t("labelYou") : t("labelFriend")} (X)`
+      : t("playerX"));
   const o = isAIMode
     ? t("labelComputer")
     : (oId && !hasDuplicateIdentity
@@ -1623,7 +1625,7 @@ function listenRoom() {
     const resolvedPlayerXId = normalizePlayerId(data.playerX ?? data.players?.X?.id);
     const resolvedPlayerOId = normalizePlayerId(data.playerO ?? data.players?.O?.id);
 
-    const rootNeedsSync = data.playerX !== resolvedPlayerXId
+    const rootNeedsSync = normalizePlayerId(data.playerX) !== resolvedPlayerXId
       || normalizePlayerId(data.playerO) !== resolvedPlayerOId;
     if (rootNeedsSync && resolvedPlayerXId) {
       roomRef.update({
@@ -1651,6 +1653,7 @@ function listenRoom() {
           if (!currentRoom?.players?.X) return currentRoom;
           const currentPlayerXId = normalizePlayerId(currentRoom.playerX ?? currentRoom.players?.X?.id);
           const currentPlayerOId = normalizePlayerId(currentRoom.playerO ?? currentRoom.players?.O?.id);
+          // Defensive re-check inside transaction for race safety across concurrent joiners.
           if (!currentPlayerXId || currentPlayerXId === resolvedUserId || currentPlayerOId) {
             return currentRoom;
           }
