@@ -387,9 +387,11 @@ function getInitialAIWins() {
     const parsed = raw ? JSON.parse(raw) : {};
     const playerRaw = localStorage.getItem(PLAYER_WINS_STORAGE_KEY);
     const computerRaw = localStorage.getItem(COMPUTER_WINS_STORAGE_KEY);
+    const legacyPlayerWins = playerRaw === null ? null : Number(playerRaw);
+    const legacyComputerWins = computerRaw === null ? null : Number(computerRaw);
     return {
-      player: normalizeWins(playerRaw ?? parsed?.player),
-      computer: normalizeWins(computerRaw ?? parsed?.computer)
+      player: normalizeWins(legacyPlayerWins ?? parsed?.player),
+      computer: normalizeWins(legacyComputerWins ?? parsed?.computer)
     };
   } catch (err) {
     console.warn("Unable to read ai wins:", err);
@@ -1036,7 +1038,6 @@ function applyTranslations() {
   const languageLabel = document.getElementById("languageLabel");
   const aiModeLabel = document.getElementById("aiModeLabel");
   const aiModeSelect = document.getElementById("aiModeSelect");
-  const difficultyButton = document.getElementById("difficultyBtn");
   const difficultyOptions = document.querySelectorAll(".difficulty-option");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
@@ -1057,9 +1058,6 @@ function applyTranslations() {
     Array.from(aiModeSelect.options).forEach((option) => {
       option.text = t(`aiMode_${option.value}`);
     });
-  }
-  if (difficultyButton) {
-    difficultyButton.setAttribute("aria-label", t("difficultyButton"));
   }
   if (difficultyOptions.length) {
     difficultyOptions.forEach((option) => {
@@ -1157,6 +1155,7 @@ function updateDifficultyUI() {
   }
   if (difficultyBtnEl) {
     difficultyBtnEl.innerText = `${t("difficulty")}: ${getAIModeLabel(aiMode)}`;
+    difficultyBtnEl.setAttribute("aria-label", `${t("difficulty")}: ${getAIModeLabel(aiMode)}`);
   }
   if (difficultyOptionEls.length) {
     difficultyOptionEls.forEach((option) => {
