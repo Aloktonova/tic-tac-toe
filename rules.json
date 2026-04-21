@@ -49,6 +49,14 @@
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
 
+        "playerX": {
+          ".validate": "newData.isString() && (!data.exists() || data.val() === newData.val())"
+        },
+
+        "playerO": {
+          ".validate": "newData.val() === null || (newData.isString() && (!data.exists() || data.val() === newData.val()))"
+        },
+
         "stats": {
           "matchId": {
             ".validate": "newData.isNumber() && newData.val() >= 1"
