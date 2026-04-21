@@ -49,6 +49,7 @@ const translations = {
     symbolWins: "{symbol} Wins 🎉",
     playerVs: "❌ {x} vs ⭕ {o}",
     labelYou: "You",
+    labelFriend: "Friend",
     labelComputer: "Computer",
     playerX: "Player X",
     playerO: "Player O",
@@ -71,6 +72,7 @@ const translations = {
     failedSendMessage: "Failed to send message.",
     gameNotFound: "Game not found",
     gameExpired: "This game has expired ⏳",
+    roomFull: "Room Full",
     inviteShareText: "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n"
   },
   hi: {
@@ -863,6 +865,7 @@ let roomLoaded = false;
 let myRole = null;        // "X", "O", or null (spectator)
 let hasAttemptedJoin = false;
 let isJoinAttemptInFlight = false;
+let hasShownRoomFullToast = false;
 let isWinAwardInFlight = false;
 let lastProcessedAwardKey = null;
 
@@ -1096,6 +1099,10 @@ function normalizeRoomData(raw) {
   } else if (raw.board && typeof raw.board === "object") {
     board = Array.from({ length: 9 }, (_, i) => String(raw.board[i] || ""));
   }
+  const normalizedPlayerXId = normalizePlayerId(raw.playerX ?? raw.players?.X?.id);
+  const normalizedPlayerOId = normalizePlayerId(raw.playerO ?? raw.players?.O?.id);
+  const normalizedPlayerXName = raw.players?.X?.name || t("playerX");
+  const normalizedPlayerOName = raw.players?.O?.name || t("playerO");
   return {
     board,
     turn: raw.turn || null,
@@ -1107,9 +1114,17 @@ function normalizeRoomData(raw) {
       matchId: getCurrentMatchId(raw),
       awardedKey: typeof raw.stats?.awardedKey === "string" ? raw.stats.awardedKey : null
     },
+    playerX: normalizedPlayerXId,
+    playerO: normalizedPlayerOId,
     players: {
-      X: raw.players?.X || null,
-      O: raw.players?.O || null
+      X: normalizedPlayerXId ? {
+        id: normalizedPlayerXId,
+        name: normalizedPlayerXName
+      } : null,
+      O: normalizedPlayerOId ? {
+        id: normalizedPlayerOId,
+        name: normalizedPlayerOName
+      } : null
     }
   };
 }
@@ -1351,6 +1366,7 @@ function autoJoinRoomFromLocation(prefetchedRoomId) {
   winningCells = [];
   roomLoaded = false;
   myRole = null;
+  hasShownRoomFullToast = false;
   window.currentRoomData = null;
 
   showGame();
@@ -1425,6 +1441,8 @@ function createGame() {
   roomRef = db.ref("rooms/" + roomId);
 
   roomRef.set({
+    playerX: normalizedUserId,
+    playerO: null,
     board: ["","","","","","","","",""],
     turn: "X",
     winner: null,
@@ -1528,15 +1546,19 @@ function updatePlayersText() {
   if (!playersDiv) return;
   const data = window.currentRoomData;
   const isAIMode = gameMode === "ai";
+  const currentUserId = ensureNormalizedUserId();
+  const xId = normalizePlayerId(data?.playerX ?? data?.players?.X?.id);
+  const oId = normalizePlayerId(data?.playerO ?? data?.players?.O?.id);
+  const hasDuplicateIdentity = !!(xId && oId && xId === oId);
   const x = isAIMode
     ? t("labelYou")
-    : (typeof data?.players?.X?.name === "string" && data.players.X.name.trim()
-      ? data.players.X.name.trim()
+    : (xId
+      ? `${xId === currentUserId ? t("labelYou") : t("labelFriend")} (X)`
       : t("playerX"));
   const o = isAIMode
     ? t("labelComputer")
-    : (typeof data?.players?.O?.name === "string" && data.players.O.name.trim()
-      ? data.players.O.name.trim()
+    : (oId && !hasDuplicateIdentity
+      ? `${oId === currentUserId ? t("labelYou") : t("labelFriend")} (O)`
       : t("waiting"));
   const xWins = isAIMode ? aiWins.player : normalizeWins(data?.playerXWins);
   const oWins = isAIMode ? aiWins.computer : normalizeWins(data?.playerOWins);
@@ -1600,22 +1622,54 @@ function listenRoom() {
     }
 
     const resolvedUserId = ensureNormalizedUserId();
+    const resolvedPlayerXId = normalizePlayerId(data.playerX ?? data.players?.X?.id);
+    const resolvedPlayerOId = normalizePlayerId(data.playerO ?? data.players?.O?.id);
 
-    // 🔥 FIX: Assign Player O properly
-    if (
-      data.players &&
-      data.players.X &&
-      String(data.players.X.id) !== resolvedUserId &&
-      !data.players.O
-    ) {
+    const rootNeedsSync = normalizePlayerId(data.playerX) !== resolvedPlayerXId
+      || normalizePlayerId(data.playerO) !== resolvedPlayerOId;
+    if (rootNeedsSync && resolvedPlayerXId) {
+      roomRef.update({
+        playerX: resolvedPlayerXId,
+        playerO: resolvedPlayerOId || null
+      }).catch((error) => {
+        console.warn("Failed syncing room identity fields:", error);
+      });
+    }
+
+    const isCreator = resolvedPlayerXId === resolvedUserId;
+    const isOpponent = resolvedPlayerOId === resolvedUserId;
+    const isKnownPlayer = isCreator || isOpponent;
+    const isRoomFull = !!(resolvedPlayerXId && resolvedPlayerOId);
+
+    if (!isRoomFull || isKnownPlayer) {
+      hasShownRoomFullToast = false;
+    }
+
+    // Assign Player O only to a different user when slot is empty
+    if (!resolvedPlayerOId && resolvedPlayerXId && !isCreator && !isOpponent) {
       if (!hasAttemptedJoin && !isJoinAttemptInFlight) {
         isJoinAttemptInFlight = true;
-        roomRef.child("players/O").transaction(currentO => {
-          if (currentO?.id) return undefined;
-          return {
+        roomRef.transaction((currentRoom) => {
+          if (!currentRoom?.players?.X) return currentRoom;
+          const currentPlayerXId = normalizePlayerId(currentRoom.playerX ?? currentRoom.players?.X?.id);
+          const currentPlayerOId = normalizePlayerId(currentRoom.playerO ?? currentRoom.players?.O?.id);
+          // Defensive re-check inside transaction for race safety across concurrent joiners.
+          if (!currentPlayerXId || currentPlayerXId === resolvedUserId || currentPlayerOId) {
+            return currentRoom;
+          }
+          const nextRoom = { ...currentRoom };
+          nextRoom.playerX = currentPlayerXId;
+          nextRoom.playerO = resolvedUserId;
+          nextRoom.players = { ...(currentRoom.players || {}) };
+          nextRoom.players.X = currentRoom.players.X || {
+            id: currentPlayerXId,
+            name: t("playerX")
+          };
+          nextRoom.players.O = {
             id: resolvedUserId,
             name: currentUserName || t("playerO")
           };
+          return nextRoom;
         }, (err, committed) => {
           isJoinAttemptInFlight = false;
           hasAttemptedJoin = true;
@@ -1630,6 +1684,11 @@ function listenRoom() {
       }
 
       return; // ⛔ wait for next update after transaction completes
+    }
+
+    if (isRoomFull && !isKnownPlayer && !hasShownRoomFullToast) {
+      hasShownRoomFullToast = true;
+      showToast(t("roomFull"));
     }
 
     // ✅ NORMAL GAME FLOW
