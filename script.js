@@ -3,7 +3,7 @@ const tg = window.Telegram?.WebApp;
 if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
-const DEFAULT_AI_MODE = "medium";
+const DEFAULT_AI_MODE = "easy";
 const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
@@ -27,6 +27,7 @@ const translations = {
     aiMode: "AI Mode",
     difficulty: "Difficulty",
     difficultyButton: "Difficulty",
+    changeDifficulty: "Change Difficulty",
     aiMode_easy: "Easy",
     aiMode_medium: "Medium",
     aiMode_hard: "Hard",
@@ -323,6 +324,7 @@ let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let difficultyControlEl = null;
+let difficultyLabelEl = null;
 let difficultyBtnEl = null;
 let difficultyMenuEl = null;
 let difficultyOptionEls = [];
@@ -1043,6 +1045,7 @@ function applyTranslations() {
   const languageLabel = document.getElementById("languageLabel");
   const aiModeLabel = document.getElementById("aiModeLabel");
   const aiModeSelect = document.getElementById("aiModeSelect");
+  const difficultyLabel = document.getElementById("difficultyLabel");
   const difficultyOptions = document.querySelectorAll(".difficulty-option");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
@@ -1064,6 +1067,7 @@ function applyTranslations() {
       option.text = t(`aiMode_${option.value}`);
     });
   }
+  if (difficultyLabel) difficultyLabel.innerText = t("changeDifficulty");
   if (difficultyOptions.length) {
     difficultyOptions.forEach((option) => {
       option.innerText = t(`aiMode_${option.dataset.mode}`);
@@ -1207,9 +1211,9 @@ function resetAIGameBoardPreservingWins() {
 }
 
 function changeAIMode(nextMode) {
-  const changed = setAIMode(nextMode);
+  setAIMode(nextMode);
   setDifficultyMenuOpen(false);
-  if (changed) {
+  if (gameMode === "ai") {
     resetAIGameBoardPreservingWins();
   }
 }
@@ -1259,6 +1263,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
   difficultyControlEl = document.getElementById("difficultyControl");
+  difficultyLabelEl = document.getElementById("difficultyLabel");
   difficultyBtnEl = document.getElementById("difficultyBtn");
   difficultyMenuEl = document.getElementById("difficultyMenu");
   difficultyOptionEls = Array.from(document.querySelectorAll(".difficulty-option"));
@@ -1485,6 +1490,7 @@ function startAIGame() {
   window.currentRoomData = null;
 
   gameMode = "ai";
+  setAIMode("easy");
   aiResultAwarded = false;
   aiWinAwarded = false;
 
