@@ -65,7 +65,8 @@ const translations = {
     restartFailed: "Restart failed. Try again.",
     failedSendMessage: "Failed to send message.",
     gameNotFound: "Game not found",
-    gameExpired: "This game has expired ⏳"
+    gameExpired: "This game has expired ⏳",
+    inviteShareText: "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n"
   },
   hi: {
     appTitle: "टिक टैक टो",
@@ -830,7 +831,6 @@ const LOCAL_MATCH_ID = 1;
 const FIRST_TIME_EXPERIENCE_KEY = "hasSeenFirstGameExperience";
 const POST_GAME_RESTART_LABEL = "🔁 Play Again";
 const POST_GAME_INVITE_LABEL = "📩 Invite Friend";
-const INVITE_SHARE_TEXT = "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n";
 const AI_DELAY_MIN_MS = 300;
 const AI_DELAY_MAX_MS = 800;
 const CENTER_PREFERENCE_RATE = 0.8;
@@ -1214,7 +1214,7 @@ function autoJoinRoomFromLocation() {
 
 function maybeStartFirstGameExperience() {
   if (getRoomIdFromLocation()) return;
-  let hasSeenFirstGame = false;
+  let hasSeenFirstGame;
   try {
     hasSeenFirstGame = localStorage.getItem(FIRST_TIME_EXPERIENCE_KEY) === "1";
   } catch (err) {
@@ -1349,18 +1349,22 @@ window.startAIGame = startAIGame;
 // 📩 Invite visibility
 function setInviteButtonState() {
   if (!inviteBtn) return;
-  const hasGameEnded = winner === "X" || winner === "O" || winner === "draw";
+  const hasEnded = hasGameEnded();
   const isOnlineMode = gameMode === "online";
-  inviteBtn.style.display = (isOnlineMode || hasGameEnded) ? "" : "none";
+  inviteBtn.style.display = (isOnlineMode || hasEnded) ? "" : "none";
   if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
   setChatVisibility(isOnlineMode);
   updatePostGameActionLabels();
 }
 
+function hasGameEnded() {
+  return winner === "X" || winner === "O" || winner === "draw";
+}
+
 function updatePostGameActionLabels() {
-  const hasGameEnded = winner === "X" || winner === "O" || winner === "draw";
-  if (restartBtn) restartBtn.innerText = hasGameEnded ? POST_GAME_RESTART_LABEL : t("restart");
-  if (inviteBtn) inviteBtn.innerText = hasGameEnded ? POST_GAME_INVITE_LABEL : t("invite");
+  const hasEnded = hasGameEnded();
+  if (restartBtn) restartBtn.innerText = hasEnded ? POST_GAME_RESTART_LABEL : t("restart");
+  if (inviteBtn) inviteBtn.innerText = hasEnded ? POST_GAME_INVITE_LABEL : t("invite");
 }
 
 function updatePlayersText() {
@@ -1954,10 +1958,11 @@ function shareGame() {
   }
 
   const link = `${window.location.origin}${window.location.pathname}#room=${roomId}`;
+  const inviteText = t("inviteShareText");
   const shareUrl = "https://t.me/share/url?url="
     + encodeURIComponent(link)
     + "&text="
-    + encodeURIComponent(INVITE_SHARE_TEXT);
+    + encodeURIComponent(inviteText);
 
   if (isRunningInsideTelegramWebApp()) {
     tg.openTelegramLink(shareUrl);
