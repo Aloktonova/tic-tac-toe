@@ -392,8 +392,8 @@ function getInitialAIWins() {
     const legacyPlayerWins = Number.isFinite(legacyPlayerParsed) ? legacyPlayerParsed : null;
     const legacyComputerWins = Number.isFinite(legacyComputerParsed) ? legacyComputerParsed : null;
     return {
-      player: normalizeWins(parsed?.player ?? legacyPlayerWins),
-      computer: normalizeWins(parsed?.computer ?? legacyComputerWins)
+      player: normalizeWins(legacyPlayerWins ?? parsed?.player),
+      computer: normalizeWins(legacyComputerWins ?? parsed?.computer)
     };
   } catch (err) {
     console.warn("Unable to read ai wins:", err);
@@ -1994,11 +1994,10 @@ function updateAIWinsForWinner(resolvedWinner) {
     aiWins.computer += 1;
   } else {
     updatePlayersText();
-    return false;
+    return;
   }
   persistAIWins();
   updatePlayersText();
-  return true;
 }
 
 function maybeAwardAIMatchStats() {
