@@ -1168,7 +1168,7 @@ function updateDifficultyUI() {
       const optionMode = normalizeAIMode(option.dataset.mode);
       const isSelected = optionMode === normalizeAIMode(aiMode);
       option.classList.toggle("selected", isSelected);
-      option.setAttribute("aria-selected", isSelected ? "true" : "false");
+      option.setAttribute("aria-pressed", isSelected ? "true" : "false");
     });
   }
 }
