@@ -40,18 +40,18 @@
   <!-- 👤 Players -->
   <div id="players"></div>
 
-  <div id="difficultyControl" class="difficulty-control hidden">
-    <button id="difficultyBtn" type="button" aria-haspopup="listbox" aria-expanded="false">Difficulty</button>
-    <div id="difficultyMenu" class="difficulty-menu hidden" role="listbox" aria-label="Difficulty Levels">
-      <button type="button" class="difficulty-option" data-mode="easy" role="option" aria-selected="false">Easy</button>
-      <button type="button" class="difficulty-option" data-mode="medium" role="option" aria-selected="false">Medium</button>
-      <button type="button" class="difficulty-option" data-mode="hard" role="option" aria-selected="false">Hard</button>
-      <button type="button" class="difficulty-option" data-mode="adaptive" role="option" aria-selected="false">Adaptive AI</button>
-    </div>
-  </div>
-
   <!-- 🎯 Game Board -->
   <div id="board"></div>
+
+  <div id="difficultyControl" class="difficulty-control hidden">
+    <div id="difficultyLabel" class="difficulty-label">Change Difficulty</div>
+    <div class="difficulty-options" role="group" aria-labelledby="difficultyLabel">
+      <button type="button" class="difficulty-option" data-mode="easy" aria-pressed="false">Easy</button>
+      <button type="button" class="difficulty-option" data-mode="medium" aria-pressed="false">Medium</button>
+      <button type="button" class="difficulty-option" data-mode="hard" aria-pressed="false">Hard</button>
+      <button type="button" class="difficulty-option" data-mode="adaptive" aria-pressed="false">Adaptive AI</button>
+    </div>
+  </div>
 
   <!-- Actions -->
   <div class="actions">

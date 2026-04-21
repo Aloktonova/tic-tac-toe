@@ -3,7 +3,7 @@ const tg = window.Telegram?.WebApp;
 if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
-const DEFAULT_AI_MODE = "medium";
+const DEFAULT_AI_MODE = "easy";
 const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
@@ -27,6 +27,7 @@ const translations = {
     aiMode: "AI Mode",
     difficulty: "Difficulty",
     difficultyButton: "Difficulty",
+    changeDifficulty: "Change Difficulty",
     aiMode_easy: "Easy",
     aiMode_medium: "Medium",
     aiMode_hard: "Hard",
@@ -323,8 +324,6 @@ let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let difficultyControlEl = null;
-let difficultyBtnEl = null;
-let difficultyMenuEl = null;
 let difficultyOptionEls = [];
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
@@ -1043,6 +1042,7 @@ function applyTranslations() {
   const languageLabel = document.getElementById("languageLabel");
   const aiModeLabel = document.getElementById("aiModeLabel");
   const aiModeSelect = document.getElementById("aiModeSelect");
+  const difficultyLabel = document.getElementById("difficultyLabel");
   const difficultyOptions = document.querySelectorAll(".difficulty-option");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
@@ -1064,6 +1064,7 @@ function applyTranslations() {
       option.text = t(`aiMode_${option.value}`);
     });
   }
+  if (difficultyLabel) difficultyLabel.innerText = t("changeDifficulty");
   if (difficultyOptions.length) {
     difficultyOptions.forEach((option) => {
       option.innerText = t(`aiMode_${option.dataset.mode}`);
@@ -1158,30 +1159,16 @@ function updateActionButtons() {
   }
 }
 
-function getAIModeLabel(mode) {
-  return t(`aiMode_${normalizeAIMode(mode)}`);
-}
-
-function setDifficultyMenuOpen(open) {
-  if (!difficultyMenuEl || !difficultyBtnEl) return;
-  difficultyMenuEl.classList.toggle("hidden", !open);
-  difficultyBtnEl.setAttribute("aria-expanded", open ? "true" : "false");
-}
-
 function updateDifficultyUI() {
   if (aiModeSelectEl) {
     aiModeSelectEl.value = normalizeAIMode(aiMode);
-  }
-  if (difficultyBtnEl) {
-    difficultyBtnEl.innerText = `${t("difficulty")}: ${getAIModeLabel(aiMode)}`;
-    difficultyBtnEl.setAttribute("aria-label", `${t("difficulty")}: ${getAIModeLabel(aiMode)}`);
   }
   if (difficultyOptionEls.length) {
     difficultyOptionEls.forEach((option) => {
       const optionMode = normalizeAIMode(option.dataset.mode);
       const isSelected = optionMode === normalizeAIMode(aiMode);
       option.classList.toggle("selected", isSelected);
-      option.setAttribute("aria-selected", isSelected ? "true" : "false");
+      option.setAttribute("aria-pressed", isSelected ? "true" : "false");
     });
   }
 }
@@ -1207,9 +1194,8 @@ function resetAIGameBoardPreservingWins() {
 }
 
 function changeAIMode(nextMode) {
-  const changed = setAIMode(nextMode);
-  setDifficultyMenuOpen(false);
-  if (changed) {
+  setAIMode(nextMode);
+  if (gameMode === "ai") {
     resetAIGameBoardPreservingWins();
   }
 }
@@ -1259,8 +1245,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
   difficultyControlEl = document.getElementById("difficultyControl");
-  difficultyBtnEl = document.getElementById("difficultyBtn");
-  difficultyMenuEl = document.getElementById("difficultyMenu");
   difficultyOptionEls = Array.from(document.querySelectorAll(".difficulty-option"));
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
@@ -1302,33 +1286,16 @@ document.addEventListener("DOMContentLoaded", () => {
   aiModeSelectEl?.addEventListener("change", (event) => {
     changeAIMode(event.target.value);
   });
-  difficultyBtnEl?.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const nextOpen = difficultyMenuEl?.classList.contains("hidden");
-    setDifficultyMenuOpen(!!nextOpen);
-  });
   difficultyOptionEls.forEach((option) => {
     option.addEventListener("click", () => {
       changeAIMode(option.dataset.mode);
     });
-  });
-  document.addEventListener("click", (event) => {
-    if (!difficultyControlEl || !difficultyMenuEl || difficultyMenuEl.classList.contains("hidden")) return;
-    if (!difficultyControlEl.contains(event.target)) {
-      setDifficultyMenuOpen(false);
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      setDifficultyMenuOpen(false);
-    }
   });
 
   if (languageSelect) {
     languageSelect.value = lang;
   }
   setAIMode(getInitialAIMode(), false);
-  setDifficultyMenuOpen(false);
   setLanguage(lang, false);
 
   const initialRoomId = getRoomIdFromLocation();
@@ -1485,6 +1452,7 @@ function startAIGame() {
   window.currentRoomData = null;
 
   gameMode = "ai";
+  setAIMode("easy");
   aiResultAwarded = false;
   aiWinAwarded = false;
 
@@ -1524,9 +1492,6 @@ function setInviteButtonState() {
   if (chatBoxEl) chatBoxEl.style.display = isOnlineMode ? "" : "none";
   if (difficultyControlEl) {
     difficultyControlEl.classList.toggle("hidden", !isAIMode);
-  }
-  if (!isAIMode) {
-    setDifficultyMenuOpen(false);
   }
   updateDifficultyUI();
   setChatVisibility(isOnlineMode);
@@ -2261,7 +2226,6 @@ function goHome() {
     autoRestartTimer = null;
   }
   if (chatBoxEl) chatBoxEl.style.display = "";
-  setDifficultyMenuOpen(false);
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   setChatVisibility(true);
   gameScreen.classList.add("hidden");

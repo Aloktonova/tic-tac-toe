@@ -407,44 +407,35 @@ button:disabled {
 .difficulty-control {
   width: 100%;
   max-width: 320px;
-  margin: 0 auto 4px;
+  margin: 8px auto 4px;
   position: relative;
   z-index: 25;
 }
 
-#difficultyBtn {
-  width: 100%;
-  margin: 0;
-  border-radius: 14px;
-  background: linear-gradient(120deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35), 0 0 18px rgba(124, 58, 237, 0.4);
-  animation: buttonGlow 2.4s ease-in-out infinite alternate;
+.difficulty-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: left;
 }
 
-.difficulty-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
+.difficulty-options {
   width: 100%;
-  background: rgba(15, 23, 42, 0.98);
-  border: 1px solid rgba(99, 102, 241, 0.55);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.75), 0 0 18px rgba(99, 102, 241, 0.35);
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .difficulty-option {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   margin: 0;
-  padding: 10px 12px;
+  padding: 10px 6px;
   border-radius: 10px;
   background: linear-gradient(140deg, #1e293b, #0f172a);
   border: 1px solid #334155;
   box-shadow: none;
-  font-size: 13px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .difficulty-option:hover {
@@ -805,6 +796,11 @@ button:disabled {
 
   #statusText {
     font-size: 24px;
+  }
+
+  .difficulty-option {
+    font-size: 11px;
+    padding: 9px 4px;
   }
 }
 
