@@ -1761,15 +1761,12 @@ function makeMove(i) {
 
   if (res) {
     const firebaseIncrement = window.firebase?.database?.ServerValue?.increment;
+    const winnerCounterKey = res.winner === "X"
+      ? "playerXWins"
+      : (res.winner === "O" ? "playerOWins" : null);
     const winnerCounterUpdate = {};
-    if (res.winner === "X") {
-      winnerCounterUpdate.playerXWins = typeof firebaseIncrement === "function"
-        ? firebaseIncrement(1)
-        : normalizeWins(window.currentRoomData?.playerXWins) + 1;
-    } else if (res.winner === "O") {
-      winnerCounterUpdate.playerOWins = typeof firebaseIncrement === "function"
-        ? firebaseIncrement(1)
-        : normalizeWins(window.currentRoomData?.playerOWins) + 1;
+    if (winnerCounterKey && typeof firebaseIncrement === "function") {
+      winnerCounterUpdate[winnerCounterKey] = firebaseIncrement(1);
     }
     roomRef.update({
       board: newBoard,
@@ -1777,6 +1774,9 @@ function makeMove(i) {
       winningCells: res.cells,
       turn: null,
       ...winnerCounterUpdate
+    }).then(() => {
+      if (!winnerCounterKey || typeof firebaseIncrement === "function") return null;
+      return roomRef.child(winnerCounterKey).transaction((value) => normalizeWins(value) + 1);
     }).catch(err => {
       console.error("Move failed:", err);
       showToast(t("moveFailed"));
