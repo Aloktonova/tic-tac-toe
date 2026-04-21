@@ -1176,8 +1176,9 @@ document.addEventListener("DOMContentLoaded", () => {
   setAIMode(getInitialAIMode(), false);
   setLanguage(lang, false);
 
-  autoJoinRoomFromLocation();
-  maybeStartFirstGameExperience();
+  const initialRoomId = getRoomIdFromLocation();
+  autoJoinRoomFromLocation(initialRoomId);
+  maybeStartFirstGameExperience(initialRoomId);
   window.addEventListener("hashchange", autoJoinRoomFromLocation);
 });
 
@@ -1192,9 +1193,9 @@ function getRoomIdFromLocation() {
   return null;
 }
 
-function autoJoinRoomFromLocation() {
+function autoJoinRoomFromLocation(prefetchedRoomId) {
   if (!db) return;
-  const detectedRoomId = getRoomIdFromLocation();
+  const detectedRoomId = prefetchedRoomId || getRoomIdFromLocation();
   if (!detectedRoomId) return;
   if (roomId === detectedRoomId && roomRef) return;
 
@@ -1212,8 +1213,8 @@ function autoJoinRoomFromLocation() {
   console.log("Joined Room:", roomId);
 }
 
-function maybeStartFirstGameExperience() {
-  if (getRoomIdFromLocation()) return;
+function maybeStartFirstGameExperience(prefetchedRoomId) {
+  if (prefetchedRoomId || getRoomIdFromLocation()) return;
   let hasSeenFirstGame;
   try {
     hasSeenFirstGame = localStorage.getItem(FIRST_TIME_EXPERIENCE_KEY) === "1";
