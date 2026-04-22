@@ -313,6 +313,44 @@ button:disabled {
   box-sizing: border-box;
 }
 
+/* 🤖 AI mode — bigger board, tight centered layout */
+body.ai-mode #gameScreen {
+  justify-content: center;
+  gap: 10px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+body.ai-mode #statusText,
+body.ai-mode #players {
+  margin: 0;
+}
+
+body.ai-mode #board {
+  width: min(90vw, 400px);
+  max-width: none;
+}
+
+body.ai-mode #players,
+body.ai-mode .difficulty-control,
+body.ai-mode .actions {
+  width: min(90vw, 400px);
+  max-width: none;
+}
+
+body.ai-mode .difficulty-control {
+  margin: 0;
+}
+
+body.ai-mode .actions {
+  margin: 0;
+}
+
+body.ai-mode .actions #homeBtn {
+  flex: 1;
+  width: 100%;
+}
+
 /* 🔲 Cells */
 .cell {
   width: 100%;
@@ -413,39 +451,42 @@ button:disabled {
 }
 
 .difficulty-label {
+  display: block;
   margin: 0 0 6px;
   font-size: 12px;
   color: #94a3b8;
   text-align: left;
 }
 
-.difficulty-options {
+/* 🔽 Difficulty dropdown */
+.difficulty-select {
   width: 100%;
-  display: flex;
-  gap: 6px;
-}
-
-.difficulty-option {
-  flex: 1 1 0;
-  min-width: 0;
-  margin: 0;
-  padding: 10px 6px;
-  border-radius: 10px;
-  background: linear-gradient(140deg, #1e293b, #0f172a);
+  padding: 12px 40px 12px 16px;
+  border-radius: 12px;
   border: 1px solid #334155;
-  box-shadow: none;
-  font-size: 12px;
-  white-space: nowrap;
+  background-color: #1e293b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.difficulty-option:hover {
-  box-shadow: none;
-}
-
-.difficulty-option.selected {
+.difficulty-select:focus {
+  outline: none;
   border-color: #60a5fa;
-  background: linear-gradient(140deg, #1d4ed8, #4f46e5);
-  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.35), 0 0 16px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.difficulty-select:hover {
+  border-color: #475569;
 }
 
 /* Actions */
@@ -785,6 +826,11 @@ button:disabled {
     gap: 10px;
   }
 
+  body.ai-mode #board {
+    max-width: none;
+    gap: 10px;
+  }
+
   #players {
     max-width: 320px;
   }
@@ -797,11 +843,6 @@ button:disabled {
   #statusText {
     font-size: 24px;
   }
-
-  .difficulty-option {
-    font-size: 11px;
-    padding: 9px 4px;
-  }
 }
 
 @media (min-width: 768px) {
@@ -811,6 +852,10 @@ button:disabled {
 
   #board {
     max-width: 300px;
+  }
+
+  body.ai-mode #board {
+    max-width: none;
   }
 }
 
