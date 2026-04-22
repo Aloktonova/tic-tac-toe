@@ -44,13 +44,13 @@
   <div id="board"></div>
 
   <div id="difficultyControl" class="difficulty-control hidden">
-    <div id="difficultyLabel" class="difficulty-label">Change Difficulty</div>
-    <div class="difficulty-options" role="group" aria-labelledby="difficultyLabel">
-      <button type="button" class="difficulty-option" data-mode="easy" aria-pressed="false">Easy</button>
-      <button type="button" class="difficulty-option" data-mode="medium" aria-pressed="false">Medium</button>
-      <button type="button" class="difficulty-option" data-mode="hard" aria-pressed="false">Hard</button>
-      <button type="button" class="difficulty-option" data-mode="adaptive" aria-pressed="false">Adaptive AI</button>
-    </div>
+    <label id="difficultyLabel" class="difficulty-label" for="difficultySelect">Difficulty</label>
+    <select id="difficultySelect" class="difficulty-select">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard">Hard</option>
+      <option value="adaptive">Adaptive AI</option>
+    </select>
   </div>
 
   <!-- Actions -->

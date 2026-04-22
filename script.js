@@ -324,7 +324,7 @@ let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let difficultyControlEl = null;
-let difficultyOptionEls = [];
+let difficultySelectEl = null;
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
 let aiWins = getInitialAIWins();
@@ -1043,7 +1043,7 @@ function applyTranslations() {
   const aiModeLabel = document.getElementById("aiModeLabel");
   const aiModeSelect = document.getElementById("aiModeSelect");
   const difficultyLabel = document.getElementById("difficultyLabel");
-  const difficultyOptions = document.querySelectorAll(".difficulty-option");
+  const difficultySelectOptions = document.querySelectorAll("#difficultySelect option");
   const aboutTitle = document.getElementById("aboutTitle");
   const developerText = document.getElementById("developerText");
   const telegramLabel = document.getElementById("telegramLabel");
@@ -1064,10 +1064,10 @@ function applyTranslations() {
       option.text = t(`aiMode_${option.value}`);
     });
   }
-  if (difficultyLabel) difficultyLabel.innerText = t("changeDifficulty");
-  if (difficultyOptions.length) {
-    difficultyOptions.forEach((option) => {
-      option.innerText = t(`aiMode_${option.dataset.mode}`);
+  if (difficultyLabel) difficultyLabel.innerText = t("difficulty");
+  if (difficultySelectOptions.length) {
+    difficultySelectOptions.forEach((option) => {
+      option.text = t(`aiMode_${option.value}`);
     });
   }
   if (aboutTitle) aboutTitle.innerText = t("about");
@@ -1163,13 +1163,8 @@ function updateDifficultyUI() {
   if (aiModeSelectEl) {
     aiModeSelectEl.value = normalizeAIMode(aiMode);
   }
-  if (difficultyOptionEls.length) {
-    difficultyOptionEls.forEach((option) => {
-      const optionMode = normalizeAIMode(option.dataset.mode);
-      const isSelected = optionMode === normalizeAIMode(aiMode);
-      option.classList.toggle("selected", isSelected);
-      option.setAttribute("aria-pressed", isSelected ? "true" : "false");
-    });
+  if (difficultySelectEl) {
+    difficultySelectEl.value = normalizeAIMode(aiMode);
   }
 }
 
@@ -1245,7 +1240,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
   difficultyControlEl = document.getElementById("difficultyControl");
-  difficultyOptionEls = Array.from(document.querySelectorAll(".difficulty-option"));
+  difficultySelectEl = document.getElementById("difficultySelect");
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
@@ -1286,10 +1281,8 @@ document.addEventListener("DOMContentLoaded", () => {
   aiModeSelectEl?.addEventListener("change", (event) => {
     changeAIMode(event.target.value);
   });
-  difficultyOptionEls.forEach((option) => {
-    option.addEventListener("click", () => {
-      changeAIMode(option.dataset.mode);
-    });
+  difficultySelectEl?.addEventListener("change", (event) => {
+    changeAIMode(event.target.value);
   });
 
   if (languageSelect) {
@@ -1468,6 +1461,7 @@ function startAIGame() {
     autoRestartTimer = null;
   }
   showGame();
+  document.body.classList.add("ai-mode");
 
   const chat = document.getElementById("chatBox");
   if (chat) chat.style.display = "none";
@@ -2233,6 +2227,7 @@ function goHome() {
   if (gameScreen) gameScreen.style.display = "none";
   if (homeScreen) homeScreen.style.display = "flex";
   document.body.classList.remove("game-active");
+  document.body.classList.remove("ai-mode");
   window.scrollTo(0, 0);
 }
 
