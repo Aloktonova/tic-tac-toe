@@ -63,14 +63,7 @@ body.game-active .app-footer {
 }
 
 #settingsBtn {
-  margin: 0;
-  min-width: 42px;
-  min-height: 42px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(30, 41, 59, 0.92);
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  box-shadow: 0 0 16px rgba(99, 102, 241, 0.32);
+  display: none;
 }
 
 #userInfo {
@@ -157,7 +150,7 @@ body.game-active .app-footer {
   justify-content: space-between;
   padding: 16px clamp(12px, 4vw, 20px);
   padding-top: max(16px, env(safe-area-inset-top));
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-bottom: calc(80px + max(0px, env(safe-area-inset-bottom)));
   box-sizing: border-box;
   transition: opacity 0.2s ease;
   width: 100%;
@@ -208,7 +201,7 @@ body.game-active .app-footer {
 
 .home-game-image {
   width: 100%;
-  max-width: 250px;
+  max-width: 280px;
   margin: 0;
   aspect-ratio: 1 / 1;
   object-fit: cover;
@@ -216,6 +209,8 @@ body.game-active .app-footer {
   border: 1px solid rgba(129, 140, 248, 0.35);
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.14), 0 24px 52px rgba(2, 6, 23, 0.72), 0 0 26px rgba(99, 102, 241, 0.35);
   animation: homeImageIn 0.7s ease-out both, boardGlow 2.8s ease-in-out 0.8s infinite alternate;
+  pointer-events: none;
+  user-select: none;
 }
 
 .home-actions {
@@ -226,6 +221,32 @@ body.game-active .app-footer {
   padding-top: 0;
   position: relative;
   z-index: 26;
+  align-items: center;
+}
+
+#playAI {
+  width: 100%;
+  max-width: 300px;
+  margin: 10px auto;
+  border-radius: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(120deg, #3b82f6 0%, #6366f1 52%, #9333ea 100%);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 15px rgba(37, 99, 235, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.28s ease, filter 0.28s ease;
+  animation: buttonGlow 2.4s ease-in-out infinite alternate;
+  pointer-events: auto;
+  position: relative;
+  z-index: 27;
+}
+
+#playAI:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 14px 32px rgba(59, 130, 246, 0.42), 0 0 26px rgba(147, 51, 234, 0.42);
+}
+
+#playAI:active {
+  transform: scale(0.95);
+  filter: brightness(0.95);
 }
 
 /* Buttons */
@@ -261,37 +282,6 @@ button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-#createGame,
-#playAI {
-  width: 100%;
-  max-width: 300px;
-  margin: 10px auto;
-  border-radius: 20px;
-  padding: 16px 20px;
-  background: linear-gradient(120deg, #3b82f6 0%, #6366f1 52%, #9333ea 100%);
-  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.36), 0 0 15px rgba(37, 99, 235, 0.6);
-  transition: transform 0.2s ease, box-shadow 0.28s ease, filter 0.28s ease;
-  animation: buttonGlow 2.4s ease-in-out infinite alternate;
-}
-
-#playAI {
-  pointer-events: auto;
-  position: relative;
-  z-index: 27;
-}
-
-#createGame:hover,
-#playAI:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 14px 32px rgba(59, 130, 246, 0.42), 0 0 26px rgba(147, 51, 234, 0.42);
-}
-
-#createGame:active,
-#playAI:active {
-  transform: scale(0.95);
-  filter: brightness(0.95);
 }
 
 /* 🎯 Board container */
@@ -812,36 +802,154 @@ body.ai-mode .actions #homeBtn {
 /* 💬 Toast */
 #toast {
   position: fixed;
-  bottom: 54px;
+  bottom: calc(80px + 14px);
   left: 50%;
   transform: translateX(-50%);
   background: #111827;
   padding: 10px 20px;
   border-radius: 10px;
   display: none;
+  z-index: 50;
 }
 
 .app-footer {
-  position: static;
+  display: none;
+}
+
+/* 🧭 Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  margin-top: auto;
-  padding: 9px 12px;
+  max-width: 420px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  background: rgba(11, 18, 32, 0.97);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 28px rgba(99, 102, 241, 0.18), 0 -1px 0 rgba(129, 140, 248, 0.12);
+  z-index: 35;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   box-sizing: border-box;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, filter 0.2s ease;
+  box-shadow: none;
+  margin: 0;
+  min-height: 60px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.nav-btn:hover {
+  color: #a5b4fc;
+  transform: none;
+  box-shadow: none;
+}
+
+.nav-btn:active {
+  transform: scale(0.93);
+  box-shadow: none;
+}
+
+.nav-icon {
+  font-size: 22px;
+  line-height: 1;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.nav-btn.nav-btn-active {
+  color: #818cf8;
+  text-shadow: 0 0 10px rgba(129, 140, 248, 0.7);
+}
+
+.nav-btn.nav-btn-active .nav-icon {
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.85));
+  transform: translateY(-1px);
+}
+
+.nav-btn-battle.nav-btn-active {
+  color: #f472b6;
+  text-shadow: 0 0 10px rgba(244, 114, 182, 0.7);
+}
+
+.nav-btn-battle.nav-btn-active .nav-icon {
+  filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.85));
+}
+
+/* ⚔️ Battle Matchmaking */
+.battle-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 24px 28px;
+}
+
+.battle-icon-wrap {
+  font-size: 56px;
+  line-height: 1;
+  animation: battleIconPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes battleIconPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.5));
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 20px rgba(244, 114, 182, 0.9));
+  }
+}
+
+.battle-dots {
+  display: flex;
+  gap: 10px;
+  margin: 2px 0;
+}
+
+.battle-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #818cf8;
+  animation: dotBounce 1.3s ease-in-out infinite;
+}
+
+.battle-dot:nth-child(2) { animation-delay: 0.22s; background: #a78bfa; }
+.battle-dot:nth-child(3) { animation-delay: 0.44s; background: #f472b6; }
+
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(0.75); opacity: 0.45; }
+  40% { transform: scale(1.25); opacity: 1; }
+}
+
+.battle-sub {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
   text-align: center;
-  font-size: 12px;
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(4px);
-  z-index: 20;
-}
-
-.app-footer a {
-  color: #cbd5e1;
-  text-decoration: none;
-}
-
-.app-footer a:hover {
-  text-decoration: underline;
 }
 
 /* 🎉 Win animation */
