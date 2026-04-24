@@ -75,7 +75,14 @@ const translations = {
     gameNotFound: "Game not found",
     gameExpired: "This game has expired ⏳",
     roomFull: "Room Full",
-    inviteShareText: "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n"
+    inviteShareText: "🎮 I challenge you in Tic Tac Toe!\nCan you beat me? 😏\n\n👉 Play instantly:\n",
+    navHome: "Home",
+    navBattle: "Battle",
+    navSettings: "Settings",
+    battle: "Battle",
+    searchingOpponent: "Searching for opponent...",
+    cancelSearch: "Cancel",
+    opponentFound: "Opponent found! Starting game..."
   },
   hi: {
     appTitle: "टिक टैक टो",
@@ -903,6 +910,10 @@ let settingsModal;
 let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileLossesValue, profileDrawsValue, profileGamesValue, profileLevelValue, profileXpValue, profileXpBarFill, profileXpPercentValue;
 let autoRestartTimer = null;
 let lastAutoRestartKey = "";
+
+// ⚔️ BATTLE MATCHMAKING STATE
+let battleMatchmakingRef = null;
+let battleRoomPlayerOListener = null;
 let roomExpiryRedirectTimer = null;
 
 // =======================
@@ -1085,6 +1096,18 @@ function applyTranslations() {
   if (telegramLabel) telegramLabel.innerText = t("telegram");
   if (backHomeButton) backHomeButton.innerText = t("backHome");
   if (closeSettingsButton) closeSettingsButton.innerText = t("close");
+
+  const navHomeLbl = document.getElementById("navHomeLbl");
+  const navBattleLbl = document.getElementById("navBattleLbl");
+  const navSettingsLbl = document.getElementById("navSettingsLbl");
+  if (navHomeLbl) navHomeLbl.innerText = t("navHome");
+  if (navBattleLbl) navBattleLbl.innerText = t("navBattle");
+  if (navSettingsLbl) navSettingsLbl.innerText = t("navSettings");
+
+  const battleStatusEl = document.getElementById("battleStatusText");
+  if (battleStatusEl) battleStatusEl.innerText = t("searchingOpponent");
+  const cancelBattleEl = document.getElementById("cancelBattleBtn");
+  if (cancelBattleEl) cancelBattleEl.innerText = t("cancelSearch");
 
   if (chatInputEl) {
     chatInputEl.placeholder = t(currentChatPlaceholderKey);
@@ -1276,8 +1299,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
+  // Bottom nav buttons
+  const navHomeBtnEl = document.getElementById("navHomeBtn");
+  const navBattleBtnEl = document.getElementById("navBattleBtn");
+  const navSettingsBtnEl = document.getElementById("navSettingsBtn");
+  const cancelBattleBtnEl = document.getElementById("cancelBattleBtn");
+
   // 🔥 BUTTON FIX (IMPORTANT)
-  createBtn.addEventListener("click", createGame);
+  if (createBtn) createBtn.addEventListener("click", createGame);
   if (aiBtn) {
     aiBtn.onclick = startAIGame;
   }
@@ -1297,9 +1326,6 @@ document.addEventListener("DOMContentLoaded", () => {
   backHomeBtn?.addEventListener("click", () => {
     settingsModal?.classList.add("hidden");
     goHome();
-  });
-  settingsModal?.addEventListener("click", (event) => {
-    if (event.target === settingsModal) settingsModal.classList.add("hidden");
   });
   closeProfileBtn?.addEventListener("click", closeCurrentUserProfile);
   profileModal?.addEventListener("click", (event) => {
@@ -1341,6 +1367,24 @@ document.addEventListener("DOMContentLoaded", () => {
       closeDifficultyDropdown();
     }
   });
+
+  // 🧭 Bottom nav
+  navHomeBtnEl?.addEventListener("click", () => {
+    hideBattleOverlay();
+    goHome();
+  });
+  navBattleBtnEl?.addEventListener("click", startBattleMatchmaking);
+  navSettingsBtnEl?.addEventListener("click", () => {
+    setBottomNavActive("settings");
+    settingsModal?.classList.remove("hidden");
+  });
+  settingsModal?.addEventListener("click", (event) => {
+    if (event.target === settingsModal) {
+      settingsModal.classList.add("hidden");
+      setBottomNavActive(gameScreen && gameScreen.style.display !== "none" ? "home" : "home");
+    }
+  });
+  cancelBattleBtnEl?.addEventListener("click", cancelBattleSearch);
 
   if (languageSelect) {
     languageSelect.value = lang;
@@ -1434,6 +1478,195 @@ function handleRoomUnavailable(message, delayMs = 0) {
     return;
   }
   goHome();
+}
+
+// =======================
+// 🧭 BOTTOM NAV
+// =======================
+function setBottomNavActive(tab) {
+  const homeBtn2 = document.getElementById("navHomeBtn");
+  const battleBtn = document.getElementById("navBattleBtn");
+  const settingsBtn2 = document.getElementById("navSettingsBtn");
+  [homeBtn2, battleBtn, settingsBtn2].forEach((btn) => {
+    if (btn) btn.classList.remove("nav-btn-active");
+  });
+  if (tab === "home" && homeBtn2) homeBtn2.classList.add("nav-btn-active");
+  if (tab === "battle" && battleBtn) battleBtn.classList.add("nav-btn-active");
+  if (tab === "settings" && settingsBtn2) settingsBtn2.classList.add("nav-btn-active");
+}
+
+// =======================
+// ⚔️ JOIN ROOM BY ID
+// =======================
+function joinRoomById(id) {
+  if (!db || !id) return;
+  stopRoomListener();
+  stopChatListener();
+  roomId = id;
+  roomRef = db.ref("rooms/" + roomId);
+  gameMode = "online";
+  board = ["","","","","","","","",""];
+  currentPlayer = "X";
+  winner = null;
+  winningCells = [];
+  roomLoaded = false;
+  myRole = null;
+  hasShownRoomFullToast = false;
+  window.currentRoomData = null;
+  showGame();
+  setInviteButtonState();
+  listenRoom();
+}
+
+// =======================
+// ⚔️ BATTLE MATCHMAKING
+// =======================
+function showBattleOverlay() {
+  const modal = document.getElementById("battleModal");
+  if (modal) modal.classList.remove("hidden");
+  setBottomNavActive("battle");
+  const statusEl = document.getElementById("battleStatusText");
+  if (statusEl) statusEl.innerText = t("searchingOpponent");
+  const subEl = document.getElementById("battleSubText");
+  if (subEl) subEl.innerText = "Finding a random player for you";
+  const cancelBtn = document.getElementById("cancelBattleBtn");
+  if (cancelBtn) cancelBtn.innerText = t("cancelSearch");
+}
+
+function hideBattleOverlay() {
+  const modal = document.getElementById("battleModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function cleanupBattleMatchmaking() {
+  if (battleMatchmakingRef) {
+    battleMatchmakingRef.remove().catch((err) => {
+      console.warn("Failed removing matchmaking entry:", err);
+    });
+    battleMatchmakingRef = null;
+  }
+  if (battleRoomPlayerOListener && roomRef) {
+    roomRef.child("playerO").off("value", battleRoomPlayerOListener);
+    battleRoomPlayerOListener = null;
+  }
+}
+
+function cancelBattleSearch() {
+  cleanupBattleMatchmaking();
+  hideBattleOverlay();
+  setBottomNavActive("home");
+  // clean up the waiting room if we created one
+  if (roomRef && gameMode !== "ai") {
+    roomRef.remove().catch(() => {});
+    roomRef = null;
+    roomId = null;
+  }
+}
+
+function tryMatchWithCandidates(candidates, index, resolvedUserId) {
+  if (index >= candidates.length) {
+    createAndWaitForBattleOpponent(resolvedUserId);
+    return;
+  }
+  const candidate = candidates[index];
+  candidate.ref.transaction((current) => {
+    if (current === null) return;
+    return null;
+  }, (err, committed, snapshot) => {
+    if (err || !committed) {
+      tryMatchWithCandidates(candidates, index + 1, resolvedUserId);
+      return;
+    }
+    const opponentRoomId = (snapshot && snapshot.val()?.roomId) || candidate.val.roomId;
+    if (!opponentRoomId) {
+      tryMatchWithCandidates(candidates, index + 1, resolvedUserId);
+      return;
+    }
+    hideBattleOverlay();
+    joinRoomById(opponentRoomId);
+  });
+}
+
+function createAndWaitForBattleOpponent(resolvedUserId) {
+  const newRoomId = generateRoomId();
+  const newRoomRef = db.ref("rooms/" + newRoomId);
+
+  newRoomRef.set({
+    playerX: resolvedUserId,
+    playerO: null,
+    board: ["","","","","","","","",""],
+    turn: "X",
+    winner: null,
+    winningCells: [],
+    playerXWins: 0,
+    playerOWins: 0,
+    createdAt: Date.now(),
+    stats: { matchId: 1, awardedKey: null },
+    players: {
+      X: { id: resolvedUserId, name: currentUserName || t("guestPlayer") },
+      O: null
+    }
+  }).then(() => {
+    battleMatchmakingRef = db.ref("matchmaking/" + resolvedUserId);
+    return battleMatchmakingRef.set({ roomId: newRoomId, ts: Date.now() });
+  }).then(() => {
+    roomId = newRoomId;
+    roomRef = newRoomRef;
+    battleRoomPlayerOListener = newRoomRef.child("playerO").on("value", (snap) => {
+      if (snap.val()) {
+        newRoomRef.child("playerO").off("value", battleRoomPlayerOListener);
+        battleRoomPlayerOListener = null;
+        cleanupBattleMatchmaking();
+        hideBattleOverlay();
+        gameMode = "online";
+        board = ["","","","","","","","",""];
+        currentPlayer = "X";
+        winner = null;
+        winningCells = [];
+        roomLoaded = false;
+        myRole = null;
+        hasShownRoomFullToast = false;
+        window.currentRoomData = null;
+        showGame();
+        setInviteButtonState();
+        listenRoom();
+      }
+    });
+  }).catch((err) => {
+    console.error("Battle room creation failed:", err);
+    hideBattleOverlay();
+    setBottomNavActive("home");
+    showToast(t("failedCreateRoom"));
+  });
+}
+
+function startBattleMatchmaking() {
+  if (!db) {
+    showToast(t("failedCreateRoom"));
+    return;
+  }
+  const resolvedUserId = ensureNormalizedUserId();
+  if (!resolvedUserId) {
+    showToast(t("unableVerifyIdentity"));
+    return;
+  }
+
+  showBattleOverlay();
+
+  const matchmakingRoot = db.ref("matchmaking");
+  matchmakingRoot.orderByChild("ts").limitToFirst(20).once("value", (snapshot) => {
+    const candidates = [];
+    snapshot.forEach((child) => {
+      if (child.key !== resolvedUserId) {
+        candidates.push({ key: child.key, val: child.val(), ref: child.ref });
+      }
+    });
+    if (candidates.length === 0) {
+      createAndWaitForBattleOpponent(resolvedUserId);
+    } else {
+      tryMatchWithCandidates(candidates, 0, resolvedUserId);
+    }
+  });
 }
 
 // =======================
@@ -2260,6 +2493,7 @@ function showGame() {
   if (homeScreen) homeScreen.style.display = "none";
   if (gameScreen) gameScreen.style.display = "flex";
   document.body.classList.add("game-active");
+  setBottomNavActive("home");
   window.scrollTo(0, 0);
 }
 
@@ -2269,6 +2503,8 @@ function goHome() {
   clearRoomExpiryRedirectTimer();
   stopRoomListener();
   stopChatListener();
+  cleanupBattleMatchmaking();
+  hideBattleOverlay();
   roomId = null;
   roomRef = null;
   aiResultAwarded = false;
@@ -2286,6 +2522,7 @@ function goHome() {
   if (homeScreen) homeScreen.style.display = "flex";
   document.body.classList.remove("game-active");
   document.body.classList.remove("ai-mode");
+  setBottomNavActive("home");
   window.scrollTo(0, 0);
 }
 

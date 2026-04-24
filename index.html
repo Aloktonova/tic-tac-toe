@@ -14,7 +14,6 @@
 <!-- 🏠 Home Screen -->
 <div id="homeScreen" class="screen">
   <div class="top-bar">
-    <button id="settingsBtn">⚙️</button>
     <div id="userInfo"></div>
   </div>
 
@@ -27,7 +26,6 @@
   </div>
 
   <div class="home-actions">
-    <button id="createGame">Play with Friend</button>
     <button id="playAI" onclick="startAIGame()">Play with Computer</button>
   </div>
 </div>
@@ -150,18 +148,36 @@
 <!-- 💬 Toast -->
 <div id="toast"></div>
 
-<!-- 🧑‍💻 Footer -->
-<footer class="app-footer">
-  Made with ❤️ by
-  <a
-    id="footerDeveloperLink"
-    href="https://t.me/alokmaurya22"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    Alok Maurya
-  </a>
-</footer>
+<!-- ⚔️ Battle Matchmaking Modal -->
+<div id="battleModal" class="modal hidden">
+  <div class="modal-content battle-modal-content">
+    <div class="battle-icon-wrap">⚔️</div>
+    <div class="battle-dots">
+      <span class="battle-dot"></span>
+      <span class="battle-dot"></span>
+      <span class="battle-dot"></span>
+    </div>
+    <h3 id="battleStatusText">Searching for opponent...</h3>
+    <p id="battleSubText" class="battle-sub">Finding a random player for you</p>
+    <button id="cancelBattleBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- 🧭 Bottom Navigation -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-btn nav-btn-active" id="navHomeBtn">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label" id="navHomeLbl">Home</span>
+  </button>
+  <button class="nav-btn nav-btn-battle" id="navBattleBtn">
+    <span class="nav-icon">⚔️</span>
+    <span class="nav-label" id="navBattleLbl">Battle</span>
+  </button>
+  <button class="nav-btn" id="navSettingsBtn">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label" id="navSettingsLbl">Settings</span>
+  </button>
+</nav>
 
 </div>
 </div>
