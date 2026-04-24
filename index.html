@@ -44,13 +44,16 @@
   <div id="board"></div>
 
   <div id="difficultyControl" class="difficulty-control hidden">
-    <label id="difficultyLabel" class="difficulty-label" for="difficultySelect">Difficulty</label>
-    <select id="difficultySelect" class="difficulty-select">
-      <option value="easy">Easy</option>
-      <option value="medium">Medium</option>
-      <option value="hard">Hard</option>
-      <option value="adaptive">Adaptive AI</option>
-    </select>
+    <button id="difficultyTrigger" class="difficulty-trigger" aria-haspopup="listbox" aria-expanded="false">
+      <span id="difficultyTriggerText">Difficulty</span>
+      <span class="difficulty-arrow" aria-hidden="true">▼</span>
+    </button>
+    <div id="difficultyDropdown" class="difficulty-dropdown" role="listbox" aria-label="Difficulty">
+      <button class="difficulty-option" role="option" data-value="easy">Easy</button>
+      <button class="difficulty-option" role="option" data-value="medium">Medium</button>
+      <button class="difficulty-option" role="option" data-value="hard">Hard</button>
+      <button class="difficulty-option" role="option" data-value="adaptive">Adaptive AI</button>
+    </div>
   </div>
 
   <!-- Actions -->

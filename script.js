@@ -4,6 +4,7 @@ if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_AI_MODE = "easy";
+const DIFFICULTY_CHANGE_ANIMATION_DELAY_MS = 350;
 const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
@@ -324,7 +325,8 @@ let aiResultAwarded = false;
 let aiMode = DEFAULT_AI_MODE;
 let aiModeSelectEl = null;
 let difficultyControlEl = null;
-let difficultySelectEl = null;
+let difficultyTriggerEl = null;
+let difficultyDropdownEl = null;
 let aiThreatCellsBeforePlayerMove = [];
 let playerStats = createEmptyPlayerStats();
 let aiWins = getInitialAIWins();
@@ -1070,6 +1072,14 @@ function applyTranslations() {
       option.text = t(`aiMode_${option.value}`);
     });
   }
+  // Update custom difficulty dropdown option labels
+  if (difficultyDropdownEl) {
+    difficultyDropdownEl.querySelectorAll(".difficulty-option").forEach((opt) => {
+      opt.textContent = t(`aiMode_${opt.dataset.value}`);
+    });
+  }
+  // Re-sync trigger text after language change
+  updateDifficultyUI();
   if (aboutTitle) aboutTitle.innerText = t("about");
   if (developerText) developerText.innerText = t("developer");
   if (telegramLabel) telegramLabel.innerText = t("telegram");
@@ -1159,12 +1169,33 @@ function updateActionButtons() {
   }
 }
 
+function openDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+  difficultyDropdownEl.classList.add("open");
+  difficultyTriggerEl.setAttribute("aria-expanded", "true");
+}
+
+function closeDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+  difficultyDropdownEl.classList.remove("open");
+  difficultyTriggerEl.setAttribute("aria-expanded", "false");
+}
+
 function updateDifficultyUI() {
   if (aiModeSelectEl) {
     aiModeSelectEl.value = normalizeAIMode(aiMode);
   }
-  if (difficultySelectEl) {
-    difficultySelectEl.value = normalizeAIMode(aiMode);
+  const normalizedMode = normalizeAIMode(aiMode);
+  if (difficultyTriggerEl) {
+    const label = t(`aiMode_${normalizedMode}`);
+    const triggerText = difficultyTriggerEl.querySelector("#difficultyTriggerText");
+    if (triggerText) triggerText.textContent = `${t("difficulty")}: ${label}`;
+  }
+  if (difficultyDropdownEl) {
+    difficultyDropdownEl.querySelectorAll(".difficulty-option").forEach((opt) => {
+      opt.classList.toggle("active", opt.dataset.value === normalizedMode);
+      opt.setAttribute("aria-selected", opt.dataset.value === normalizedMode ? "true" : "false");
+    });
   }
 }
 
@@ -1240,7 +1271,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const languageSelect = document.getElementById("languageSelect");
   aiModeSelectEl = document.getElementById("aiModeSelect");
   difficultyControlEl = document.getElementById("difficultyControl");
-  difficultySelectEl = document.getElementById("difficultySelect");
+  difficultyTriggerEl = document.getElementById("difficultyTrigger");
+  difficultyDropdownEl = document.getElementById("difficultyDropdown");
   const footerDeveloperLink = document.getElementById("footerDeveloperLink");
   const aboutTelegramLink = document.getElementById("aboutTelegramLink");
 
@@ -1281,8 +1313,33 @@ document.addEventListener("DOMContentLoaded", () => {
   aiModeSelectEl?.addEventListener("change", (event) => {
     changeAIMode(event.target.value);
   });
-  difficultySelectEl?.addEventListener("change", (event) => {
-    changeAIMode(event.target.value);
+  difficultyTriggerEl?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = difficultyDropdownEl?.classList.contains("open");
+    if (isOpen) {
+      closeDifficultyDropdown();
+    } else {
+      openDifficultyDropdown();
+    }
+  });
+  difficultyDropdownEl?.querySelectorAll(".difficulty-option").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      const selectedValue = opt.dataset.value;
+      setAIMode(selectedValue);
+      closeDifficultyDropdown();
+      if (gameMode === "ai") {
+        setTimeout(resetAIGameBoardPreservingWins, DIFFICULTY_CHANGE_ANIMATION_DELAY_MS);
+      }
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (
+      difficultyDropdownEl?.classList.contains("open") &&
+      difficultyControlEl &&
+      !difficultyControlEl.contains(event.target)
+    ) {
+      closeDifficultyDropdown();
+    }
   });
 
   if (languageSelect) {
@@ -2208,6 +2265,7 @@ function showGame() {
 
 function goHome() {
   closeCurrentUserProfile();
+  closeDifficultyDropdown();
   clearRoomExpiryRedirectTimer();
   stopRoomListener();
   stopChatListener();
