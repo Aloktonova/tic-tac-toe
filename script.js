@@ -4,6 +4,7 @@ if (tg && typeof tg.expand === "function") tg.expand();
 const DEVELOPER_TELEGRAM_URL = "https://t.me/alokmaurya22";
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_AI_MODE = "easy";
+const DIFFICULTY_CHANGE_ANIMATION_DELAY_MS = 350;
 const UNKNOWN_LOCATION_VALUE = "Unknown";
 const LOCATION_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AI_MODE_STORAGE_KEY = "aiMode";
@@ -1327,7 +1328,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setAIMode(selectedValue);
       closeDifficultyDropdown();
       if (gameMode === "ai") {
-        setTimeout(resetAIGameBoardPreservingWins, 350);
+        setTimeout(resetAIGameBoardPreservingWins, DIFFICULTY_CHANGE_ANIMATION_DELAY_MS);
       }
     });
   });
