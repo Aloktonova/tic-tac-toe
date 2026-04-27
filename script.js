@@ -1364,15 +1364,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
-  document.addEventListener("click", (event) => {
-    if (
-      difficultyDropdownEl?.classList.contains("open") &&
-      difficultyControlEl &&
-      !difficultyControlEl.contains(event.target)
-    ) {
-      closeDifficultyDropdown();
+  document.addEventListener("click", function(e) {
+    if (!difficultyTriggerEl || !difficultyDropdownEl) return;
+    const isOpen = difficultyDropdownEl.classList.contains("open");
+    if (!isOpen) return;
+    const clickedInsideTrigger = difficultyTriggerEl.contains(e.target);
+    const clickedInsideDropdown = difficultyDropdownEl.contains(e.target);
+    if (!clickedInsideTrigger && !clickedInsideDropdown) {
+      difficultyDropdownEl.classList.remove("open");
+      difficultyTriggerEl.setAttribute("aria-expanded", "false");
     }
-  });
+  }, true);
 
   // 🧭 Bottom nav
   navHomeBtnEl?.addEventListener("click", () => {
@@ -2297,7 +2299,15 @@ function renderBoard() {
     }
 
     btn.disabled = disabled;
-    btn.onclick = () => makeMove(i);
+    btn.onclick = () => {
+      // Close dropdown first; if it was open, cancel this tap
+      if (difficultyDropdownEl && difficultyDropdownEl.classList.contains("open")) {
+        difficultyDropdownEl.classList.remove("open");
+        difficultyTriggerEl.setAttribute("aria-expanded", "false");
+        return; // cancel the board tap — user was closing dropdown
+      }
+      makeMove(i);
+    };
 
     boardDiv.appendChild(btn);
   });
