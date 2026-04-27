@@ -901,7 +901,7 @@ const HARD_MISTAKE_RATE = 0.08;
 const MIN_BLOCKS_FOR_DEFENSIVE = 2;
 const DEFENSIVE_BLOCK_RATE = 0.4;
 const AGGRESSIVE_CORNER_RATE = 0.6;
-const BATTLE_MATCHMAKING_WINDOW_MS = 2000;      // Window to find a real player before bot fallback
+const BATTLE_MATCHMAKING_WINDOW_MS = 3000;      // Window to find a real player before bot fallback
 const OPPONENT_QUEUE_CLEANUP_DELAY_MS = 2000;   // Delay before removing opponent's queue entry (gives Player O time to read roomId)
 const PLAYER_O_ROOM_WAIT_TIMEOUT_MS = 10000;    // Max time Player O waits for Player X to create room
 
@@ -1356,6 +1356,9 @@ document.addEventListener("DOMContentLoaded", () => {
       openDifficultyDropdown();
     }
   });
+  difficultyDropdownEl?.addEventListener("click", function(e) {
+    e.stopPropagation();
+  });
   difficultyDropdownEl?.querySelectorAll(".difficulty-option").forEach((opt) => {
     opt.addEventListener("click", () => {
       const selectedValue = opt.dataset.value;
@@ -1408,6 +1411,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const cancelBattleBtnEl = document.getElementById("cancelBattleBtn");
   if (cancelBattleBtnEl) {
     cancelBattleBtnEl.onclick = function(e) {
+      e.preventDefault();
       e.stopPropagation();
       cancelBattleSearch();
     };
@@ -1625,7 +1629,8 @@ function cleanupBattleMatchmaking() {
 function cancelBattleSearch() {
   cleanupBattleMatchmaking();
   hideBattleOverlay();
-  goHome();
+  inBattleQueue = false;
+  setTimeout(() => { goHome(); }, 50); // brief delay to ensure overlay is hidden before DOM transition
 }
 
 function tryMatchWithCandidates(candidates, index, resolvedUserId) {
@@ -2796,6 +2801,10 @@ function shareGame() {
 // 🏠 NAV
 // =======================
 function showGame() {
+  if (inBattleQueue) {
+    battleQueueRef?.remove().catch(() => {});
+    inBattleQueue = false;
+  }
   homeScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
   if (homeScreen) homeScreen.style.display = "none";

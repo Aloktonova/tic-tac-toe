@@ -226,6 +226,15 @@ body.game-active .app-footer {
   align-items: center;
 }
 
+/* Home screen buttons */
+.home-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 #playAI,
 #playFriends {
   width: 100%;
