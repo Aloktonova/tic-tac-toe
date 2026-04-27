@@ -226,7 +226,8 @@ body.game-active .app-footer {
   align-items: center;
 }
 
-#playAI {
+#playAI,
+#playFriends {
   width: 100%;
   max-width: 300px;
   margin: 10px auto;
@@ -241,12 +242,14 @@ body.game-active .app-footer {
   z-index: 27;
 }
 
-#playAI:hover {
+#playAI:hover,
+#playFriends:hover {
   filter: brightness(1.1);
   box-shadow: 0 14px 32px rgba(59, 130, 246, 0.42), 0 0 26px rgba(147, 51, 234, 0.42);
 }
 
-#playAI:active {
+#playAI:active,
+#playFriends:active {
   transform: scale(0.95);
   filter: brightness(0.95);
 }
@@ -832,7 +835,7 @@ body.ai-mode .actions {
   border-top: 1px solid rgba(99, 102, 241, 0.28);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 28px rgba(99, 102, 241, 0.18), 0 -1px 0 rgba(129, 140, 248, 0.12);
-  z-index: 35;
+  z-index: 200;
   padding-bottom: max(8px, env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
