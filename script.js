@@ -1375,6 +1375,17 @@ document.addEventListener("DOMContentLoaded", () => {
       difficultyTriggerEl.setAttribute("aria-expanded", "false");
     }
   }, true);
+  document.addEventListener("touchstart", function(e) {
+    if (!difficultyTriggerEl || !difficultyDropdownEl) return;
+    const isOpen = difficultyDropdownEl.classList.contains("open");
+    if (!isOpen) return;
+    const touchedInsideTrigger = difficultyTriggerEl.contains(e.target);
+    const touchedInsideDropdown = difficultyDropdownEl.contains(e.target);
+    if (!touchedInsideTrigger && !touchedInsideDropdown) {
+      difficultyDropdownEl.classList.remove("open");
+      difficultyTriggerEl.setAttribute("aria-expanded", "false");
+    }
+  }, { capture: true, passive: true });
 
   // 🧭 Bottom nav
   navHomeBtnEl?.addEventListener("click", () => {
