@@ -1595,13 +1595,7 @@ function cleanupBattleMatchmaking() {
 function cancelBattleSearch() {
   cleanupBattleMatchmaking();
   hideBattleOverlay();
-  setBottomNavActive("home");
-  // clean up the waiting room if we created one
-  if (roomRef && gameMode !== "ai") {
-    roomRef.remove().catch(() => {});
-    roomRef = null;
-    roomId = null;
-  }
+  goHome();
 }
 
 function tryMatchWithCandidates(candidates, index, resolvedUserId) {
@@ -1921,10 +1915,10 @@ function handleBattleBotFallback(resolvedUserId) {
     AR:"🇦🇷", PL:"🇵🇱", SE:"🇸🇪", ZA:"🇿🇦", NG:"🇳🇬"
   };
   const botName = botNames[Math.floor(Math.random() * botNames.length)];
-  const countryCodes = Object.keys(botCountries);
-  const botCode = countryCodes[Math.floor(Math.random() * countryCodes.length)];
+  const allCodes = Object.keys(botCountries);
+  const botCode = allCodes[Math.floor(Math.random() * allCodes.length)];
   const botFlag = botCountries[botCode];
-  window._botOpponentName = botName + " " + botFlag;
+  window._battleBotName = botName + " " + botFlag;
 
   // Step 1 (0ms): Update status text
   const statusEl = document.getElementById("battleStatusText");
@@ -1936,19 +1930,17 @@ function handleBattleBotFallback(resolvedUserId) {
   }, 600);
 
   setTimeout(() => {
-    setBottomNavActive("home");
     startAIGame();
 
     // Override the Computer label with bot identity after game starts
     setTimeout(() => {
       if (!playersDiv) return;
-      const oNameEl = playersDiv.querySelector(
-        ".player-stat-block:last-child .player-name-line"
-      );
-      if (oNameEl) {
-        oNameEl.innerText = "⭕ " + window._botOpponentName;
+      const blocks = playersDiv.querySelectorAll(".player-stat-block");
+      if (blocks.length >= 2) {
+        const oNameEl = blocks[1].querySelector(".player-name-line");
+        if (oNameEl) oNameEl.innerText = "⭕ " + window._battleBotName;
       }
-    }, 50);
+    }, 30);
   }, 1100);
 }
 
@@ -2665,6 +2657,7 @@ function updateStatus() {
     if (winner === "draw") statusText.innerText = t("draw");
     else if (winner) statusText.innerText = winner === "X" ? t("win") : t("opponentWinsAI");
     else statusText.innerText = currentPlayer === "X" ? t("yourTurn") : t("aiThinking");
+    updatePlayersText();
     updatePostGameActionLabels();
     setInviteButtonState();
     scheduleAutoRestartIfNeeded();
