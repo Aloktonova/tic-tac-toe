@@ -1385,7 +1385,7 @@ document.addEventListener("DOMContentLoaded", () => {
       difficultyDropdownEl.classList.remove("open");
       difficultyTriggerEl.setAttribute("aria-expanded", "false");
     }
-  }, { passive: true });
+  }, { capture: true, passive: true });
 
   // 🧭 Bottom nav
   navHomeBtnEl?.addEventListener("click", () => {
