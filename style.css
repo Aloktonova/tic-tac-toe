@@ -50,7 +50,7 @@ body.game-active .app-footer {
   display: flex;
   justify-content: center;
   box-sizing: border-box;
-  padding: 0 clamp(10px, 4vw, 20px);
+  padding: 0;
 }
 
 /* 🔝 Top bar */
@@ -320,14 +320,14 @@ body.ai-mode #players {
 
 body.ai-mode #board {
   width: 100%;
-  max-width: min(90vw, 400px);
+  max-width: min(calc(100vw - 32px), 400px);
 }
 
 body.ai-mode #players,
 body.ai-mode .difficulty-control,
 body.ai-mode .actions {
   width: 100%;
-  max-width: min(90vw, 400px);
+  max-width: min(calc(100vw - 32px), 400px);
 }
 
 body.ai-mode .difficulty-control {

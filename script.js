@@ -901,7 +901,7 @@ const HARD_MISTAKE_RATE = 0.08;
 const MIN_BLOCKS_FOR_DEFENSIVE = 2;
 const DEFENSIVE_BLOCK_RATE = 0.4;
 const AGGRESSIVE_CORNER_RATE = 0.6;
-const BATTLE_MATCHMAKING_WINDOW_MS = 3000;      // Window to find a real player before bot fallback
+const BATTLE_MATCHMAKING_WINDOW_MS = 2000;      // Window to find a real player before bot fallback
 const OPPONENT_QUEUE_CLEANUP_DELAY_MS = 2000;   // Delay before removing opponent's queue entry (gives Player O time to read roomId)
 const PLAYER_O_ROOM_WAIT_TIMEOUT_MS = 10000;    // Max time Player O waits for Player X to create room
 
@@ -909,7 +909,7 @@ const PLAYER_O_ROOM_WAIT_TIMEOUT_MS = 10000;    // Max time Player O waits for P
 let userInfo, boardDiv, statusText, playersDiv;
 let homeScreen, gameScreen;
 let messagesDiv, chatInputEl, sendBtnEl, chatBoxEl;
-let inviteBtn, restartBtn, homeBtn;
+let inviteBtn, restartBtn;
 let settingsModal;
 let profileModal, closeProfileBtn, profileNameValue, profileWinsValue, profileLossesValue, profileDrawsValue, profileGamesValue, profileLevelValue, profileXpValue, profileXpBarFill, profileXpPercentValue;
 let autoRestartTimer = null;
@@ -1060,7 +1060,6 @@ function applyTranslations() {
   const aiBtn = document.getElementById("playAI");
   const inviteButton = document.getElementById("inviteBtn");
   const restartButton = document.getElementById("restartBtn");
-  const homeButton = document.getElementById("homeBtn");
   const sendButton = document.getElementById("sendBtn");
   const settingsTitle = document.getElementById("settingsTitle");
   const languageLabel = document.getElementById("languageLabel");
@@ -1078,7 +1077,6 @@ function applyTranslations() {
   if (aiBtn) aiBtn.innerText = t("playAI");
   if (inviteButton) inviteButton.innerText = t("invite");
   if (restartButton) restartButton.innerText = t("restart");
-  if (homeButton) homeButton.innerText = t("home");
   if (sendButton) sendButton.innerText = t("send");
   if (settingsTitle) settingsTitle.innerText = t("settings");
   if (languageLabel) languageLabel.innerText = t("language");
@@ -1286,7 +1284,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const aiBtn = document.getElementById("playAI");
   inviteBtn = document.getElementById("inviteBtn");
   restartBtn = document.getElementById("restartBtn");
-  homeBtn = document.getElementById("homeBtn");
   settingsModal = document.getElementById("settingsModal");
   profileModal = document.getElementById("profileModal");
   closeProfileBtn = document.getElementById("closeProfileBtn");
@@ -1331,7 +1328,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
-  if (homeBtn) homeBtn.addEventListener("click", goHome);
   settingsBtn?.addEventListener("click", () => settingsModal?.classList.remove("hidden"));
   closeSettingsBtn?.addEventListener("click", () => settingsModal?.classList.add("hidden"));
   backHomeBtn?.addEventListener("click", () => {
@@ -1900,7 +1896,7 @@ function handleBattleMatchFound(myUserId, opponentId) {
 function handleBattleBotFallback(resolvedUserId) {
   inBattleQueue = false;
 
-  // Immediately delete own queue entry
+  // Clean up queue entry and listeners
   if (battleQueueRef) {
     battleQueueRef.cancelOnDisconnect().catch(() => {});
     battleQueueRef.remove().catch(() => {});
@@ -1912,19 +1908,47 @@ function handleBattleBotFallback(resolvedUserId) {
   }
   battleQueueListenerRef = null;
 
-  // 0 ms: show "No players found" message
+  // Generate bot identity
+  const botNames = [
+    "Alex","Mia","Luca","Sara","Omar","Yuki","Priya",
+    "Tom","Elena","Kai","Zara","Finn","Leila","Marco",
+    "Aiko","Ryan","Nora","Diego","Hana","James"
+  ];
+  const botCountries = {
+    US:"🇺🇸", GB:"🇬🇧", DE:"🇩🇪", FR:"🇫🇷", JP:"🇯🇵",
+    BR:"🇧🇷", IN:"🇮🇳", AU:"🇦🇺", CA:"🇨🇦", KR:"🇰🇷",
+    MX:"🇲🇽", IT:"🇮🇹", ES:"🇪🇸", NL:"🇳🇱", TR:"🇹🇷",
+    AR:"🇦🇷", PL:"🇵🇱", SE:"🇸🇪", ZA:"🇿🇦", NG:"🇳🇬"
+  };
+  const botName = botNames[Math.floor(Math.random() * botNames.length)];
+  const countryCodes = Object.keys(botCountries);
+  const botCode = countryCodes[Math.floor(Math.random() * countryCodes.length)];
+  const botFlag = botCountries[botCode];
+  window._botOpponentName = botName + " " + botFlag;
+
+  // Step 1 (0ms): Update status text
   const statusEl = document.getElementById("battleStatusText");
   if (statusEl) statusEl.innerText = t("noPlayersFoundBot");
 
-  // 600 ms: fade out searching UI
+  // Step 2 (600ms): Hide overlay, start AI game
   setTimeout(() => {
     hideBattleOverlay();
   }, 600);
 
-  // 1100 ms: start bot game
   setTimeout(() => {
     setBottomNavActive("home");
     startAIGame();
+
+    // Override the Computer label with bot identity after game starts
+    setTimeout(() => {
+      if (!playersDiv) return;
+      const oNameEl = playersDiv.querySelector(
+        ".player-stat-block:last-child .player-name-line"
+      );
+      if (oNameEl) {
+        oNameEl.innerText = "⭕ " + window._botOpponentName;
+      }
+    }, 50);
   }, 1100);
 }
 
