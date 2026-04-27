@@ -927,6 +927,8 @@ let inBattleQueue = false;          // Whether the user is currently in queue
 let battleRoomSearchRef = null;     // Ref watched by Player O while waiting for room
 let battleRoomSearchTimeout = null; // Timeout guard for Player O room-wait
 let battleBotName = null;
+let battleBotOverlayTimer = null;   // Timer for hiding battle overlay after bot fallback
+let battleBotStartTimer = null;     // Timer for starting AI game after bot fallback
 
 // =======================
 // 🔔 TOAST
@@ -1057,7 +1059,7 @@ function renderUserProfile() {
 
 function applyTranslations() {
   document.title = t("appTitle");
-  const createBtn = document.getElementById("createGame");
+  const createBtn = document.getElementById("playFriends");
   const aiBtn = document.getElementById("playAI");
   const inviteButton = document.getElementById("inviteBtn");
   const restartButton = document.getElementById("restartBtn");
@@ -1281,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
   chatInputEl = document.getElementById("chatInput");
   sendBtnEl = document.getElementById("sendBtn");
 
-  const createBtn = document.getElementById("createGame");
+  const createBtn = document.getElementById("playFriends");
   const aiBtn = document.getElementById("playAI");
   inviteBtn = document.getElementById("inviteBtn");
   restartBtn = document.getElementById("restartBtn");
@@ -1313,7 +1315,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const navBattleBtnEl = document.getElementById("navBattleBtn");
   const navSettingsBtnEl = document.getElementById("navSettingsBtn");
   // 🔥 BUTTON FIX (IMPORTANT)
-  if (createBtn) createBtn.addEventListener("click", createGame);
+  if (createBtn) createBtn.onclick = createGame;
   if (aiBtn) {
     aiBtn.onclick = startAIGame;
   }
@@ -1570,6 +1572,16 @@ function cleanupBattleMatchmaking() {
   if (battleFallbackTimer) {
     clearTimeout(battleFallbackTimer);
     battleFallbackTimer = null;
+  }
+
+  // Cancel bot fallback overlay + start timers (if already triggered)
+  if (battleBotOverlayTimer) {
+    clearTimeout(battleBotOverlayTimer);
+    battleBotOverlayTimer = null;
+  }
+  if (battleBotStartTimer) {
+    clearTimeout(battleBotStartTimer);
+    battleBotStartTimer = null;
   }
 
   // Cancel Player O room-search timeout
@@ -1944,11 +1956,13 @@ function handleBattleBotFallback(resolvedUserId) {
   if (statusEl) statusEl.innerText = t("noPlayersFoundBot");
 
   // Step 2 (600ms): Hide overlay, start AI game
-  setTimeout(() => {
+  battleBotOverlayTimer = setTimeout(() => {
+    battleBotOverlayTimer = null;
     hideBattleOverlay();
   }, 600);
 
-  setTimeout(() => {
+  battleBotStartTimer = setTimeout(() => {
+    battleBotStartTimer = null;
     startAIGame();
   }, 1100);
 }
