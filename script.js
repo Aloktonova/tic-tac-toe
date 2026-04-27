@@ -1330,7 +1330,10 @@ document.addEventListener("DOMContentLoaded", () => {
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
   settingsBtn?.addEventListener("click", () => settingsModal?.classList.remove("hidden"));
-  closeSettingsBtn?.addEventListener("click", () => settingsModal?.classList.add("hidden"));
+  closeSettingsBtn?.addEventListener("click", () => {
+    settingsModal?.classList.add("hidden");
+    document.body.style.pointerEvents = "auto";
+  });
   backHomeBtn?.addEventListener("click", () => {
     settingsModal?.classList.add("hidden");
     goHome();
@@ -1405,6 +1408,7 @@ document.addEventListener("DOMContentLoaded", () => {
   settingsModal?.addEventListener("click", (event) => {
     if (event.target === settingsModal) {
       settingsModal.classList.add("hidden");
+      document.body.style.pointerEvents = "auto";
       setBottomNavActive(gameScreen && gameScreen.style.display !== "none" ? "home" : "home");
     }
   });
@@ -1627,10 +1631,8 @@ function cleanupBattleMatchmaking() {
 }
 
 function cancelBattleSearch() {
-  cleanupBattleMatchmaking();
-  hideBattleOverlay();
-  inBattleQueue = false;
-  setTimeout(() => { goHome(); }, 50); // brief delay to ensure overlay is hidden before DOM transition
+  forceUIReset();
+  setTimeout(() => { goHome(); }, 50);
 }
 
 function tryMatchWithCandidates(candidates, index, resolvedUserId) {
@@ -2815,6 +2817,7 @@ function showGame() {
 }
 
 function goHome() {
+  forceUIReset();
   battleBotName = null;
   closeCurrentUserProfile();
   closeDifficultyDropdown();
@@ -2986,4 +2989,21 @@ function disableChatForAI() {
 function setChatVisibility(visible) {
   if (!chatBoxEl) return;
   chatBoxEl.classList.toggle("hidden", !visible);
+}
+
+function forceUIReset() {
+  // Clean up battle matchmaking (listeners, timers, queue entry)
+  cleanupBattleMatchmaking();
+
+  // Hide battle overlay
+  hideBattleOverlay();
+
+  // Close all modals/overlays
+  document.querySelectorAll(".modal, .overlay").forEach(el => {
+    el.classList.add("hidden");
+    el.style.pointerEvents = "none";
+  });
+
+  // Restore global interaction
+  document.body.style.pointerEvents = "auto";
 }
