@@ -1336,6 +1336,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   backHomeBtn?.addEventListener("click", () => {
     settingsModal?.classList.add("hidden");
+    document.body.style.pointerEvents = "auto";
     goHome();
   });
   closeProfileBtn?.addEventListener("click", closeCurrentUserProfile);
@@ -1384,14 +1385,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }, true);
   document.addEventListener("touchstart", function(e) {
-    if (!difficultyTriggerEl || !difficultyDropdownEl) return;
-    const isOpen = difficultyDropdownEl.classList.contains("open");
-    if (!isOpen) return;
-    const touchedInsideTrigger = difficultyTriggerEl.contains(e.target);
-    const touchedInsideDropdown = difficultyDropdownEl.contains(e.target);
-    if (!touchedInsideTrigger && !touchedInsideDropdown) {
+    if (!difficultyDropdownEl) return;
+    if (!difficultyDropdownEl.classList.contains("open")) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const rect = difficultyDropdownEl.getBoundingClientRect();
+    const triggerRect = difficultyTriggerEl
+      ? difficultyTriggerEl.getBoundingClientRect()
+      : null;
+    const insideDropdown = (
+      touch.clientX >= rect.left &&
+      touch.clientX <= rect.right &&
+      touch.clientY >= rect.top &&
+      touch.clientY <= rect.bottom
+    );
+    const insideTrigger = triggerRect && (
+      touch.clientX >= triggerRect.left &&
+      touch.clientX <= triggerRect.right &&
+      touch.clientY >= triggerRect.top &&
+      touch.clientY <= triggerRect.bottom
+    );
+    if (!insideDropdown && !insideTrigger) {
       difficultyDropdownEl.classList.remove("open");
-      difficultyTriggerEl.setAttribute("aria-expanded", "false");
+      if (difficultyTriggerEl) {
+        difficultyTriggerEl.setAttribute("aria-expanded", "false");
+      }
     }
   }, { capture: true, passive: true });
 
@@ -1628,6 +1646,8 @@ function cleanupBattleMatchmaking() {
     });
     battleMatchmakingRef = null;
   }
+
+  battleBotName = null;
 }
 
 function cancelBattleSearch() {
@@ -1970,7 +1990,7 @@ function handleBattleBotFallback(resolvedUserId) {
 
   battleBotStartTimer = setTimeout(() => {
     battleBotStartTimer = null;
-    startAIGame();
+    startAIGame(true);
   }, 1100);
 }
 
@@ -2030,7 +2050,8 @@ function createGame() {
 // =======================
 // 🤖 AI MODE
 // =======================
-function startAIGame() {
+function startAIGame(fromBotFallback = false) {
+  if (!fromBotFallback) battleBotName = null;
   // Do not clear battleBotName here — bot fallback sets it before calling us
   console.log("AI CLICKED");
 
@@ -2818,7 +2839,6 @@ function showGame() {
 
 function goHome() {
   forceUIReset();
-  battleBotName = null;
   closeCurrentUserProfile();
   closeDifficultyDropdown();
   clearRoomExpiryRedirectTimer();
