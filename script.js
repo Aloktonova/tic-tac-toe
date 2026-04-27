@@ -926,6 +926,7 @@ let battleFallbackTimer = null;     // 3-second bot fallback timer
 let inBattleQueue = false;          // Whether the user is currently in queue
 let battleRoomSearchRef = null;     // Ref watched by Player O while waiting for room
 let battleRoomSearchTimeout = null; // Timeout guard for Player O room-wait
+let battleBotName = null;
 
 // =======================
 // 🔔 TOAST
@@ -1311,8 +1312,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const navHomeBtnEl = document.getElementById("navHomeBtn");
   const navBattleBtnEl = document.getElementById("navBattleBtn");
   const navSettingsBtnEl = document.getElementById("navSettingsBtn");
-  const cancelBattleBtnEl = document.getElementById("cancelBattleBtn");
-
   // 🔥 BUTTON FIX (IMPORTANT)
   if (createBtn) createBtn.addEventListener("click", createGame);
   if (aiBtn) {
@@ -1391,7 +1390,14 @@ document.addEventListener("DOMContentLoaded", () => {
       setBottomNavActive(gameScreen && gameScreen.style.display !== "none" ? "home" : "home");
     }
   });
-  cancelBattleBtnEl?.addEventListener("click", cancelBattleSearch);
+  const cancelBattleBtnEl = document.getElementById("cancelBattleBtn");
+  if (cancelBattleBtnEl) {
+    cancelBattleBtnEl.addEventListener("click", function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelBattleSearch();
+    }, { capture: true });
+  }
 
   if (languageSelect) {
     languageSelect.value = lang;
@@ -1595,7 +1601,7 @@ function cleanupBattleMatchmaking() {
 function cancelBattleSearch() {
   cleanupBattleMatchmaking();
   hideBattleOverlay();
-  goHome();
+  setTimeout(goHome, 80);
 }
 
 function tryMatchWithCandidates(candidates, index, resolvedUserId) {
@@ -1918,7 +1924,8 @@ function handleBattleBotFallback(resolvedUserId) {
   const allCodes = Object.keys(botCountries);
   const botCode = allCodes[Math.floor(Math.random() * allCodes.length)];
   const botFlag = botCountries[botCode];
-  window._battleBotName = botName + " " + botFlag;
+  battleBotName = botName + " " + botFlag;
+  window._battleBotName = battleBotName;
 
   // Step 1 (0ms): Update status text
   const statusEl = document.getElementById("battleStatusText");
@@ -1931,16 +1938,6 @@ function handleBattleBotFallback(resolvedUserId) {
 
   setTimeout(() => {
     startAIGame();
-
-    // Override the Computer label with bot identity after game starts
-    setTimeout(() => {
-      if (!playersDiv) return;
-      const blocks = playersDiv.querySelectorAll(".player-stat-block");
-      if (blocks.length >= 2) {
-        const oNameEl = blocks[1].querySelector(".player-name-line");
-        if (oNameEl) oNameEl.innerText = "⭕ " + window._battleBotName;
-      }
-    }, 30);
   }, 1100);
 }
 
@@ -2001,6 +1998,7 @@ function createGame() {
 // 🤖 AI MODE
 // =======================
 function startAIGame() {
+  // Do not clear battleBotName here — bot fallback sets it before calling us
   console.log("AI CLICKED");
 
   stopRoomListener();
@@ -2010,7 +2008,7 @@ function startAIGame() {
   window.currentRoomData = null;
 
   gameMode = "ai";
-  setAIMode("easy");
+  if (!battleBotName) setAIMode("easy");
   aiResultAwarded = false;
   aiWinAwarded = false;
 
@@ -2080,7 +2078,7 @@ function updatePlayersText() {
       ? `${xId === currentUserId ? t("labelYou") : t("labelFriend")} (X)`
       : t("playerX"));
   const o = isAIMode
-    ? t("labelComputer")
+    ? (battleBotName || t("labelComputer"))
     : (oId && !hasDuplicateIdentity
       ? `${oId === currentUserId ? t("labelYou") : t("labelFriend")} (O)`
       : t("waiting"));
@@ -2774,6 +2772,7 @@ function showGame() {
 }
 
 function goHome() {
+  battleBotName = null;
   closeCurrentUserProfile();
   closeDifficultyDropdown();
   clearRoomExpiryRedirectTimer();
