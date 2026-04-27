@@ -1331,7 +1331,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setChatEnabled(false, "chatDisabledAIPlaceholder");
   inviteBtn.addEventListener("click", shareGame);
   restartBtn.addEventListener("click", restartGame);
-  homeBtn.addEventListener("click", goHome);
+  if (homeBtn) homeBtn.addEventListener("click", goHome);
   settingsBtn?.addEventListener("click", () => settingsModal?.classList.remove("hidden"));
   closeSettingsBtn?.addEventListener("click", () => settingsModal?.classList.add("hidden"));
   backHomeBtn?.addEventListener("click", () => {
