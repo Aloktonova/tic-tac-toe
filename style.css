@@ -434,7 +434,7 @@ body.ai-mode .actions {
   max-width: 320px;
   margin: 8px auto 4px;
   position: relative;
-  z-index: 25;
+  z-index: 100;
 }
 
 /* 🔽 Custom Difficulty Dropdown */
@@ -492,14 +492,16 @@ body.ai-mode .actions {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + 6px);
+  top: auto;
+  bottom: calc(100% + 6px);
   border-radius: 14px;
   border: 1px solid rgba(99, 102, 241, 0.35);
   background: rgba(15, 23, 50, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 8px 32px rgba(2, 6, 23, 0.62), 0 0 18px rgba(99, 102, 241, 0.22);
-  overflow: hidden;
+  overflow-y: auto;
+  max-height: calc(100vh - 160px);
   display: flex;
   flex-direction: column;
   padding: 6px;
