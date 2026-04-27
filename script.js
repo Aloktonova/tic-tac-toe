@@ -1394,11 +1394,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const cancelBattleBtnEl = document.getElementById("cancelBattleBtn");
   if (cancelBattleBtnEl) {
-    cancelBattleBtnEl.addEventListener("click", function(e) {
-      e.preventDefault();
+    cancelBattleBtnEl.onclick = function(e) {
       e.stopPropagation();
       cancelBattleSearch();
-    }, { capture: true });
+    };
   }
 
   if (languageSelect) {
@@ -1603,7 +1602,7 @@ function cleanupBattleMatchmaking() {
 function cancelBattleSearch() {
   cleanupBattleMatchmaking();
   hideBattleOverlay();
-  setTimeout(goHome, 80);
+  goHome();
 }
 
 function tryMatchWithCandidates(candidates, index, resolvedUserId) {
