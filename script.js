@@ -82,7 +82,8 @@ const translations = {
     battle: "Battle",
     searchingOpponent: "Searching for opponent...",
     cancelSearch: "Cancel",
-    opponentFound: "Opponent found! Starting game..."
+    opponentFound: "Opponent found! Starting game...",
+    noPlayersFoundBot: "No players found, starting bot match\u2026"
   },
   hi: {
     appTitle: "टिक टैक टो",
@@ -900,6 +901,9 @@ const HARD_MISTAKE_RATE = 0.08;
 const MIN_BLOCKS_FOR_DEFENSIVE = 2;
 const DEFENSIVE_BLOCK_RATE = 0.4;
 const AGGRESSIVE_CORNER_RATE = 0.6;
+const BATTLE_MATCHMAKING_WINDOW_MS = 3000;      // Window to find a real player before bot fallback
+const OPPONENT_QUEUE_CLEANUP_DELAY_MS = 2000;   // Delay before removing opponent's queue entry (gives Player O time to read roomId)
+const PLAYER_O_ROOM_WAIT_TIMEOUT_MS = 10000;    // Max time Player O waits for Player X to create room
 
 // 🎯 UI ELEMENTS
 let userInfo, boardDiv, statusText, playersDiv;
@@ -915,6 +919,13 @@ let lastAutoRestartKey = "";
 let battleMatchmakingRef = null;
 let battleRoomPlayerOListener = null;
 let roomExpiryRedirectTimer = null;
+let battleQueueRef = null;          // Ref to own queue/{userId} entry
+let battleQueueListenerRef = null;  // Ref for the general queue watcher
+let battleQueueListenerFn = null;   // General queue listener callback
+let battleFallbackTimer = null;     // 3-second bot fallback timer
+let inBattleQueue = false;          // Whether the user is currently in queue
+let battleRoomSearchRef = null;     // Ref watched by Player O while waiting for room
+let battleRoomSearchTimeout = null; // Timeout guard for Player O room-wait
 
 // =======================
 // 🔔 TOAST
@@ -1539,15 +1550,49 @@ function hideBattleOverlay() {
 }
 
 function cleanupBattleMatchmaking() {
+  inBattleQueue = false;
+
+  // Cancel 3-second fallback timer
+  if (battleFallbackTimer) {
+    clearTimeout(battleFallbackTimer);
+    battleFallbackTimer = null;
+  }
+
+  // Cancel Player O room-search timeout
+  if (battleRoomSearchTimeout) {
+    clearTimeout(battleRoomSearchTimeout);
+    battleRoomSearchTimeout = null;
+  }
+
+  // Stop general queue listener
+  if (battleQueueListenerRef && battleQueueListenerFn) {
+    battleQueueListenerRef.off("value", battleQueueListenerFn);
+    battleQueueListenerFn = null;
+  }
+  battleQueueListenerRef = null;
+
+  // Stop Player O room-search listener
+  if (battleRoomSearchRef && battleRoomPlayerOListener) {
+    battleRoomSearchRef.off("value", battleRoomPlayerOListener);
+    battleRoomPlayerOListener = null;
+  }
+  battleRoomSearchRef = null;
+
+  // Remove own queue entry
+  if (battleQueueRef) {
+    battleQueueRef.cancelOnDisconnect().catch(() => {});
+    battleQueueRef.remove().catch((err) => {
+      console.warn("Failed removing queue entry:", err);
+    });
+    battleQueueRef = null;
+  }
+
+  // Legacy matchmaking entry cleanup (kept for any in-flight legacy ops)
   if (battleMatchmakingRef) {
     battleMatchmakingRef.remove().catch((err) => {
       console.warn("Failed removing matchmaking entry:", err);
     });
     battleMatchmakingRef = null;
-  }
-  if (battleRoomPlayerOListener && roomRef) {
-    roomRef.child("playerO").off("value", battleRoomPlayerOListener);
-    battleRoomPlayerOListener = null;
   }
 }
 
@@ -1651,22 +1696,236 @@ function startBattleMatchmaking() {
     return;
   }
 
-  showBattleOverlay();
+  // Detach all existing listeners and clean up prior battle state
+  cleanupBattleMatchmaking();
+  stopRoomListener();
+  stopChatListener();
 
-  const matchmakingRoot = db.ref("matchmaking");
-  matchmakingRoot.orderByChild("ts").limitToFirst(20).once("value", (snapshot) => {
-    const candidates = [];
-    snapshot.forEach((child) => {
-      if (child.key !== resolvedUserId) {
-        candidates.push({ key: child.key, val: child.val(), ref: child.ref });
-      }
-    });
-    if (candidates.length === 0) {
-      createAndWaitForBattleOpponent(resolvedUserId);
-    } else {
-      tryMatchWithCandidates(candidates, 0, resolvedUserId);
-    }
+  inBattleQueue = true;
+
+  // Write own entry to queue/{userId}
+  battleQueueRef = db.ref("queue/" + resolvedUserId);
+  const serverTs = window.firebase?.database?.ServerValue?.TIMESTAMP || Date.now();
+  battleQueueRef.set({
+    userId: resolvedUserId,
+    country: "unknown",
+    timestamp: serverTs,
+    status: "waiting"
+  }).catch((err) => {
+    console.warn("Failed writing queue entry:", err);
   });
+
+  // Automatically remove on disconnect/reload
+  battleQueueRef.onDisconnect().remove();
+
+  // Show "Searching for opponent…" overlay
+  showBattleOverlay();
+  const statusEl = document.getElementById("battleStatusText");
+  if (statusEl) statusEl.innerText = t("searchingOpponent");
+
+  // 3-second bot fallback timer (EXACTLY BATTLE_MATCHMAKING_WINDOW_MS)
+  battleFallbackTimer = setTimeout(() => {
+    battleFallbackTimer = null;
+    if (!inBattleQueue) return;
+    handleBattleBotFallback(resolvedUserId);
+  }, BATTLE_MATCHMAKING_WINDOW_MS);
+
+  // Real-time queue listener — look for a waiting opponent
+  battleQueueListenerRef = db.ref("queue").orderByChild("timestamp").limitToFirst(20);
+  battleQueueListenerFn = (snapshot) => {
+    if (!inBattleQueue) return;
+    let found = false;
+    snapshot.forEach((child) => {
+      if (found || !inBattleQueue) return;
+      const entry = child.val();
+      if (!entry) return;
+      const entryUserId = String(entry.userId || child.key);
+      if (entryUserId === resolvedUserId) return;
+      if (entry.status !== "waiting") return;
+      // Opponent found before 3 seconds!
+      found = true;
+      inBattleQueue = false;
+      if (battleFallbackTimer) {
+        clearTimeout(battleFallbackTimer);
+        battleFallbackTimer = null;
+      }
+      if (battleQueueListenerRef && battleQueueListenerFn) {
+        battleQueueListenerRef.off("value", battleQueueListenerFn);
+        battleQueueListenerFn = null;
+      }
+      battleQueueListenerRef = null;
+      handleBattleMatchFound(resolvedUserId, entryUserId);
+    });
+  };
+  battleQueueListenerRef.on("value", battleQueueListenerFn);
+}
+
+// ---------------------------------------------------------------------------
+// Handle a real-player match being found in the queue
+// Role: smaller userId string = Player X (room creator); larger = Player O
+// ---------------------------------------------------------------------------
+function handleBattleMatchFound(myUserId, opponentId) {
+  const iAmPlayerX = myUserId < opponentId;
+
+  if (iAmPlayerX) {
+    // ── PLAYER X: create the room and signal Player O via their queue entry ──
+    const newRoomId = generateRoomId();
+    const newRoomRef = db.ref("rooms/" + newRoomId);
+
+    newRoomRef.set({
+      playerX: myUserId,
+      playerO: opponentId,
+      board: ["","","","","","","","",""],
+      turn: "X",
+      winner: null,
+      winningCells: [],
+      playerXWins: 0,
+      playerOWins: 0,
+      createdAt: Date.now(),
+      stats: { matchId: 1, awardedKey: null },
+      players: {
+        X: { id: myUserId, name: currentUserName || t("guestPlayer") },
+        O: { id: opponentId, name: t("playerO") }
+      }
+    }).then(() => {
+      // Write roomId into opponent's queue entry so Player O can find the room
+      const updates = {};
+      updates["queue/" + opponentId + "/status"] = "matched";
+      updates["queue/" + opponentId + "/roomId"] = newRoomId;
+      return db.ref().update(updates);
+    }).then(() => {
+      // Remove own queue entry immediately
+      if (battleQueueRef) {
+        battleQueueRef.cancelOnDisconnect().catch(() => {});
+        battleQueueRef.remove().catch(() => {});
+        battleQueueRef = null;
+      }
+      // Remove opponent's queue entry after a short delay (gives Player O time to read roomId)
+      setTimeout(() => {
+        db.ref("queue/" + opponentId).remove().catch(() => {});
+      }, OPPONENT_QUEUE_CLEANUP_DELAY_MS);
+
+      hideBattleOverlay();
+      roomId = newRoomId;
+      roomRef = newRoomRef;
+      gameMode = "online";
+      board = ["","","","","","","","",""];
+      currentPlayer = "X";
+      winner = null;
+      winningCells = [];
+      roomLoaded = false;
+      myRole = null;
+      hasShownRoomFullToast = false;
+      window.currentRoomData = null;
+      showGame();
+      setInviteButtonState();
+      listenRoom();
+    }).catch((err) => {
+      console.error("Battle room creation failed:", err);
+      hideBattleOverlay();
+      setBottomNavActive("home");
+      showToast(t("failedCreateRoom"));
+    });
+
+  } else {
+    // ── PLAYER O: mark own queue entry and wait for Player X to signal roomId ──
+    if (battleQueueRef) {
+      battleQueueRef.update({ status: "matched_waiting" }).catch(() => {});
+    }
+
+    const myQueueRef = db.ref("queue/" + myUserId);
+
+    // Guard: if Player X never creates the room within PLAYER_O_ROOM_WAIT_TIMEOUT_MS
+    battleRoomSearchTimeout = setTimeout(() => {
+      if (battleRoomSearchRef && battleRoomPlayerOListener) {
+        battleRoomSearchRef.off("value", battleRoomPlayerOListener);
+        battleRoomPlayerOListener = null;
+      }
+      battleRoomSearchRef = null;
+      battleRoomSearchTimeout = null;
+      if (battleQueueRef) {
+        battleQueueRef.remove().catch(() => {});
+        battleQueueRef = null;
+      }
+      hideBattleOverlay();
+      setBottomNavActive("home");
+      showToast(t("failedCreateRoom"));
+    }, PLAYER_O_ROOM_WAIT_TIMEOUT_MS);
+
+    battleRoomPlayerOListener = (snap) => {
+      const data = snap.val();
+      if (!data || !data.roomId) return;
+
+      // Room found — clean up watchers
+      clearTimeout(battleRoomSearchTimeout);
+      battleRoomSearchTimeout = null;
+      myQueueRef.off("value", battleRoomPlayerOListener);
+      battleRoomPlayerOListener = null;
+      battleRoomSearchRef = null;
+
+      const foundRoomId = String(data.roomId);
+
+      // Remove own queue entry
+      myQueueRef.remove().catch(() => {});
+      if (battleQueueRef) {
+        battleQueueRef.cancelOnDisconnect().catch(() => {});
+        battleQueueRef = null;
+      }
+
+      hideBattleOverlay();
+      roomId = foundRoomId;
+      roomRef = db.ref("rooms/" + foundRoomId);
+      gameMode = "online";
+      board = ["","","","","","","","",""];
+      currentPlayer = "X";
+      winner = null;
+      winningCells = [];
+      roomLoaded = false;
+      myRole = null;
+      hasShownRoomFullToast = false;
+      window.currentRoomData = null;
+      showGame();
+      setInviteButtonState();
+      listenRoom();
+    };
+
+    battleRoomSearchRef = myQueueRef;
+    myQueueRef.on("value", battleRoomPlayerOListener);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bot fallback — triggered when no real opponent appears within 3 seconds
+// ---------------------------------------------------------------------------
+function handleBattleBotFallback(resolvedUserId) {
+  inBattleQueue = false;
+
+  // Immediately delete own queue entry
+  if (battleQueueRef) {
+    battleQueueRef.cancelOnDisconnect().catch(() => {});
+    battleQueueRef.remove().catch(() => {});
+    battleQueueRef = null;
+  }
+  if (battleQueueListenerRef && battleQueueListenerFn) {
+    battleQueueListenerRef.off("value", battleQueueListenerFn);
+    battleQueueListenerFn = null;
+  }
+  battleQueueListenerRef = null;
+
+  // 0 ms: show "No players found" message
+  const statusEl = document.getElementById("battleStatusText");
+  if (statusEl) statusEl.innerText = t("noPlayersFoundBot");
+
+  // 600 ms: fade out searching UI
+  setTimeout(() => {
+    hideBattleOverlay();
+  }, 600);
+
+  // 1100 ms: start bot game
+  setTimeout(() => {
+    setBottomNavActive("home");
+    startAIGame();
+  }, 1100);
 }
 
 // =======================
