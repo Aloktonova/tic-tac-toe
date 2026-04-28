@@ -508,7 +508,7 @@ body.ai-mode .actions {
   width: min(calc(100vw - 48px), 320px);
   /* Sit above bottom nav (300) but below modals (160 — modals are higher so they cover dropdown) */
   /* Bottom nav is 300, so dropdown at 250 is above content but nav tabs still work */
-  bottom: calc(80px + max(8px, env(safe-area-inset-bottom)) + 8px);
+  bottom: calc(80px + env(safe-area-inset-bottom) + 8px);
   border-radius: 16px;
   border: 1px solid rgba(99, 102, 241, 0.45);
   background: #0f1732;

@@ -901,7 +901,7 @@ const HARD_MISTAKE_RATE = 0.08;
 const MIN_BLOCKS_FOR_DEFENSIVE = 2;
 const DEFENSIVE_BLOCK_RATE = 0.4;
 const AGGRESSIVE_CORNER_RATE = 0.6;
-const BATTLE_MATCHMAKING_WINDOW_MS = 3000;      // Window to find a real player before bot fallback
+const BATTLE_MATCHMAKING_WINDOW_MS = 2000;      // Window to find a real player before bot fallback
 const OPPONENT_QUEUE_CLEANUP_DELAY_MS = 2000;   // Delay before removing opponent's queue entry (gives Player O time to read roomId)
 const PLAYER_O_ROOM_WAIT_TIMEOUT_MS = 10000;    // Max time Player O waits for Player X to create room
 
@@ -1758,7 +1758,7 @@ function startBattleMatchmaking() {
   const statusEl = document.getElementById("battleStatusText");
   if (statusEl) statusEl.innerText = t("searchingOpponent");
 
-  // 3-second bot fallback timer (EXACTLY BATTLE_MATCHMAKING_WINDOW_MS)
+  // 2-second bot fallback timer (EXACTLY BATTLE_MATCHMAKING_WINDOW_MS)
   battleFallbackTimer = setTimeout(() => {
     battleFallbackTimer = null;
     if (!inBattleQueue) return;
@@ -2049,7 +2049,8 @@ function startAIGame() {
   window.currentRoomData = null;
 
   gameMode = "ai";
-  if (!battleBotName) setAIMode("easy");
+  if (battleBotName) setAIMode("medium");
+  else setAIMode("easy");
   aiResultAwarded = false;
   aiWinAwarded = false;
 
