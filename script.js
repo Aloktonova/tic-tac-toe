@@ -17,6 +17,7 @@ const WINNING_COMBOS = [
 ];
 
 const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
+const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -1097,7 +1098,7 @@ function startBattleSearch() {
   if (!db) {
     battleTimer = setTimeout(() => {
       if (!battleCancelled) startBotGame();
-    }, 3000);
+    }, BATTLE_SEARCH_TIMEOUT_MS);
     return;
   }
 
@@ -1106,24 +1107,24 @@ function startBattleSearch() {
     userId:    currentUser.id,
     timestamp: Date.now(),
     status:    'waiting',
-    entry_paid: false
+    entry_paid: false // future: paid tournament entry flag
   }).then(() => {
     searchBattleOpponent();
   }).catch(e => {
     console.warn('Battle queue error:', e);
     battleTimer = setTimeout(() => {
       if (!battleCancelled) startBotGame();
-    }, 3000);
+    }, BATTLE_SEARCH_TIMEOUT_MS);
   });
 
-  // 3-second timeout → bot fallback
+  // Timeout → bot fallback
   battleTimer = setTimeout(() => {
     if (!battleCancelled) {
       cleanupQueueListener();
       if (db) db.ref('queue/' + currentUser.id).remove().catch(() => {});
       startBotGame();
     }
-  }, 3000);
+  }, BATTLE_SEARCH_TIMEOUT_MS);
 }
 
 async function searchBattleOpponent() {
@@ -1167,7 +1168,7 @@ async function searchBattleOpponent() {
           playerXWins: 0,
           playerOWins: 0,
           createdAt: Date.now(),
-          tournament_id: null,
+          tournament_id: null, // future: weekly tournament identifier (snake_case per DB schema)
           players: {
             X: { id: opponentId, name: opUser.name || 'Player' },
             O: { id: currentUser.id, name: currentUser.name }
