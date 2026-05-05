@@ -31,7 +31,7 @@
           <span class="nav-label">Home</span>
         </button>
         <button class="nav-btn" data-screen="battle">
-          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+          <svg class="nav-icon battle-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
           <span class="nav-label">Battle</span>
         </button>
         <button class="nav-btn" data-screen="leaderboard">
@@ -62,8 +62,8 @@
             <div class="difficulty-option" data-value="hard" role="option">Hard</div>
           </div>
         </div>
-        <!-- Invite button (online mode only) -->
-        <button id="btn-invite" class="invite-btn hidden" aria-label="Invite friend">🔗 Invite</button>
+        <!-- Share button (online/friends mode only) -->
+        <button id="btn-invite" class="invite-btn hidden" aria-label="Share game link">Share Link</button>
       </div>
 
       <div class="players-row">
@@ -138,7 +138,7 @@
           <span class="nav-label">Home</span>
         </button>
         <button class="nav-btn" data-screen="battle">
-          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+          <svg class="nav-icon battle-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
           <span class="nav-label">Battle</span>
         </button>
         <button class="nav-btn active" data-screen="leaderboard">
@@ -152,7 +152,77 @@
       </nav>
     </div>
 
-    <!-- ===== SCREEN 5: RULES (hidden, kept for JS compatibility) ===== -->
+    <!-- ===== SCREEN 5: PROFILE ===== -->
+    <div id="screen-profile" class="screen hidden">
+      <div class="profile-header">
+        <button id="btn-profile-back" class="back-btn" aria-label="Back to home">← Back</button>
+      </div>
+      <div class="profile-scroll">
+        <!-- Avatar & name -->
+        <div class="profile-avatar-section">
+          <div class="profile-avatar-wrapper">
+            <div id="profile-avatar" class="avatar-circle profile-avatar-circle">P</div>
+          </div>
+          <div id="profile-name" class="profile-name">Player</div>
+          <div id="profile-level-badge" class="profile-level-badge">Level 0</div>
+          <div class="profile-xp-section">
+            <div class="profile-xp-label">
+              <span id="profile-xp-text">0 / 100 XP</span>
+            </div>
+            <div class="xp-bar-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div id="profile-xp-bar" class="xp-bar-fill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats grid -->
+        <div class="profile-section">
+          <div class="stats-grid profile-stats-grid">
+            <div class="stat-box">
+              <div id="profile-wins" class="stat-value">0</div>
+              <div class="stat-label">Wins</div>
+            </div>
+            <div class="stat-box">
+              <div id="profile-losses" class="stat-value">0</div>
+              <div class="stat-label">Losses</div>
+            </div>
+            <div class="stat-box">
+              <div id="profile-draws" class="stat-value">0</div>
+              <div class="stat-label">Draws</div>
+            </div>
+            <div class="stat-box">
+              <div id="profile-games" class="stat-value">0</div>
+              <div class="stat-label">Games</div>
+            </div>
+            <div class="stat-box">
+              <div id="profile-winrate" class="stat-value">0%</div>
+              <div class="stat-label">Win Rate</div>
+            </div>
+            <div class="stat-box">
+              <div id="profile-streak" class="stat-value">0</div>
+              <div class="stat-label">Best Streak</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Achievements -->
+        <div class="profile-section">
+          <div class="profile-section-title">Achievements</div>
+          <div id="achievements-grid" class="achievements-grid" aria-label="Achievements"></div>
+        </div>
+
+        <!-- Coins -->
+        <div class="profile-section profile-coins-section">
+          <div class="coins-display">
+            <div class="coin-icon" aria-hidden="true"></div>
+            <span id="profile-coins" class="coins-value">Coins: 0</span>
+          </div>
+          <div class="coins-info-text">Earn coins by inviting friends</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN 6: RULES (hidden, kept for JS compatibility) ===== -->
     <div id="screen-rules" class="screen hidden">
       <div id="rules-content" class="rules-content"></div>
     </div>
@@ -227,12 +297,14 @@
   <!-- ===== BATTLE SEARCHING MODAL ===== -->
   <div id="modal-battle" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Searching for opponent">
     <div class="modal-content battle-content">
+      <div class="battle-sword-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="72" height="72"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
+      </div>
       <div class="dots-animation" aria-hidden="true">
         <span></span><span></span><span></span>
       </div>
-      <h2 class="battle-title">Searching</h2>
-      <p class="battle-subtitle">Looking for a real opponent...</p>
-      <button id="btn-cancel-battle" class="btn btn-secondary">Cancel</button>
+      <p class="battle-subtitle">Searching for opponent...</p>
+      <button id="btn-cancel-battle" class="btn btn-secondary battle-cancel-btn">Cancel</button>
     </div>
   </div>
 

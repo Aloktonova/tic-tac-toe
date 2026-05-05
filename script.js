@@ -76,6 +76,12 @@ let dotsInterval   = null;
 // Settings state
 let settingsStatsRef = null;
 
+// Telegram photo URL (in-memory only, not persisted)
+let tgPhotoUrl = null;
+
+// Online: waiting for second player to join
+let waitingForOpponent = false;
+
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
   initTelegram();
@@ -93,6 +99,10 @@ function initTelegram() {
     if (tg) {
       tg.ready();
       tg.expand();
+      const tgUser = tg.initDataUnsafe?.user;
+      if (tgUser?.photo_url) {
+        tgPhotoUrl = tgUser.photo_url;
+      }
     }
   } catch (e) {
     console.warn('Telegram init:', e);
@@ -204,9 +214,21 @@ function showScreen(name) {
 function updateHomeUI() {
   const avatarEl   = document.getElementById('home-avatar');
   const usernameEl = document.getElementById('home-username');
-  avatarEl.textContent = currentUser.name.charAt(0).toUpperCase();
   usernameEl.textContent = currentUser.name;
-  setAvatarColor(avatarEl, currentUser.name);
+  applyAvatarToEl(avatarEl, currentUser.name);
+}
+
+function applyAvatarToEl(el, name) {
+  if (tgPhotoUrl) {
+    el.style.backgroundImage = 'url(' + tgPhotoUrl + ')';
+    el.style.backgroundSize  = 'cover';
+    el.style.backgroundPosition = 'center';
+    el.textContent = '';
+  } else {
+    el.textContent = name.charAt(0).toUpperCase();
+    el.style.backgroundImage = '';
+    setAvatarColor(el, name);
+  }
 }
 
 function setAvatarColor(el, name) {
@@ -217,8 +239,10 @@ function setAvatarColor(el, name) {
 /* ===== URL PARAMS (invite link) ===== */
 function checkUrlParams() {
   try {
+    // Support ?room= (legacy) and #room= (new share format)
     const params     = new URLSearchParams(window.location.search);
-    const inviteRoom = params.get('room');
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const inviteRoom = params.get('room') || hashParams.get('room');
     if (inviteRoom) joinRoomAsO(inviteRoom);
   } catch (e) {
     console.warn('URL params:', e);
@@ -227,10 +251,18 @@ function checkUrlParams() {
 
 /* ===== EVENT LISTENERS ===== */
 function setupEventListeners() {
-  // Home
-  document.getElementById('user-avatar-btn').addEventListener('click', openSettings);
+  // Home — avatar opens profile screen, not settings
+  document.getElementById('user-avatar-btn').addEventListener('click', openProfile);
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
-  document.getElementById('btn-play-online').addEventListener('click', startOnlineMatchmaking);
+  document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
+
+  // Profile screen back button
+  document.getElementById('btn-profile-back').addEventListener('click', () => {
+    showScreen('home');
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.screen === 'home');
+    });
+  });
 
   // Game
   document.getElementById('btn-back').addEventListener('click', leaveGame);
@@ -355,6 +387,42 @@ function startAIGame() {
   showScreen('game');
 }
 
+/* ===== PLAY WITH FRIENDS (private room) ===== */
+async function startFriendsGame() {
+  if (!db) {
+    alert('Online play requires an internet connection. Try "Play with Computer" for offline play.');
+    return;
+  }
+
+  try {
+    // Create a new room with only playerX filled in
+    const roomRef   = db.ref('rooms').push();
+    const newRoomId = roomRef.key;
+
+    await roomRef.set({
+      playerX: currentUser.id,
+      playerO: null,
+      board:   Array(9).fill(''),
+      turn:    'X',
+      winner:  null,
+      winningCells: null,
+      playerXWins: 0,
+      playerOWins: 0,
+      createdAt: Date.now(),
+      players: {
+        X: { id: currentUser.id, name: currentUser.name }
+      },
+      stats: { matchId: Date.now(), awardedKey: null }
+    });
+
+    waitingForOpponent = true;
+    joinRoom(newRoomId, 'X');
+  } catch (e) {
+    console.warn('startFriendsGame error:', e);
+    alert('Could not create room. Please try again.');
+  }
+}
+
 /* ===== ONLINE MATCHMAKING ===== */
 async function startOnlineMatchmaking() {
   if (!db) {
@@ -466,6 +534,11 @@ function cancelWaiting() {
 }
 
 /* ===== ROOM MANAGEMENT ===== */
+function updateShareButtonVisibility() {
+  const show = waitingForOpponent && playerMark === 'X';
+  document.getElementById('btn-invite').classList.toggle('hidden', !show);
+}
+
 function joinRoom(rId, mark) {
   roomId      = rId;
   playerMark  = mark;
@@ -479,7 +552,7 @@ function joinRoom(rId, mark) {
   roomFirstTurn = 'X';
 
   document.getElementById('difficulty-container').classList.add('hidden');
-  document.getElementById('btn-invite').classList.remove('hidden');
+  updateShareButtonVisibility();
   document.getElementById('chat-container').classList.remove('hidden');
   document.getElementById('result-overlay').classList.add('hidden');
   document.getElementById('chat-messages').innerHTML = '';
@@ -547,6 +620,12 @@ function renderOnlineRoom(room) {
 
   const winCells = normalizeArrayField(room.winningCells);
 
+  // Friend joined — stop showing share button, clear waiting state
+  if (waitingForOpponent && room.playerO) {
+    waitingForOpponent = false;
+    updateShareButtonVisibility();
+  }
+
   if (room.winner) {
     gameOver = true;
     renderBoard(winCells);
@@ -568,7 +647,7 @@ function renderOnlineRoom(room) {
     renderBoard();
 
     if (!room.players?.O || !room.playerO) {
-      setStatus('Waiting for opponent...');
+      setStatus('Waiting for friend...');
     } else if (currentTurn === playerMark) {
       setStatus('Your Turn');
     } else {
@@ -839,10 +918,11 @@ function playAgain() {
 function leaveGame() {
   cleanupRoomListener();
   cleanupQueueListener();
-  roomId    = null;
-  gameMode  = null;
-  gameOver  = false;
-  board     = Array(9).fill('');
+  roomId             = null;
+  gameMode           = null;
+  gameOver           = false;
+  board              = Array(9).fill('');
+  waitingForOpponent = false;
   showScreen('home');
 }
 
@@ -873,22 +953,21 @@ async function awardXP(outcome) {
   }
 }
 
-/* ===== INVITE ===== */
+/* ===== INVITE / SHARE ===== */
 function handleInvite() {
   if (!roomId) return;
-  const base = window.location.origin + window.location.pathname;
-  const url  = base + '?room=' + encodeURIComponent(roomId);
-  const tg   = window.Telegram?.WebApp;
+  const url = window.location.origin + window.location.pathname + '#room=' + encodeURIComponent(roomId);
+  const tg  = window.Telegram?.WebApp;
 
   if (tg?.openTelegramLink) {
     const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url)
-      + '&text=' + encodeURIComponent('Join my Tic Tac Toe game! 🎮');
+      + '&text=' + encodeURIComponent('Join my Tic Tac Toe game!');
     try { tg.openTelegramLink(shareUrl); return; } catch (e) { /* fallthrough */ }
   }
 
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(url)
-      .then(() => showToast('Invite link copied! 📋'))
+      .then(() => showToast('Link copied!'))
       .catch(() => prompt('Copy invite link:', url));
   } else {
     prompt('Copy invite link:', url);
@@ -1394,4 +1473,166 @@ function showToast(msg) {
   toast.style.opacity = '1';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+/* ===== PROFILE SCREEN ===== */
+function openProfile() {
+  showScreen('profile');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  loadProfile();
+}
+
+async function loadProfile() {
+  // Show current in-memory data immediately
+  renderProfileUI(currentUser, null);
+
+  if (!db) return;
+  try {
+    const snap = await db.ref('users/' + currentUser.id).once('value');
+    const d    = snap.exists() ? snap.val() : {};
+
+    const merged = {
+      name:           d.name           || currentUser.name,
+      xp:             d.xp             || currentUser.xp             || 0,
+      wins:           d.wins           || currentUser.wins           || 0,
+      losses:         d.losses         || currentUser.losses         || 0,
+      draws:          d.draws          || currentUser.draws          || 0,
+      games:          d.games          || currentUser.games          || 0,
+      best_streak:    d.best_streak    || 0,
+      current_streak: d.current_streak || 0,
+      coins:          d.coins          || 0
+    };
+
+    const achievements = d.achievements || {};
+    renderProfileUI(merged, achievements);
+  } catch (e) {
+    console.warn('loadProfile error:', e);
+  }
+}
+
+function renderProfileUI(data, achievements) {
+  // Avatar
+  const avatarEl = document.getElementById('profile-avatar');
+  applyAvatarToEl(avatarEl, data.name || 'P');
+
+  // Name
+  document.getElementById('profile-name').textContent = data.name || 'Player';
+
+  // Level & XP
+  const xp       = data.xp || 0;
+  const level    = Math.floor(xp / 100);
+  const xpInLevel = xp % 100;
+  const xpNeeded = 100;
+
+  document.getElementById('profile-level-badge').textContent = 'Level ' + level;
+  document.getElementById('profile-xp-text').textContent     = xpInLevel + ' / ' + xpNeeded + ' XP';
+  const bar = document.getElementById('profile-xp-bar');
+  bar.style.width = (xpInLevel / xpNeeded * 100) + '%';
+  bar.parentElement.setAttribute('aria-valuenow', xpInLevel);
+
+  // Stats
+  const wins    = data.wins   || 0;
+  const losses  = data.losses || 0;
+  const draws   = data.draws  || 0;
+  const games   = data.games  || 0;
+  const winRate = games > 0 ? Math.round(wins / games * 100) : 0;
+  const streak  = data.best_streak || 0;
+
+  document.getElementById('profile-wins').textContent    = wins;
+  document.getElementById('profile-losses').textContent  = losses;
+  document.getElementById('profile-draws').textContent   = draws;
+  document.getElementById('profile-games').textContent   = games;
+  document.getElementById('profile-winrate').textContent = winRate + '%';
+  document.getElementById('profile-streak').textContent  = streak;
+
+  // Coins
+  document.getElementById('profile-coins').textContent = 'Coins: ' + (data.coins || 0);
+
+  // Achievements
+  renderAchievements(achievements, wins, streak);
+}
+
+function renderAchievements(ach, wins, bestStreak) {
+  const grid = document.getElementById('achievements-grid');
+  grid.innerHTML = '';
+
+  const defs = [
+    {
+      id:      'first_win',
+      name:    'First Win',
+      desc:    'Win your first game',
+      iconCls: 'icon-star',
+      unlocked: wins >= 1
+    },
+    {
+      id:      'streak3',
+      name:    'Win Streak x3',
+      desc:    'Win 3 games in a row',
+      iconCls: 'icon-fire',
+      unlocked: bestStreak >= 3
+    },
+    {
+      id:      'invited_friend',
+      name:    'Invite a Friend',
+      desc:    'Invite a friend to play',
+      note:    'Earn coins when friend joins',
+      iconCls: 'icon-person-add',
+      unlocked: !!(ach && ach.invited_friend)
+    },
+    {
+      id:      'hard_mode_win',
+      name:    'Hard Mode Winner',
+      desc:    'Beat Hard AI difficulty',
+      iconCls: 'icon-shield',
+      unlocked: !!(ach && ach.hard_mode_win)
+    },
+    {
+      id:      'battle_win',
+      name:    'Battle Champion',
+      desc:    'Win a Battle match',
+      iconCls: 'icon-trophy',
+      unlocked: !!(ach && ach.battle_win)
+    },
+    {
+      id:      'daily_streak_7',
+      name:    'Daily Player',
+      desc:    'Play 7 days in a row',
+      iconCls: 'icon-calendar',
+      unlocked: !!(ach && ach.daily_streak_7)
+    }
+  ];
+
+  defs.forEach(def => {
+    const card = document.createElement('div');
+    card.className = 'achievement-card ' + (def.unlocked ? 'unlocked' : 'locked');
+    card.setAttribute('aria-label', def.unlocked ? def.name : 'Locked achievement');
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'achievement-icon';
+    const iconDiv = document.createElement('div');
+    iconDiv.style.cssText = 'width:100%;height:100%';
+    iconDiv.className = def.iconCls;
+    iconWrap.appendChild(iconDiv);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'achievement-name';
+    nameEl.textContent = def.unlocked ? def.name : '???';
+
+    const descEl = document.createElement('div');
+    descEl.className = 'achievement-desc';
+    descEl.textContent = def.unlocked ? def.desc : '';
+
+    card.appendChild(iconWrap);
+    card.appendChild(nameEl);
+    card.appendChild(descEl);
+
+    if (def.unlocked && def.note) {
+      const noteEl = document.createElement('div');
+      noteEl.className = 'achievement-note';
+      noteEl.textContent = def.note;
+      card.appendChild(noteEl);
+    }
+
+    grid.appendChild(card);
+  });
 }
