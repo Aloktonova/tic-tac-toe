@@ -17,10 +17,22 @@ const WINNING_COMBOS = [
 ];
 
 const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
+const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 
 const AVATAR_COLORS = [
-  '#4fc3f7', '#ff9800', '#66bb6a', '#ef5350',
-  '#ab47bc', '#26c6da', '#ffca28', '#ff7043'
+  '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
+  '#5b21b6', '#4338ca', '#3730a3', '#312e81'
+];
+
+const BOT_NAMES = [
+  'Alex K.', 'Maria S.', 'Chen W.', 'Sofia L.', 'Lucas M.',
+  'Aisha O.', 'Ivan P.', 'Yuki T.', 'Emma R.', 'Omar H.',
+  'Nina B.', 'Carlos V.', 'Priya N.', 'Jake D.', 'Zoe F.'
+];
+
+const BOT_COUNTRIES = [
+  'US', 'GB', 'DE', 'FR', 'JP', 'BR', 'IN', 'RU',
+  'ES', 'IT', 'KR', 'AU', 'CA', 'MX', 'TR', 'PL', 'UA', 'NL'
 ];
 
 /* ===== STATE ===== */
@@ -55,6 +67,14 @@ let roomId         = null;
 let roomListenerRef = null;
 let chatListenerRef = null;
 let queueRef        = null;
+
+// Battle state
+let battleTimer    = null;
+let battleCancelled = false;
+let dotsInterval   = null;
+
+// Settings state
+let settingsStatsRef = null;
 
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -208,7 +228,7 @@ function checkUrlParams() {
 /* ===== EVENT LISTENERS ===== */
 function setupEventListeners() {
   // Home
-  document.getElementById('user-avatar-btn').addEventListener('click', openProfile);
+  document.getElementById('user-avatar-btn').addEventListener('click', openSettings);
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startOnlineMatchmaking);
 
@@ -240,7 +260,6 @@ function setupEventListeners() {
       diffBtn.classList.remove('open');
       document.querySelectorAll('.difficulty-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
-      // Apply mid-game if restarted
     });
   });
 
@@ -262,28 +281,51 @@ function setupEventListeners() {
     }
   });
 
-  // Waiting
+  // Waiting (old online screen)
   document.getElementById('btn-cancel-wait').addEventListener('click', cancelWaiting);
+
+  // Battle modal cancel
+  document.getElementById('btn-cancel-battle').addEventListener('click', cancelBattleSearch);
 
   // Bottom nav (all nav instances)
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const screen = btn.dataset.screen;
+
+      if (screen === 'battle') {
+        startBattleSearch();
+        return;
+      }
+
+      if (screen === 'settings') {
+        openSettings();
+        return;
+      }
+
       if (screen === 'leaderboard') loadLeaderboard();
       showScreen(screen);
-      // Update all nav buttons across all screens
       document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.screen === screen);
       });
     });
   });
 
-  // Profile modal
-  document.getElementById('modal-close').addEventListener('click', closeProfile);
-  document.getElementById('modal-profile').addEventListener('click', e => {
-    if (e.target.id === 'modal-profile') closeProfile();
+  // Settings modal
+  document.getElementById('settings-close').addEventListener('click', closeSettings);
+  document.getElementById('modal-settings').addEventListener('click', e => {
+    if (e.target.id === 'modal-settings') closeSettings();
   });
-  document.getElementById('btn-buy-boost').addEventListener('click', buyBoost);
+  document.getElementById('btn-settings-home').addEventListener('click', () => {
+    closeSettings();
+    showScreen('home');
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.screen === 'home');
+    });
+  });
+  document.getElementById('btn-save-name').addEventListener('click', saveName);
+  document.getElementById('settings-language').addEventListener('change', e => {
+    localStorage.setItem('language', e.target.value);
+  });
 }
 
 /* ===== AI GAME ===== */
@@ -1045,88 +1087,275 @@ function renderRulesDefault() {
   });
 }
 
-/* ===== PROFILE MODAL ===== */
-function openProfile() {
-  // Refresh user data from Firebase if available
-  if (db) {
-    db.ref('users/' + currentUser.id).once('value').then(snap => {
-      if (snap.exists()) {
-        const d = snap.val();
-        currentUser.xp            = d.xp            || currentUser.xp;
-        currentUser.wins          = d.wins           || currentUser.wins;
-        currentUser.losses        = d.losses         || currentUser.losses;
-        currentUser.draws         = d.draws          || currentUser.draws;
-        currentUser.games         = d.games          || currentUser.games;
-        currentUser.xpBoostExpiry = d.xpBoostExpiry  || currentUser.xpBoostExpiry;
+/* ===== BATTLE TAB ===== */
+function startBattleSearch() {
+  battleCancelled = false;
+  document.getElementById('modal-battle').classList.remove('hidden');
+  document.body.style.pointerEvents = 'none';
+  document.getElementById('modal-battle').style.pointerEvents = 'auto';
+  startDotsAnimation();
+
+  if (!db) {
+    battleTimer = setTimeout(() => {
+      if (!battleCancelled) startBotGame();
+    }, BATTLE_SEARCH_TIMEOUT_MS);
+    return;
+  }
+
+  // Add to Firebase queue (with future tournament fields)
+  db.ref('queue/' + currentUser.id).set({
+    userId:    currentUser.id,
+    timestamp: Date.now(),
+    status:    'waiting',
+    entry_paid: false // future: paid tournament entry flag
+  }).then(() => {
+    searchBattleOpponent();
+  }).catch(e => {
+    console.warn('Battle queue error:', e);
+    battleTimer = setTimeout(() => {
+      if (!battleCancelled) startBotGame();
+    }, BATTLE_SEARCH_TIMEOUT_MS);
+  });
+
+  // Timeout → bot fallback
+  battleTimer = setTimeout(() => {
+    if (!battleCancelled) {
+      cleanupQueueListener();
+      if (db) db.ref('queue/' + currentUser.id).remove().catch(() => {});
+      startBotGame();
+    }
+  }, BATTLE_SEARCH_TIMEOUT_MS);
+}
+
+async function searchBattleOpponent() {
+  if (!db || battleCancelled) return;
+  try {
+    const queueSnap = await db.ref('queue')
+      .orderByChild('status').equalTo('waiting').once('value');
+
+    if (battleCancelled) return;
+
+    if (queueSnap.exists()) {
+      const entries = queueSnap.val();
+      const candidates = Object.entries(entries).filter(([uid]) => uid !== currentUser.id);
+
+      for (const [opponentId] of candidates) {
+        const opRef = db.ref('queue/' + opponentId);
+        const txResult = await opRef.transaction(data => {
+          if (data && data.status === 'waiting') {
+            return { ...data, status: 'taken' };
+          }
+          return undefined;
+        });
+
+        if (!txResult.committed || battleCancelled) continue;
+
+        clearTimeout(battleTimer);
+
+        const opUserSnap = await db.ref('users/' + opponentId).once('value');
+        const opUser     = opUserSnap.val() || {};
+
+        const roomRef   = db.ref('rooms').push();
+        const newRoomId = roomRef.key;
+
+        await roomRef.set({
+          playerX: opponentId,
+          playerO: currentUser.id,
+          board:   Array(9).fill(''),
+          turn:    'X',
+          winner:  null,
+          winningCells: null,
+          playerXWins: 0,
+          playerOWins: 0,
+          createdAt: Date.now(),
+          tournament_id: null, // future: weekly tournament identifier (snake_case per DB schema)
+          players: {
+            X: { id: opponentId, name: opUser.name || 'Player' },
+            O: { id: currentUser.id, name: currentUser.name }
+          },
+          stats: { matchId: Date.now(), awardedKey: null }
+        });
+
+        await opRef.update({ status: 'matched', roomId: newRoomId });
+
+        hideBattleModal();
+        joinRoom(newRoomId, 'O');
+        return;
       }
-      populateProfileModal();
-    }).catch(() => populateProfileModal());
-  } else {
-    populateProfileModal();
+    }
+
+    // No immediate opponent — listen for match signal
+    listenForBattleMatch();
+
+  } catch (e) {
+    console.warn('Battle search error:', e);
   }
 }
 
-function populateProfileModal() {
-  const avatarEl = document.getElementById('modal-avatar');
-  avatarEl.textContent = currentUser.name.charAt(0).toUpperCase();
-  setAvatarColor(avatarEl, currentUser.name);
+function listenForBattleMatch() {
+  if (!db || battleCancelled) return;
+  queueRef = db.ref('queue/' + currentUser.id);
+  queueRef.on('value', snap => {
+    if (!snap.exists() || battleCancelled) return;
+    const data = snap.val();
+    if (data.status === 'matched' && data.roomId) {
+      clearTimeout(battleTimer);
+      cleanupQueueListener();
+      hideBattleModal();
+      joinRoom(data.roomId, 'X');
+    }
+  });
+}
 
-  document.getElementById('modal-name').textContent = currentUser.name;
+function cancelBattleSearch() {
+  battleCancelled = true;
+  clearTimeout(battleTimer);
+  stopDotsAnimation();
+  cleanupQueueListener();
+  if (db) db.ref('queue/' + currentUser.id).remove().catch(() => {});
+  hideBattleModal();
+  showScreen('home');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.screen === 'home');
+  });
+}
 
+function startBotGame() {
+  hideBattleModal();
+
+  const botIdx      = Math.floor(Math.random() * BOT_NAMES.length);
+  const countryIdx  = Math.floor(Math.random() * BOT_COUNTRIES.length);
+  const botName     = countryToFlag(BOT_COUNTRIES[countryIdx]) + ' ' + BOT_NAMES[botIdx];
+
+  gameMode     = 'ai';
+  xpAwarded    = false;
+  playerMark   = 'X';
+  playerXWins  = 0;
+  playerOWins  = 0;
+  board        = Array(9).fill('');
+  currentTurn  = 'X';
+  gameOver     = false;
+  aiDifficulty = 'medium';
+
+  document.getElementById('difficulty-container').classList.add('hidden');
+  document.getElementById('btn-invite').classList.add('hidden');
+  document.getElementById('chat-container').classList.add('hidden');
+  document.getElementById('result-overlay').classList.add('hidden');
+
+  document.getElementById('player-x-name').textContent = currentUser.name;
+  document.getElementById('player-o-name').textContent = botName;
+  document.getElementById('player-x-wins').textContent = '0';
+  document.getElementById('player-o-wins').textContent = '0';
+
+  renderBoard();
+  setStatus('Your Turn');
+  updateActiveTurn();
+  showScreen('game');
+}
+
+function hideBattleModal() {
+  document.getElementById('modal-battle').classList.add('hidden');
+  document.body.style.pointerEvents = 'auto';
+  stopDotsAnimation();
+}
+
+function startDotsAnimation() {
+  stopDotsAnimation();
+  const spans = document.querySelectorAll('.dots-animation span');
+  let step = 0;
+  dotsInterval = setInterval(() => {
+    spans.forEach((s, i) => {
+      s.style.opacity = (i === step % 3) ? '1' : '0.3';
+      s.style.transform = (i === step % 3) ? 'scale(1.2)' : 'scale(0.8)';
+    });
+    step++;
+  }, 350);
+}
+
+function stopDotsAnimation() {
+  if (dotsInterval) {
+    clearInterval(dotsInterval);
+    dotsInterval = null;
+  }
+}
+
+/* ===== SETTINGS MODAL ===== */
+function openSettings() {
+  document.getElementById('settings-name-input').value = currentUser.name;
+
+  const lang = localStorage.getItem('language') || 'en';
+  const langSelect = document.getElementById('settings-language');
+  if (langSelect) langSelect.value = lang;
+
+  populateSettingsStats();
+
+  if (db) {
+    if (settingsStatsRef) settingsStatsRef.off('value');
+    settingsStatsRef = db.ref('users/' + currentUser.id);
+    settingsStatsRef.on('value', snap => {
+      if (!snap.exists()) return;
+      const d = snap.val();
+      currentUser.xp     = d.xp     || currentUser.xp;
+      currentUser.wins   = d.wins   || currentUser.wins;
+      currentUser.losses = d.losses || currentUser.losses;
+      currentUser.draws  = d.draws  || currentUser.draws;
+      currentUser.games  = d.games  || currentUser.games;
+      populateSettingsStats();
+    });
+  }
+
+  document.getElementById('modal-settings').classList.remove('hidden');
+  document.body.style.pointerEvents = 'auto';
+}
+
+function populateSettingsStats() {
   const xp       = currentUser.xp || 0;
   const level    = Math.floor(xp / 100);
   const progress = xp % 100;
 
-  document.getElementById('modal-level').textContent  = level;
-  document.getElementById('modal-xp-text').textContent = progress + ' / 100 XP';
-  document.getElementById('modal-xp-bar').style.width  = progress + '%';
-  document.getElementById('modal-xp-bar').parentElement
-    .setAttribute('aria-valuenow', progress);
+  document.getElementById('settings-level').textContent   = level;
+  document.getElementById('settings-xp-text').textContent = progress + ' / 100 XP';
+  const bar = document.getElementById('settings-xp-bar');
+  bar.style.width = progress + '%';
+  bar.parentElement.setAttribute('aria-valuenow', progress);
 
-  document.getElementById('modal-wins').textContent   = currentUser.wins   || 0;
-  document.getElementById('modal-losses').textContent = currentUser.losses  || 0;
-  document.getElementById('modal-draws').textContent  = currentUser.draws   || 0;
-  document.getElementById('modal-games').textContent  = currentUser.games   || 0;
+  document.getElementById('settings-wins').textContent   = currentUser.wins   || 0;
+  document.getElementById('settings-losses').textContent = currentUser.losses  || 0;
+  document.getElementById('settings-draws').textContent  = currentUser.draws   || 0;
+}
 
-  const boostActive = currentUser.xpBoostExpiry && Date.now() < currentUser.xpBoostExpiry;
-  const boostStatus = document.getElementById('boost-status');
-  const buyBtn      = document.getElementById('btn-buy-boost');
+function closeSettings() {
+  document.getElementById('modal-settings').classList.add('hidden');
+  document.body.style.pointerEvents = 'auto';
+  detachSettingsListener();
+}
 
-  if (boostActive) {
-    const expDate = new Date(currentUser.xpBoostExpiry).toLocaleDateString();
-    boostStatus.textContent = '⚡ Boost Active – expires ' + expDate;
-    buyBtn.textContent      = '⚡ Boost Active';
-    buyBtn.disabled         = true;
-  } else {
-    boostStatus.textContent = '';
-    buyBtn.textContent      = '⚡ Buy 2× XP Boost (7 days)';
-    buyBtn.disabled         = false;
+function detachSettingsListener() {
+  if (settingsStatsRef) {
+    settingsStatsRef.off('value');
+    settingsStatsRef = null;
   }
-
-  document.getElementById('modal-profile').classList.remove('hidden');
 }
 
-function closeProfile() {
-  document.getElementById('modal-profile').classList.add('hidden');
-}
+async function saveName() {
+  const input   = document.getElementById('settings-name-input');
+  const newName = input.value.trim();
+  if (!newName) return;
 
-function buyBoost() {
-  const tg = window.Telegram?.WebApp;
-  if (tg?.openInvoice) {
-    tg.openInvoice('https://t.me/invoice/placeholder_boost', result => {
-      if (result === 'paid') {
-        const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
-        currentUser.xpBoostExpiry = expiry;
-        if (db) {
-          db.ref('users/' + currentUser.id)
-            .update({ xpBoostExpiry: expiry })
-            .catch(() => {});
-        }
-        populateProfileModal();
-      }
-    });
+  currentUser.name = newName;
+  localStorage.setItem('fallbackName', newName);
+  updateHomeUI();
+
+  if (db) {
+    try {
+      await db.ref('users/' + currentUser.id).update({ name: newName });
+      showToast('Name saved!');
+    } catch (e) {
+      console.warn('Save name error:', e);
+      showToast('Name updated locally.');
+    }
   } else {
-    showToast('XP Boost purchase requires the Telegram app.');
+    showToast('Name saved!');
   }
 }
 
