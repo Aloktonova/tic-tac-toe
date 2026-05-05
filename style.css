@@ -152,6 +152,7 @@ body {
   font-size: 15px;
   font-weight: 500;
   transition: background 0.2s;
+  text-decoration: none;
 }
 .avatar-btn:hover { background: rgba(255,255,255,0.06); }
 
@@ -429,6 +430,7 @@ body {
   white-space: nowrap;
   width: 100%;
   text-align: center;
+  text-decoration: none;
 }
 
 .win-count {
