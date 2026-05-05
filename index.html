@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Tic Tac Toe</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== SCREEN 1: HOME ===== -->
+    <div id="screen-home" class="screen">
+      <div class="home-header">
+        <div id="user-avatar-btn" class="avatar-btn" role="button" tabindex="0" aria-label="Open profile">
+          <div id="home-avatar" class="avatar-circle">P</div>
+          <span id="home-username">Player</span>
+        </div>
+      </div>
+      <div class="home-content">
+        <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
+        <h1 class="home-title">Tic Tac Toe</h1>
+        <div class="home-buttons">
+          <button id="btn-play-ai" class="btn btn-primary">🤖 Play with Computer</button>
+          <button id="btn-play-online" class="btn btn-secondary">🌐 Play with Friends</button>
+        </div>
+      </div>
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn active" data-screen="home">
+          <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        </button>
+        <button class="nav-btn" data-screen="leaderboard">
+          <span class="nav-icon">🏆</span><span class="nav-label">Leaderboard</span>
+        </button>
+        <button class="nav-btn" data-screen="rules">
+          <span class="nav-icon">📖</span><span class="nav-label">Rules</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ===== SCREEN 2: GAME ===== -->
+    <div id="screen-game" class="screen hidden">
+      <div class="game-header">
+        <button id="btn-back" class="back-btn" aria-label="Back to home">← Back</button>
+        <div id="game-status" class="game-status">Your Turn</div>
+        <!-- AI difficulty dropdown (AI mode only) -->
+        <div id="difficulty-container" class="difficulty-container hidden">
+          <div id="difficulty-btn" class="difficulty-btn" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Select difficulty">
+            <span id="difficulty-label">Medium</span>
+            <span class="dropdown-arrow" aria-hidden="true">▾</span>
+          </div>
+          <div id="difficulty-menu" class="difficulty-menu hidden" role="listbox">
+            <div class="difficulty-option" data-value="easy" role="option">Easy</div>
+            <div class="difficulty-option selected" data-value="medium" role="option">Medium</div>
+            <div class="difficulty-option" data-value="hard" role="option">Hard</div>
+          </div>
+        </div>
+        <!-- Invite button (online mode only) -->
+        <button id="btn-invite" class="invite-btn hidden" aria-label="Invite friend">🔗 Invite</button>
+      </div>
+
+      <div class="players-row">
+        <div class="player-info" id="player-x-info">
+          <span class="player-mark x-mark" aria-hidden="true">✕</span>
+          <span id="player-x-name" class="player-name">Player X</span>
+          <span class="win-count" id="player-x-wins">0</span>
+        </div>
+        <div class="vs-text" aria-hidden="true">VS</div>
+        <div class="player-info" id="player-o-info">
+          <span class="player-mark o-mark" aria-hidden="true">○</span>
+          <span id="player-o-name" class="player-name">Player O</span>
+          <span class="win-count" id="player-o-wins">0</span>
+        </div>
+      </div>
+
+      <div class="board-container">
+        <div id="game-board" class="board" role="grid" aria-label="Game board">
+          <div class="cell" data-index="0" role="gridcell" aria-label="Cell 1" tabindex="0"></div>
+          <div class="cell" data-index="1" role="gridcell" aria-label="Cell 2" tabindex="0"></div>
+          <div class="cell" data-index="2" role="gridcell" aria-label="Cell 3" tabindex="0"></div>
+          <div class="cell" data-index="3" role="gridcell" aria-label="Cell 4" tabindex="0"></div>
+          <div class="cell" data-index="4" role="gridcell" aria-label="Cell 5" tabindex="0"></div>
+          <div class="cell" data-index="5" role="gridcell" aria-label="Cell 6" tabindex="0"></div>
+          <div class="cell" data-index="6" role="gridcell" aria-label="Cell 7" tabindex="0"></div>
+          <div class="cell" data-index="7" role="gridcell" aria-label="Cell 8" tabindex="0"></div>
+          <div class="cell" data-index="8" role="gridcell" aria-label="Cell 9" tabindex="0"></div>
+        </div>
+      </div>
+
+      <!-- Result overlay -->
+      <div id="result-overlay" class="result-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="result-text">
+        <div class="result-content">
+          <div id="result-emoji" class="result-emoji" aria-hidden="true">🎉</div>
+          <div id="result-text" class="result-text">You Win!</div>
+          <div id="result-xp" class="result-xp"></div>
+          <button id="btn-play-again" class="btn btn-primary">Play Again</button>
+        </div>
+      </div>
+
+      <!-- Chat (online mode only) -->
+      <div id="chat-container" class="chat-container hidden">
+        <div id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" placeholder="Message..." maxlength="200" autocomplete="off" aria-label="Chat message">
+          <button id="btn-send-chat" class="btn btn-small">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN 3: WAITING ===== -->
+    <div id="screen-waiting" class="screen hidden">
+      <div class="waiting-content">
+        <div class="spinner" role="status" aria-label="Searching for opponent"></div>
+        <h2>Finding opponent...</h2>
+        <p>Looking for someone to play with</p>
+        <button id="btn-cancel-wait" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN 4: LEADERBOARD ===== -->
+    <div id="screen-leaderboard" class="screen hidden">
+      <div class="screen-header">
+        <h2>🏆 Leaderboard</h2>
+      </div>
+      <div id="leaderboard-list" class="leaderboard-list" role="list" aria-label="Leaderboard">
+        <div class="loading-text">Loading...</div>
+      </div>
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn" data-screen="home">
+          <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        </button>
+        <button class="nav-btn active" data-screen="leaderboard">
+          <span class="nav-icon">🏆</span><span class="nav-label">Leaderboard</span>
+        </button>
+        <button class="nav-btn" data-screen="rules">
+          <span class="nav-icon">📖</span><span class="nav-label">Rules</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ===== SCREEN 5: RULES ===== -->
+    <div id="screen-rules" class="screen hidden">
+      <div class="screen-header">
+        <h2>📖 How to Play</h2>
+      </div>
+      <div id="rules-content" class="rules-content"></div>
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn" data-screen="home">
+          <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        </button>
+        <button class="nav-btn" data-screen="leaderboard">
+          <span class="nav-icon">🏆</span><span class="nav-label">Leaderboard</span>
+        </button>
+        <button class="nav-btn active" data-screen="rules">
+          <span class="nav-icon">📖</span><span class="nav-label">Rules</span>
+        </button>
+      </nav>
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- ===== PROFILE MODAL ===== -->
+  <div id="modal-profile" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-name">
+    <div class="modal-content">
+      <button id="modal-close" class="modal-close" aria-label="Close profile">✕</button>
+      <div id="modal-avatar" class="avatar-circle avatar-large" aria-hidden="true">P</div>
+      <div id="modal-name" class="modal-name">Player</div>
+
+      <div class="xp-section">
+        <div class="xp-label">
+          <span>Level <span id="modal-level">0</span></span>
+          <span id="modal-xp-text">0 / 100 XP</span>
+        </div>
+        <div class="xp-bar-bg" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+          <div id="modal-xp-bar" class="xp-bar-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div id="modal-wins" class="stat-value">0</div>
+          <div class="stat-label">Wins</div>
+        </div>
+        <div class="stat-box">
+          <div id="modal-losses" class="stat-value">0</div>
+          <div class="stat-label">Losses</div>
+        </div>
+        <div class="stat-box">
+          <div id="modal-draws" class="stat-value">0</div>
+          <div class="stat-label">Draws</div>
+        </div>
+        <div class="stat-box">
+          <div id="modal-games" class="stat-value">0</div>
+          <div class="stat-label">Games</div>
+        </div>
+      </div>
+
+      <div class="boost-section">
+        <div id="boost-status" class="boost-status"></div>
+        <button id="btn-buy-boost" class="btn btn-boost">⚡ Buy 2x XP Boost (7 days)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- App -->
+  <script src="script.js"></script>
+</body>
+</html>
