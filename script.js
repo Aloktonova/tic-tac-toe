@@ -875,8 +875,17 @@ function appendChatMessage(msg) {
   const container = document.getElementById('chat-messages');
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  div.innerHTML = '<span class="msg-sender">' + escapeHtml(msg.name || 'Player')
-    + ':</span> <span class="msg-text">' + escapeHtml(msg.text || '') + '</span>';
+
+  const senderSpan = document.createElement('span');
+  senderSpan.className = 'msg-sender';
+  senderSpan.textContent = (msg.name || 'Player') + ':';
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'msg-text';
+  textSpan.textContent = ' ' + (msg.text || '');
+
+  div.appendChild(senderSpan);
+  div.appendChild(textSpan);
   container.appendChild(div);
 
   // Cap at 50 messages
