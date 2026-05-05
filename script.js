@@ -16,6 +16,8 @@ const WINNING_COMBOS = [
   [0, 4, 8], [2, 4, 6]              // diagonals
 ];
 
+const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
+
 const AVATAR_COLORS = [
   '#4fc3f7', '#ff9800', '#66bb6a', '#ef5350',
   '#ab47bc', '#26c6da', '#ffca28', '#ff7043'
@@ -521,7 +523,6 @@ function renderOnlineRoom(room) {
     }
   } else {
     gameOver = false;
-    xpAwarded = false; // reset for next round
     renderBoard();
 
     if (!room.players?.O || !room.playerO) {
@@ -625,7 +626,7 @@ function processAIGameMove(index, mark) {
 
   if (mark === 'X') {
     setStatus('AI Thinking...');
-    setTimeout(doAITurn, 420);
+    setTimeout(doAITurn, AI_MOVE_DELAY_MS);
   } else {
     setStatus('Your Turn');
   }
@@ -779,8 +780,9 @@ function playAgain() {
     updateActiveTurn();
     document.getElementById('result-overlay').classList.add('hidden');
   } else if (gameMode === 'online' && db && roomId) {
-    // Alternate who goes first
+    // Alternate who goes first each round
     roomFirstTurn = roomFirstTurn === 'X' ? 'O' : 'X';
+    xpAwarded = false; // reset for the new round
     db.ref('rooms/' + roomId).update({
       board:        Array(9).fill(''),
       turn:         roomFirstTurn,
@@ -1129,15 +1131,6 @@ function buyBoost() {
 }
 
 /* ===== HELPERS ===== */
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function normalizeBoard(raw) {
   const arr = Array(9).fill('');
   if (!raw) return arr;
