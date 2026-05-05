@@ -103,7 +103,7 @@ async function identifyUser() {
     } else {
       let fid = localStorage.getItem('fallbackId');
       if (!fid) {
-        fid = 'u_' + Math.random().toString(36).substr(2, 9);
+        fid = 'u_' + Math.random().toString(36).slice(2, 11);
         localStorage.setItem('fallbackId', fid);
       }
       currentUser.id = fid;
@@ -708,9 +708,9 @@ function minimax(b, depth, isMax, alpha, beta) {
 /* ===== WIN DETECTION ===== */
 function checkWinner(b) {
   for (const combo of WINNING_COMBOS) {
-    const [a, c, d] = combo;
-    if (b[a] && b[a] === b[c] && b[a] === b[d]) {
-      return { winner: b[a], cells: combo };
+    const [i0, i1, i2] = combo;
+    if (b[i0] && b[i0] === b[i1] && b[i0] === b[i2]) {
+      return { winner: b[i0], cells: combo };
     }
   }
   if (b.every(v => v !== '')) return { winner: 'draw', cells: [] };
@@ -915,21 +915,43 @@ async function loadLeaderboard() {
     const medals = ['🥇', '🥈', '🥉'];
 
     users.forEach((user, i) => {
-      const rank  = i + 1;
-      const isMe  = user.id === currentUser.id;
-      const flag  = countryToFlag(user.country);
-      const row   = document.createElement('div');
+      const rank = i + 1;
+      const isMe = user.id === currentUser.id;
+      const flag = countryToFlag(user.country);
+
+      const row = document.createElement('div');
       row.className = 'leaderboard-row' + (isMe ? ' me' : '');
       row.setAttribute('role', 'listitem');
-      row.innerHTML = `
-        <div class="rank ${rank <= 3 ? 'top-3' : ''}">${rank <= 3 ? medals[rank - 1] : rank}</div>
-        <div class="lb-flag">${flag}</div>
-        <div class="lb-name">${escapeHtml(user.name || 'Player')}</div>
-        <div class="lb-stats">
-          <div class="lb-wins">${user.wins || 0}W</div>
-          <div class="lb-games">${user.games || 0} games</div>
-        </div>
-      `;
+
+      const rankDiv = document.createElement('div');
+      rankDiv.className = 'rank' + (rank <= 3 ? ' top-3' : '');
+      rankDiv.textContent = rank <= 3 ? medals[rank - 1] : String(rank);
+
+      const flagDiv = document.createElement('div');
+      flagDiv.className = 'lb-flag';
+      flagDiv.textContent = flag;
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'lb-name';
+      nameDiv.textContent = user.name || 'Player';
+
+      const statsDiv = document.createElement('div');
+      statsDiv.className = 'lb-stats';
+
+      const winsDiv = document.createElement('div');
+      winsDiv.className = 'lb-wins';
+      winsDiv.textContent = (user.wins || 0) + 'W';
+
+      const gamesDiv = document.createElement('div');
+      gamesDiv.className = 'lb-games';
+      gamesDiv.textContent = (user.games || 0) + ' games';
+
+      statsDiv.appendChild(winsDiv);
+      statsDiv.appendChild(gamesDiv);
+      row.appendChild(rankDiv);
+      row.appendChild(flagDiv);
+      row.appendChild(nameDiv);
+      row.appendChild(statsDiv);
       list.appendChild(row);
     });
 
