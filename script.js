@@ -76,6 +76,12 @@ let dotsInterval   = null;
 // Settings state
 let settingsStatsRef = null;
 
+// Telegram photo URL (in-memory only, not persisted)
+let tgPhotoUrl = null;
+
+// Online: waiting for second player to join
+let waitingForOpponent = false;
+
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
   initTelegram();
