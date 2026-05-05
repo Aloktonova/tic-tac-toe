@@ -534,6 +534,11 @@ function cancelWaiting() {
 }
 
 /* ===== ROOM MANAGEMENT ===== */
+function updateShareButtonVisibility() {
+  const show = waitingForOpponent && playerMark === 'X';
+  document.getElementById('btn-invite').classList.toggle('hidden', !show);
+}
+
 function joinRoom(rId, mark) {
   roomId      = rId;
   playerMark  = mark;
@@ -547,13 +552,7 @@ function joinRoom(rId, mark) {
   roomFirstTurn = 'X';
 
   document.getElementById('difficulty-container').classList.add('hidden');
-  // Show the share button only when we created the room and are waiting
-  const inviteBtn = document.getElementById('btn-invite');
-  if (waitingForOpponent && mark === 'X') {
-    inviteBtn.classList.remove('hidden');
-  } else {
-    inviteBtn.classList.add('hidden');
-  }
+  updateShareButtonVisibility();
   document.getElementById('chat-container').classList.remove('hidden');
   document.getElementById('result-overlay').classList.add('hidden');
   document.getElementById('chat-messages').innerHTML = '';
@@ -624,7 +623,7 @@ function renderOnlineRoom(room) {
   // Friend joined — stop showing share button, clear waiting state
   if (waitingForOpponent && room.playerO) {
     waitingForOpponent = false;
-    document.getElementById('btn-invite').classList.add('hidden');
+    updateShareButtonVisibility();
   }
 
   if (room.winner) {
@@ -1606,6 +1605,7 @@ function renderAchievements(ach, wins, bestStreak) {
   defs.forEach(def => {
     const card = document.createElement('div');
     card.className = 'achievement-card ' + (def.unlocked ? 'unlocked' : 'locked');
+    card.setAttribute('aria-label', def.unlocked ? def.name : 'Locked achievement');
 
     const iconWrap = document.createElement('div');
     iconWrap.className = 'achievement-icon';
