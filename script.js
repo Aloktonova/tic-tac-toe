@@ -24,6 +24,9 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
+const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
+const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
+const TELEGRAM_STARS_INVOICE_URLS = window.__TG_STARS_INVOICE_URLS__ || {};
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -44,7 +47,7 @@ const BOT_COUNTRIES = [
 const WALLPAPERS = [
   {
     id: 'none',
-    name: 'Default',
+    name: 'Simple Blue',
     priceType: 'free',
     price: 0,
     thumbnail: null,
@@ -61,8 +64,8 @@ const WALLPAPERS = [
   {
     id: 'sakura',
     name: 'Sakura',
-    priceType: 'coins',
-    price: 150,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-sakura.jpg',
     fullImage: 'assets/wp-sakura.jpg'
   },
@@ -70,7 +73,7 @@ const WALLPAPERS = [
     id: 'ocean',
     name: 'Ocean',
     priceType: 'stars',
-    price: 15,
+    price: 35,
     thumbnail: 'assets/wp-ocean.jpg',
     fullImage: 'assets/wp-ocean.jpg'
   },
@@ -78,7 +81,7 @@ const WALLPAPERS = [
     id: 'forest',
     name: 'Forest',
     priceType: 'stars',
-    price: 15,
+    price: 35,
     thumbnail: 'assets/wp-forest.jpg',
     fullImage: 'assets/wp-forest.jpg'
   },
@@ -86,7 +89,7 @@ const WALLPAPERS = [
     id: 'fire',
     name: 'Fire',
     priceType: 'stars',
-    price: 25,
+    price: 35,
     thumbnail: 'assets/wp-fire.jpg',
     fullImage: 'assets/wp-fire.jpg'
   },
@@ -94,7 +97,7 @@ const WALLPAPERS = [
     id: 'aurora',
     name: 'Aurora',
     priceType: 'stars',
-    price: 25,
+    price: 35,
     thumbnail: 'assets/wp-aurora.jpg',
     fullImage: 'assets/wp-aurora.jpg'
   },
@@ -109,16 +112,16 @@ const WALLPAPERS = [
   {
     id: 'moonlight',
     name: 'Moonlight',
-    priceType: 'coins',
-    price: 120,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-moonlight.jpg',
     fullImage: 'assets/wp-moonlight.jpg'
   },
   {
     id: 'meadow',
     name: 'Meadow',
-    priceType: 'coins',
-    price: 80,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-meadow.jpg',
     fullImage: 'assets/wp-meadow.jpg'
   },
@@ -126,7 +129,7 @@ const WALLPAPERS = [
     id: 'castle',
     name: 'Dark Castle',
     priceType: 'stars',
-    price: 30,
+    price: 35,
     thumbnail: 'assets/wp-castle.jpg',
     fullImage: 'assets/wp-castle.jpg'
   },
@@ -134,7 +137,7 @@ const WALLPAPERS = [
     id: 'neon',
     name: 'Neon City',
     priceType: 'stars',
-    price: 50,
+    price: 35,
     thumbnail: 'assets/wp-neon.jpg',
     fullImage: 'assets/wp-neon.jpg'
   }
@@ -1965,21 +1968,61 @@ function closePurchaseModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-function processPurchase(wp) {
+async function getTelegramStarsInvoiceUrl(wp) {
+  const staticUrl = TELEGRAM_STARS_INVOICE_URLS[wp.id];
+  if (typeof staticUrl === 'string' && staticUrl.trim()) {
+    return staticUrl.trim();
+  }
+
+  if (!TELEGRAM_STARS_INVOICE_ENDPOINT) return '';
+
+  const tg = window.Telegram?.WebApp;
+  const uid = ensureNormalizedUserId();
+  const res = await fetch(TELEGRAM_STARS_INVOICE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wallpaperId: wp.id,
+      userId: uid,
+      price: wp.price,
+      currency: 'XTR',
+      initData: tg?.initData || ''
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error('Invoice endpoint failed with status ' + res.status);
+  }
+
+  const data = await res.json();
+  return typeof data?.invoiceUrl === 'string' ? data.invoiceUrl.trim() : '';
+}
+
+async function processPurchase(wp) {
   try {
     const tg = window.Telegram?.WebApp;
-    if (tg && tg.openInvoice) {
-      // TODO: replace '' with a backend-generated invoice URL for production Telegram Stars payment
-      tg.openInvoice('', (status) => {
-        if (status === 'paid') {
-          unlockWallpaper(wp.id);
-        }
-      });
+    if (!tg || !tg.openInvoice) {
+      showToast('Telegram payment is only available inside Telegram.');
       return;
     }
-  } catch (e) {}
-  // Fallback: mark as unlocked directly (demo mode)
-  unlockWallpaper(wp.id);
+
+    const invoiceUrl = await getTelegramStarsInvoiceUrl(wp);
+    if (!invoiceUrl) {
+      showToast('Telegram Stars payment is not configured yet.');
+      return;
+    }
+
+    tg.openInvoice(invoiceUrl, (status) => {
+      if (status === 'paid') {
+        unlockWallpaper(wp.id);
+      } else if (status !== 'cancelled') {
+        showToast('Payment not completed.');
+      }
+    });
+  } catch (e) {
+    console.error('processPurchase:', e);
+    showToast('Failed to open Telegram Stars payment.');
+  }
 }
 
 function unlockWallpaper(id) {
@@ -2018,7 +2061,7 @@ function applyWallpaper(wallpaperId) {
 
   if (!wp || !wp.fullImage) {
     el.style.backgroundImage = 'none';
-    el.style.background = 'none';
+    el.style.background = DEFAULT_WALLPAPER_BACKGROUND;
   } else {
     // Sanitize path: fullImage values come from the WALLPAPERS constant but we escape
     // single quotes defensively before embedding in the CSS url() value.
