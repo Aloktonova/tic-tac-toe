@@ -57,8 +57,8 @@ const WALLPAPERS = [
   {
     id: 'galaxy',
     name: 'Galaxy',
-    priceType: 'coins',
-    price: 100,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-galaxy.jpg',
     fullImage: 'assets/wp-galaxy.jpg'
   },

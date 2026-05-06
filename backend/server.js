@@ -14,6 +14,7 @@ const http = require('http');
 const PORT = Number(process.env.PORT || 3000);
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_API_BASE = process.env.TELEGRAM_API_BASE || 'https://api.telegram.org';
+const MAX_REQUEST_BODY_SIZE = 1024 * 64;
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error('Missing TELEGRAM_BOT_TOKEN');
@@ -26,8 +27,16 @@ const ALLOWED_ITEM_TYPES = new Set(['wallpaper', 'coins', 'theme', 'premium_effe
 const ITEM_CATALOG = {
   wallpaper: {
     galaxy: { title: 'Galaxy Wallpaper', description: 'Unlock Galaxy wallpaper for your game.', stars: 35 },
+    sakura: { title: 'Sakura Wallpaper', description: 'Unlock Sakura wallpaper for your game.', stars: 35 },
     aurora: { title: 'Aurora Wallpaper', description: 'Unlock Aurora wallpaper for your game.', stars: 35 },
-    ocean: { title: 'Ocean Wallpaper', description: 'Unlock Ocean wallpaper for your game.', stars: 35 }
+    ocean: { title: 'Ocean Wallpaper', description: 'Unlock Ocean wallpaper for your game.', stars: 35 },
+    forest: { title: 'Forest Wallpaper', description: 'Unlock Forest wallpaper for your game.', stars: 35 },
+    fire: { title: 'Fire Wallpaper', description: 'Unlock Fire wallpaper for your game.', stars: 35 },
+    samurai: { title: 'Samurai Wallpaper', description: 'Unlock Samurai wallpaper for your game.', stars: 35 },
+    moonlight: { title: 'Moonlight Wallpaper', description: 'Unlock Moonlight wallpaper for your game.', stars: 35 },
+    meadow: { title: 'Meadow Wallpaper', description: 'Unlock Meadow wallpaper for your game.', stars: 35 },
+    castle: { title: 'Dark Castle Wallpaper', description: 'Unlock Dark Castle wallpaper for your game.', stars: 35 },
+    neon: { title: 'Neon City Wallpaper', description: 'Unlock Neon City wallpaper for your game.', stars: 35 }
   },
   coins: {},
   theme: {},
@@ -45,8 +54,8 @@ function sendJson(res, code, payload) {
 }
 
 function buildPayload({ telegramUserId, itemType, itemId }) {
-  // Unique payload supports idempotent server-side reconciliation if needed later.
-  return `purchase:${itemType}:${itemId}:uid:${telegramUserId}:ts:${Date.now()}`;
+  // Deterministic payload helps avoid accidental duplicate purchases for same user/item.
+  return `purchase:${itemType}:${itemId}:uid:${telegramUserId}`;
 }
 
 function sanitizeString(v, max = 120) {
@@ -133,7 +142,7 @@ const server = http.createServer((req, res) => {
   let raw = '';
   req.on('data', chunk => {
     raw += chunk;
-    if (raw.length > 1024 * 64) {
+    if (raw.length > MAX_REQUEST_BODY_SIZE) {
       req.destroy();
     }
   });
@@ -158,4 +167,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Telegram Stars backend listening on :${PORT}`);
 });
-
