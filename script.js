@@ -78,6 +78,10 @@ let settingsStatsRef = null;
 
 // Language
 let lang = localStorage.getItem('lang') || localStorage.getItem('language') || 'en';
+// Migrate old 'language' key to 'lang'
+if (!localStorage.getItem('lang') && localStorage.getItem('language')) {
+  try { localStorage.removeItem('language'); } catch (e) {}
+}
 
 // Telegram photo URL (in-memory only, not persisted)
 let tgPhotoUrl = null;
@@ -303,6 +307,8 @@ function getCountryFlag(countryValue) {
   const code = nameToCode[countryValue] || countryValue.toUpperCase().slice(0, 2);
   if (code.length < 2) return '';
 
+  // Convert A-Z to regional indicator symbols (🇦-🇿):
+  // Unicode regional indicator A = 0x1F1E6 = 127462, ASCII 'A' = 65, offset = 127397
   return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
 }
 
@@ -441,6 +447,10 @@ function setupEventListeners() {
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
 
+  // Developer Telegram link in about section
+  const devLinkBtn = document.getElementById('dev-link-btn');
+  if (devLinkBtn) devLinkBtn.addEventListener('click', openDeveloperTelegram);
+
   // Profile screen back button
   document.getElementById('btn-profile-back').addEventListener('click', () => {
     showScreen('home');
@@ -542,7 +552,7 @@ function setupEventListeners() {
   document.getElementById('btn-save-name').addEventListener('click', saveName);
   document.getElementById('settings-language').addEventListener('change', e => {
     lang = e.target.value;
-    try { localStorage.setItem('lang', lang); } catch (err) {}
+    try { localStorage.setItem('lang', lang); } catch (err) { console.warn('Failed to save language preference:', err); }
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     applyTranslations();
