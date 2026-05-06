@@ -1269,7 +1269,7 @@ function getAvatarColor(name) {
   const colors = [
     '#7c3aed', '#4f46e5', '#0891b2',
     '#059669', '#d97706', '#dc2626',
-    '#db2777', '#7c3aed', '#2563eb'
+    '#db2777', '#a21caf', '#2563eb'
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -1408,11 +1408,11 @@ function updateLbProfileCard(users, scoreCalc) {
 
   // Avatar
   if (tgPhotoUrl) {
+    avatarEl.style.background = '';
     avatarEl.style.backgroundImage = 'url(' + tgPhotoUrl + ')';
     avatarEl.style.backgroundSize  = 'cover';
     avatarEl.style.backgroundPosition = 'center';
     avatarEl.textContent = '';
-    avatarEl.style.background = '';
   } else {
     avatarEl.textContent = (currentUser.name || 'P').charAt(0).toUpperCase();
     avatarEl.style.backgroundImage = '';
