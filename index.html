@@ -303,7 +303,7 @@
       <!-- Wallpaper -->
       <div class="settings-section">
         <label class="settings-label">Wallpaper</label>
-        <div id="wallpaperGrid" class="wallpaper-grid"></div>
+        <div id="wallpaperCarousel" class="wallpaper-carousel"></div>
       </div>
 
       <!-- About -->
@@ -327,6 +327,34 @@
       </div>
       <p class="battle-subtitle">Searching for opponent...</p>
       <button id="btn-cancel-battle" class="btn btn-secondary battle-cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ===== WALLPAPER PREVIEW MODAL ===== -->
+  <div id="wallpaperPreviewModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Wallpaper preview">
+    <div class="wallpaper-preview-modal-content">
+      <button id="closeWpPreviewBtn" class="wp-preview-close" aria-label="Close preview">✕</button>
+      <div class="wp-preview-image-wrap">
+        <img id="wpPreviewImg" class="wp-preview-img" alt="Wallpaper preview" src="">
+      </div>
+      <div class="wp-preview-info">
+        <div id="wpPreviewName"></div>
+        <div id="wpPreviewPrice" class="wp-preview-price hidden"></div>
+      </div>
+      <button id="wpActionBtn" class="wp-action-btn btn-apply">Apply</button>
+    </div>
+  </div>
+
+  <!-- ===== WALLPAPER PURCHASE MODAL ===== -->
+  <div id="modal-wp-purchase" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Unlock wallpaper">
+    <div class="modal-content wp-purchase-content">
+      <button id="wp-purchase-close" class="modal-close" aria-label="Close">✕</button>
+      <div class="wp-purchase-icon">🌟</div>
+      <div id="wp-purchase-title" class="wp-purchase-title">Unlock Wallpaper</div>
+      <div id="wp-purchase-price" class="wp-purchase-price"></div>
+      <p class="wp-purchase-desc">Purchase with Telegram Stars to unlock this wallpaper for your game board.</p>
+      <button id="wp-purchase-confirm" class="btn btn-primary">Pay with Stars ⭐</button>
+      <button id="wp-purchase-cancel" class="btn btn-secondary" style="margin-top:8px;">Cancel</button>
     </div>
   </div>
 
