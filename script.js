@@ -734,6 +734,22 @@ function setupEventListeners() {
     });
   });
 
+  // Leaderboard help modal
+  document.getElementById('leaderboardHelpBtn')
+    ?.addEventListener('click', () => {
+      document.getElementById('leaderboardHelpModal')?.classList.remove('hidden');
+    });
+  document.getElementById('closeHelpBtn')
+    ?.addEventListener('click', () => {
+      document.getElementById('leaderboardHelpModal')?.classList.add('hidden');
+    });
+  document.getElementById('leaderboardHelpModal')
+    ?.addEventListener('click', (e) => {
+      if (e.target.id === 'leaderboardHelpModal') {
+        e.target.classList.add('hidden');
+      }
+    });
+
   // Bottom nav (all nav instances)
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -750,7 +766,7 @@ function setupEventListeners() {
       }
 
       if (screen === 'leaderboard') {
-        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'monthly';
+        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
         loadLeaderboard(activeTab);
       }
       showScreen(screen);
@@ -1474,8 +1490,67 @@ function getAvatarColor(name) {
 }
 
 /* ===== LEADERBOARD ===== */
+
+const MONTHLY_MS = 2592000000; // 30 days in ms
+const WEEKLY_MS  =  604800000; // 7 days in ms
+
+function calculatePoints(userData) {
+  const wins   = userData.wins        || 0;
+  const draws  = userData.draws       || 0;
+  const losses = userData.losses      || 0;
+  const streak = userData.best_streak || 0;
+
+  // Base points
+  const base = (wins * 100) + (draws * 40) - (losses * 10);
+
+  // Streak bonus (one-time best streak reward)
+  let streakBonus = 0;
+  if (streak >= 10) streakBonus = 75;
+  else if (streak >= 5) streakBonus = 30;
+  else if (streak >= 3) streakBonus = 15;
+
+  // Tie-breaker: wins/games ratio multiplied by 10
+  const games = wins + draws + losses;
+  const ratio = games > 0 ? Math.round((wins / games) * 10) : 0;
+
+  return Math.max(0, base + streakBonus + ratio);
+}
+
+function makeLetterAvatar(name, size) {
+  const letter = (name || '?').trim().charAt(0).toUpperCase();
+  const bg = getLetterAvatarBg(name);
+  const div = document.createElement('div');
+  div.className = 'letter-avatar';
+  div.style.width           = size + 'px';
+  div.style.height          = size + 'px';
+  div.style.background      = bg;
+  div.style.borderRadius    = '50%';
+  div.style.display         = 'flex';
+  div.style.alignItems      = 'center';
+  div.style.justifyContent  = 'center';
+  div.style.fontSize        = Math.round(size * 0.4) + 'px';
+  div.style.fontWeight      = '800';
+  div.style.color           = '#fff';
+  div.style.flexShrink      = '0';
+  div.innerText = letter;
+  return div;
+}
+
+function getLetterAvatarBg(name) {
+  const colors = [
+    '#7c3aed', '#4f46e5', '#0891b2',
+    '#059669', '#d97706', '#dc2626',
+    '#db2777', '#2563eb', '#0f766e'
+  ];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) {
+    hash += (name || '').charCodeAt(i);
+  }
+  return colors[hash % colors.length];
+}
+
 async function loadLeaderboard(tab) {
-  tab = tab || 'monthly';
+  tab = tab || 'lifetime';
 
   const podiumEl = document.getElementById('lb-podium');
   const listEl   = document.getElementById('lb-list');
@@ -1490,39 +1565,45 @@ async function loadLeaderboard(tab) {
   }
 
   try {
-    let orderField, scoreCalc;
-    if (tab === 'lifetime') {
-      orderField  = 'wins';
-      scoreCalc   = u => (u.wins || 0) * 10 + (u.draws || 0) * 3;
-    } else if (tab === 'weekly') {
-      orderField  = 'weekly_wins';
-      scoreCalc   = u => (u.weekly_wins || 0) * 10;
-    } else {
-      orderField  = 'monthly_wins';
-      scoreCalc   = u => (u.monthly_wins || 0) * 10;
-    }
-
-    const snap = await db.ref('users').orderByChild(orderField).limitToLast(50).once('value');
-    const users = [];
+    const snap = await db.ref('users').orderByChild('wins').limitToLast(50).once('value');
+    let users = [];
     snap.forEach(child => {
       const d = child.val();
       if (d) users.push({ id: child.key, ...d });
     });
 
-    users.sort((a, b) => scoreCalc(b) - scoreCalc(a));
+    // Filter for monthly / weekly tabs by lastActive timestamp
+    if (tab === 'monthly') {
+      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < MONTHLY_MS));
+    } else if (tab === 'weekly') {
+      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < WEEKLY_MS));
+    }
+
+    users.sort((a, b) => calculatePoints(b) - calculatePoints(a));
 
     if (!users.length) {
-      podiumEl.innerHTML = '<div class="loading-text">No players yet. Be the first!</div>';
-      listEl.innerHTML   = '';
-      updateLbProfileCard([], scoreCalc);
+      podiumEl.innerHTML = '';
+      const emptyMsg = document.createElement('div');
+      emptyMsg.className = 'empty-leaderboard-msg';
+      emptyMsg.innerHTML =
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<polyline points="6 9 6 2 18 2 18 9"/>' +
+          '<path d="M4 9a2 2 0 0 0 0 4h2a6 6 0 0 0 12 0h2a2 2 0 0 0 0-4"/>' +
+          '<line x1="9" y1="17" x2="9" y2="22"/><line x1="15" y1="17" x2="15" y2="22"/>' +
+          '<line x1="7" y1="22" x2="17" y2="22"/>' +
+        '</svg>' +
+        '<p>No players active this period yet.<br>Play a game to appear here!</p>';
+      podiumEl.appendChild(emptyMsg);
+      listEl.innerHTML = '';
+      updateLbProfileCard([]);
       return;
     }
 
-    updateLbProfileCard(users, scoreCalc);
+    updateLbProfileCard(users);
 
     // Build podium (top 3)
     podiumEl.innerHTML = '';
-    const podiumOrder = [1, 0, 2]; // [#2, #1, #3] display order
+    const podiumOrder  = [1, 0, 2]; // [#2, #1, #3] display order
     const podiumColors = [
       { border: '#f59e0b', glow: 'rgba(245,158,11,0.5)',  label: '🥇' },
       { border: '#94a3b8', glow: 'rgba(148,163,184,0.4)', label: '🥈' },
@@ -1540,25 +1621,36 @@ async function loadLeaderboard(tab) {
         podiumWrap.appendChild(empty);
         return;
       }
-      const user   = top3[rankIdx];
-      const rank   = rankIdx + 1;
-      const color  = podiumColors[rankIdx];
-      const isMe   = user.id === currentUser.id;
-      const score  = scoreCalc(user);
-      const letter = (user.name || 'P').charAt(0).toUpperCase();
-      const bgColor = getAvatarColor(user.name || 'P');
+      const user  = top3[rankIdx];
+      const rank  = rankIdx + 1;
+      const color = podiumColors[rankIdx];
+      const isMe  = user.id === currentUser.id;
+      const score = calculatePoints(user);
 
       const slot = document.createElement('div');
       slot.className = 'lb-podium-slot rank-' + rank + (isMe ? ' me' : '');
       slot.style.setProperty('--pod-border', color.border);
       slot.style.setProperty('--pod-glow',   color.glow);
 
-      slot.innerHTML = `
-        <div class="pod-rank">${color.label}</div>
-        <div class="pod-avatar" style="background:${bgColor}">${letter}</div>
-        <div class="pod-name">${escapeHtml(user.name || 'Player')}</div>
-        <div class="pod-score">${score} pts</div>
-      `;
+      const rankDiv = document.createElement('div');
+      rankDiv.className   = 'pod-rank';
+      rankDiv.textContent = color.label;
+
+      const avatarDiv = makeLetterAvatar(user.name || 'Player', 64);
+      avatarDiv.classList.add('pod-avatar');
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className   = 'pod-name';
+      nameDiv.textContent = user.name || 'Player';
+
+      const scoreDiv = document.createElement('div');
+      scoreDiv.className   = 'pod-score';
+      scoreDiv.textContent = score + ' pts';
+
+      slot.appendChild(rankDiv);
+      slot.appendChild(avatarDiv);
+      slot.appendChild(nameDiv);
+      slot.appendChild(scoreDiv);
       podiumWrap.appendChild(slot);
     });
     podiumEl.appendChild(podiumWrap);
@@ -1568,21 +1660,38 @@ async function loadLeaderboard(tab) {
     users.slice(3).forEach((user, i) => {
       const rank  = i + 4;
       const isMe  = user.id === currentUser.id;
-      const score = scoreCalc(user);
-      const letter = (user.name || 'P').charAt(0).toUpperCase();
-      const bgColor = getAvatarColor(user.name || 'P');
-      const flag   = getCountryFlag(user.country || '');
+      const score = calculatePoints(user);
+      const flag  = getCountryFlag(user.country || '');
 
       const row = document.createElement('div');
       row.className = 'lb-row' + (isMe ? ' lb-row-me' : '');
       row.setAttribute('role', 'listitem');
 
-      row.innerHTML = `
-        <div class="lb-row-rank">${rank}</div>
-        <div class="lb-row-avatar" style="background:${bgColor}">${letter}</div>
-        <div class="lb-row-name">${flag ? '<span class="lb-flag">' + flag + '</span>' : ''}${escapeHtml(user.name || 'Player')}</div>
-        <div class="lb-row-score">${score} pts</div>
-      `;
+      const rankDiv = document.createElement('div');
+      rankDiv.className   = 'lb-row-rank';
+      rankDiv.textContent = rank;
+
+      const avatarDiv = makeLetterAvatar(user.name || 'Player', 48);
+      avatarDiv.classList.add('lb-row-avatar');
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'lb-row-name';
+      if (flag) {
+        const flagSpan = document.createElement('span');
+        flagSpan.className   = 'lb-flag';
+        flagSpan.textContent = flag;
+        nameDiv.appendChild(flagSpan);
+      }
+      nameDiv.appendChild(document.createTextNode(user.name || 'Player'));
+
+      const scoreDiv = document.createElement('div');
+      scoreDiv.className   = 'lb-row-score';
+      scoreDiv.textContent = score + ' pts';
+
+      row.appendChild(rankDiv);
+      row.appendChild(avatarDiv);
+      row.appendChild(nameDiv);
+      row.appendChild(scoreDiv);
       listEl.appendChild(row);
     });
 
@@ -1592,7 +1701,7 @@ async function loadLeaderboard(tab) {
   }
 }
 
-function updateLbProfileCard(users, scoreCalc) {
+function updateLbProfileCard(users) {
   const nameEl   = document.getElementById('lb-my-name');
   const pointsEl = document.getElementById('lb-my-points');
   const rankEl   = document.getElementById('lb-my-rank');
@@ -1601,26 +1710,19 @@ function updateLbProfileCard(users, scoreCalc) {
 
   nameEl.textContent = currentUser.name || 'Player';
 
-  // Avatar
-  if (tgPhotoUrl) {
-    avatarEl.style.background = '';
-    avatarEl.style.backgroundImage = 'url(' + tgPhotoUrl + ')';
-    avatarEl.style.backgroundSize  = 'cover';
-    avatarEl.style.backgroundPosition = 'center';
-    avatarEl.textContent = '';
-  } else {
-    avatarEl.textContent = (currentUser.name || 'P').charAt(0).toUpperCase();
-    avatarEl.style.backgroundImage = '';
-    avatarEl.style.background = getAvatarColor(currentUser.name || 'P');
-  }
+  // Letter avatar only — no profile photos in leaderboard
+  const name   = currentUser.name || 'P';
+  const letter = name.trim().charAt(0).toUpperCase();
+  avatarEl.style.background      = getLetterAvatarBg(name);
+  avatarEl.style.backgroundImage = '';
+  avatarEl.textContent           = letter;
 
   const myIdx = users.findIndex(u => u.id === currentUser.id);
   if (myIdx >= 0) {
-    pointsEl.textContent = scoreCalc(users[myIdx]) + ' pts';
+    pointsEl.textContent = calculatePoints(users[myIdx]) + ' pts';
     rankEl.textContent   = '#' + (myIdx + 1);
   } else {
-    const myScore = scoreCalc(currentUser);
-    pointsEl.textContent = myScore + ' pts';
+    pointsEl.textContent = calculatePoints(currentUser) + ' pts';
     rankEl.textContent   = '#–';
   }
 }
