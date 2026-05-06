@@ -127,6 +127,11 @@
 
     <!-- ===== SCREEN 4: LEADERBOARD ===== -->
     <div id="screen-leaderboard" class="screen hidden">
+      <!-- Help button -->
+      <button id="leaderboardHelpBtn" class="help-btn" aria-label="How points work">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
+
       <!-- Profile card -->
       <div id="lb-profile-card" class="lb-profile-card">
         <div id="lb-my-avatar" class="lb-my-avatar avatar-circle"></div>
@@ -139,8 +144,8 @@
 
       <!-- Tab selector -->
       <div class="lb-tabs">
-        <button class="lb-tab active" data-tab="monthly">Monthly</button>
-        <button class="lb-tab" data-tab="lifetime">Lifetime</button>
+        <button class="lb-tab" data-tab="monthly">Monthly</button>
+        <button class="lb-tab active" data-tab="lifetime">Lifetime</button>
         <button class="lb-tab" data-tab="weekly">Weekly</button>
       </div>
 
@@ -245,6 +250,37 @@
     </div>
 
   </div><!-- /#app -->
+
+  <!-- ===== LEADERBOARD HELP MODAL ===== -->
+  <div id="leaderboardHelpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="How points work">
+    <div class="modal-content help-modal-content">
+      <button id="closeHelpBtn" class="modal-close" aria-label="Close help">✕</button>
+      <h3>🏆 How Points Work</h3>
+
+      <div class="help-section">
+        <h4>Points Formula</h4>
+        <div class="help-row"><span>Win</span><strong>+100 pts</strong></div>
+        <div class="help-row"><span>Draw</span><strong>+40 pts</strong></div>
+        <div class="help-row"><span>Loss</span><strong>−10 pts</strong></div>
+      </div>
+
+      <div class="help-section">
+        <h4>Streak Bonus</h4>
+        <div class="help-row"><span>Best streak ≥ 10</span><strong>+75 pts</strong></div>
+        <div class="help-row"><span>Best streak ≥ 5</span><strong>+30 pts</strong></div>
+        <div class="help-row"><span>Best streak ≥ 3</span><strong>+15 pts</strong></div>
+      </div>
+
+      <div class="help-section">
+        <h4>Leaderboard Tabs</h4>
+        <div class="help-row"><span>Lifetime</span><strong>All time</strong></div>
+        <div class="help-row"><span>Monthly</span><strong>Active last 30 days</strong></div>
+        <div class="help-row"><span>Weekly</span><strong>Active last 7 days</strong></div>
+      </div>
+
+      <p class="help-tip">Play more games to climb the ranks!</p>
+    </div>
+  </div>
 
   <!-- ===== SETTINGS MODAL ===== -->
   <div id="modal-settings" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
