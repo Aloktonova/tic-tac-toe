@@ -220,19 +220,25 @@ body {
 /* Home screen button specific styles — IDs override .btn-primary without !important */
 #btn-play-ai {
   background: linear-gradient(100deg, #7c3aed 20%, #9d4edd 48%, #6d28d9 76%);
-  background-size: 200% auto;
-  animation: btn-shimmer 2.8s linear infinite;
+  animation: btnPulse 2.5s ease-in-out infinite;
 }
 
 #btn-play-online {
   background: linear-gradient(100deg, #4f46e5 20%, #6366f1 48%, #4338ca 76%);
-  background-size: 200% auto;
-  animation: btn-shimmer 2.8s linear infinite 0.6s;
+  animation: btnPulse 2.5s ease-in-out infinite 0.6s;
 }
 
-@keyframes btn-shimmer {
-  0%   { background-position: 0% center; }
-  100% { background-position: 200% center; }
+@keyframes btnPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(124, 58, 237, 0.35),
+      0 4px 15px rgba(79, 70, 229, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 35px rgba(124, 58, 237, 0.65),
+      0 4px 25px rgba(79, 70, 229, 0.55);
+  }
 }
 
 /* ===== BOTTOM NAVIGATION ===== */
@@ -273,11 +279,11 @@ body {
 .nav-icon { display: block; transition: transform 0.2s; flex-shrink: 0; }
 .nav-label { font-size: 11px; font-weight: 500; }
 
-/* Battle nav icon: distinct color even when inactive */
-.nav-btn[data-screen="battle"] .battle-icon { color: #818cf8; }
+/* Battle nav icon: pink when active */
+.nav-btn[data-screen="battle"] .battle-icon { color: #475569; }
 .nav-btn[data-screen="battle"].active .battle-icon {
-  color: #a78bfa !important;
-  filter: drop-shadow(0 0 5px rgba(167, 139, 250, 0.7));
+  color: #f472b6 !important;
+  filter: drop-shadow(0 0 5px rgba(244, 114, 182, 0.7));
 }
 
 /* ===== GAME SCREEN ===== */
@@ -881,19 +887,23 @@ body {
   gap: 6px;
 }
 
-.about-dev {
+.made-with {
+  text-align: center;
+  color: #94a3b8;
   font-size: 14px;
-  color: var(--text-secondary);
 }
 
-.tg-link {
-  font-size: 14px;
-  color: var(--accent-neon);
+.dev-link {
+  color: #818cf8;
+  font-weight: 600;
   text-decoration: none;
-  font-weight: 500;
-  transition: opacity 0.2s;
+  cursor: pointer;
 }
-.tg-link:hover { opacity: 0.8; }
+
+.dev-link:hover {
+  color: #a78bfa;
+  text-decoration: underline;
+}
 
 /* ===== BATTLE SEARCHING MODAL ===== */
 .center-modal {
