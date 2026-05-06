@@ -25,12 +25,9 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
 const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
-// Optional backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
+// Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
-// Optional direct invoice URL map keyed by wallpaper id, e.g. { castle: 'https://t.me/$....' }.
-// Configure it globally as window.__TG_STARS_INVOICE_URLS__ before loading script.js.
-const TELEGRAM_STARS_INVOICE_URLS = window.__TG_STARS_INVOICE_URLS__ || {};
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -616,8 +613,9 @@ async function identifyUser() {
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
 
-      // Load per-user purchased wallpapers from Firebase
-      const wpData = d.unlockedWallpapers || {};
+      // Load per-user purchased wallpapers from Firebase.
+      // Backward compatible with older path `unlockedWallpapers`.
+      const wpData = d.ownedWallpapers || d.unlockedWallpapers || {};
       purchasedWallpapers = Object.keys(wpData).filter(k => wpData[k] === true);
 
       // Load per-user selected wallpaper from Firebase (fallback to localStorage then 'none')
@@ -1985,23 +1983,23 @@ function closePurchaseModal() {
 }
 
 async function getTelegramStarsInvoiceUrl(wp) {
-  const staticUrl = TELEGRAM_STARS_INVOICE_URLS[wp.id];
-  if (typeof staticUrl === 'string' && staticUrl.trim()) {
-    return staticUrl.trim();
+  if (!TELEGRAM_STARS_INVOICE_ENDPOINT) {
+    throw new Error('Missing window.__TG_STARS_INVOICE_ENDPOINT__');
   }
-
-  if (!TELEGRAM_STARS_INVOICE_ENDPOINT) return '';
 
   const tg = window.Telegram?.WebApp;
   const uid = ensureNormalizedUserId();
+  if (!uid) {
+    throw new Error('Missing Telegram user id');
+  }
   const res = await fetch(TELEGRAM_STARS_INVOICE_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      telegramUserId: uid,
+      itemType: 'wallpaper',
       wallpaperId: wp.id,
-      userId: uid,
-      price: wp.price,
-      currency: 'XTR',
+      starsAmount: wp.price,
       initData: tg?.initData || ''
     })
   });
@@ -2042,8 +2040,14 @@ async function processPurchase(wp) {
 
     tg.openInvoice(invoiceUrl, (status) => {
       if (status === 'paid') {
-        unlockWallpaper(wp.id);
-        showToast(wp.name + ' wallpaper unlocked! 🎉');
+        unlockWallpaper(wp.id)
+          .then(() => {
+            showToast(wp.name + ' wallpaper unlocked! 🎉');
+          })
+          .catch((err) => {
+            console.error('unlockWallpaper after paid:', err);
+            showToast('Payment succeeded, but unlock failed. Please reopen app.');
+          });
       } else if (status === 'failed') {
         showToast('Payment failed. Please try again.');
       } else if (status !== 'cancelled') {
@@ -2057,23 +2061,22 @@ async function processPurchase(wp) {
   }
 }
 
-function unlockWallpaper(id) {
+async function unlockWallpaper(id) {
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) {
+    throw new Error('User or database unavailable');
+  }
+
   if (!purchasedWallpapers.includes(id)) {
+    await db.ref('users/' + uid + '/ownedWallpapers/' + id).set(true);
     purchasedWallpapers.push(id);
-    // Persist unlock to Firebase (source of truth for per-user purchases)
-    const uid = ensureNormalizedUserId();
-    if (uid && db) {
-      db.ref('users/' + uid + '/unlockedWallpapers/' + id)
-        .set(true)
-        .catch(e => console.error('unlockWallpaper Firebase:', e));
-    }
   }
   applyWallpaper(id);
   renderWallpaperPicker();
 }
 
-function handlePurchaseSuccess(id) {
-  unlockWallpaper(id);
+async function handlePurchaseSuccess(id) {
+  await unlockWallpaper(id);
   closeWallpaperPreview();
   closePurchaseModal();
 }
@@ -2754,7 +2757,7 @@ async function purchaseWithCoins(wallpaper) {
       return;
     }
 
-    handlePurchaseSuccess(wallpaper.id);
+    await handlePurchaseSuccess(wallpaper.id);
 
   } catch (e) {
     console.error('purchaseWithCoins:', e);
