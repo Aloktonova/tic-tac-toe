@@ -76,11 +76,102 @@ let dotsInterval   = null;
 // Settings state
 let settingsStatsRef = null;
 
+// Language
+let lang = localStorage.getItem('lang') || localStorage.getItem('language') || 'en';
+// Migrate old 'language' key to 'lang'
+if (!localStorage.getItem('lang') && localStorage.getItem('language')) {
+  try { localStorage.removeItem('language'); } catch (e) {}
+}
+
 // Telegram photo URL (in-memory only, not persisted)
 let tgPhotoUrl = null;
 
 // Online: waiting for second player to join
 let waitingForOpponent = false;
+
+// Battle bot name (set when playing against a named bot, null for normal AI)
+let battleBotName = null;
+
+/* ===== TRANSLATIONS ===== */
+const TRANSLATIONS = {
+  en: {
+    home: 'Home', battle: 'Battle', leaderboard: 'Leaderboard', settings: 'Settings',
+    playAI: 'Play with Computer', playFriends: 'Play with Friends',
+    yourTurn: 'Your Turn', aiThinking: 'Computer is thinking...',
+    waitingFriend: 'Waiting for friend...', opponentTurn: "Opponent's Turn",
+    cancelBattle: 'Cancel', cancelWait: 'Cancel',
+    searchingOpponent: 'Searching for opponent...',
+    yourName: 'Your Name', language: 'Language', backToHome: 'Back to Home',
+    leaderboardTitle: 'Leaderboard', msgPlaceholder: 'Message...',
+    shareLink: 'Share Link', send: 'Send', nameInputPlaceholder: 'Enter your name'
+  },
+  ru: {
+    home: 'Главная', battle: 'Битва', leaderboard: 'Рейтинг', settings: 'Настройки',
+    playAI: 'Против компьютера', playFriends: 'Играть с другом',
+    yourTurn: 'Ваш ход', aiThinking: 'Компьютер думает...',
+    waitingFriend: 'Ожидание друга...', opponentTurn: 'Ход соперника',
+    cancelBattle: 'Отмена', cancelWait: 'Отмена',
+    searchingOpponent: 'Поиск соперника...',
+    yourName: 'Ваше имя', language: 'Язык', backToHome: 'На главную',
+    leaderboardTitle: 'Рейтинг', msgPlaceholder: 'Сообщение...',
+    shareLink: 'Поделиться', send: 'Отправить', nameInputPlaceholder: 'Введите имя'
+  },
+  es: {
+    home: 'Inicio', battle: 'Batalla', leaderboard: 'Clasificación', settings: 'Ajustes',
+    playAI: 'Jugar con la IA', playFriends: 'Jugar con amigos',
+    yourTurn: 'Tu turno', aiThinking: 'La computadora está pensando...',
+    waitingFriend: 'Esperando al amigo...', opponentTurn: 'Turno del rival',
+    cancelBattle: 'Cancelar', cancelWait: 'Cancelar',
+    searchingOpponent: 'Buscando rival...',
+    yourName: 'Tu nombre', language: 'Idioma', backToHome: 'Volver al inicio',
+    leaderboardTitle: 'Clasificación', msgPlaceholder: 'Mensaje...',
+    shareLink: 'Compartir enlace', send: 'Enviar', nameInputPlaceholder: 'Ingresa tu nombre'
+  },
+  fr: {
+    home: 'Accueil', battle: 'Bataille', leaderboard: 'Classement', settings: 'Paramètres',
+    playAI: "Jouer contre l'IA", playFriends: 'Jouer avec des amis',
+    yourTurn: 'Votre tour', aiThinking: "L'ordinateur réfléchit...",
+    waitingFriend: "En attente de l'ami...", opponentTurn: "Tour de l'adversaire",
+    cancelBattle: 'Annuler', cancelWait: 'Annuler',
+    searchingOpponent: "Recherche d'adversaire...",
+    yourName: 'Votre nom', language: 'Langue', backToHome: "Retour à l'accueil",
+    leaderboardTitle: 'Classement', msgPlaceholder: 'Message...',
+    shareLink: 'Partager le lien', send: 'Envoyer', nameInputPlaceholder: 'Entrez votre nom'
+  },
+  de: {
+    home: 'Startseite', battle: 'Kampf', leaderboard: 'Rangliste', settings: 'Einstellungen',
+    playAI: 'Gegen KI spielen', playFriends: 'Mit Freunden spielen',
+    yourTurn: 'Dein Zug', aiThinking: 'Computer denkt...',
+    waitingFriend: 'Warte auf Freund...', opponentTurn: 'Zug des Gegners',
+    cancelBattle: 'Abbrechen', cancelWait: 'Abbrechen',
+    searchingOpponent: 'Suche Gegner...',
+    yourName: 'Dein Name', language: 'Sprache', backToHome: 'Zur Startseite',
+    leaderboardTitle: 'Rangliste', msgPlaceholder: 'Nachricht...',
+    shareLink: 'Link teilen', send: 'Senden', nameInputPlaceholder: 'Namen eingeben'
+  },
+  ar: {
+    home: 'الرئيسية', battle: 'معركة', leaderboard: 'المتصدرون', settings: 'الإعدادات',
+    playAI: 'العب مع الكمبيوتر', playFriends: 'العب مع أصدقاء',
+    yourTurn: 'دورك', aiThinking: 'الكمبيوتر يفكر...',
+    waitingFriend: 'بانتظار الصديق...', opponentTurn: 'دور الخصم',
+    cancelBattle: 'إلغاء', cancelWait: 'إلغاء',
+    searchingOpponent: 'البحث عن خصم...',
+    yourName: 'اسمك', language: 'اللغة', backToHome: 'العودة للرئيسية',
+    leaderboardTitle: 'المتصدرون', msgPlaceholder: 'رسالة...',
+    shareLink: 'مشاركة الرابط', send: 'إرسال', nameInputPlaceholder: 'أدخل اسمك'
+  },
+  zh: {
+    home: '首页', battle: '对战', leaderboard: '排行榜', settings: '设置',
+    playAI: '与电脑对战', playFriends: '与朋友对战',
+    yourTurn: '你的回合', aiThinking: '电脑思考中...',
+    waitingFriend: '等待朋友...', opponentTurn: '对手回合',
+    cancelBattle: '取消', cancelWait: '取消',
+    searchingOpponent: '正在寻找对手...',
+    yourName: '您的名字', language: '语言', backToHome: '返回首页',
+    leaderboardTitle: '排行榜', msgPlaceholder: '消息...',
+    shareLink: '分享链接', send: '发送', nameInputPlaceholder: '输入您的名字'
+  }
+};
 
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -90,6 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await identifyUser();
   renderRulesDefault(); // render default rules immediately
   checkUrlParams();
+  applyTranslations();
   showScreen('home');
 });
 
@@ -119,6 +211,105 @@ function initFirebase() {
     console.warn('Firebase init failed — AI-only mode:', e);
     db = null;
   }
+}
+
+/* ===== TRANSLATIONS ===== */
+function applyTranslations() {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  // Nav labels (all instances in every screen)
+  document.querySelectorAll('.nav-btn[data-screen="home"] .nav-label').forEach(el => { el.textContent = t.home; });
+  document.querySelectorAll('.nav-btn[data-screen="battle"] .nav-label').forEach(el => { el.textContent = t.battle; });
+  document.querySelectorAll('.nav-btn[data-screen="leaderboard"] .nav-label').forEach(el => { el.textContent = t.leaderboard; });
+  document.querySelectorAll('.nav-btn[data-screen="settings"] .nav-label').forEach(el => { el.textContent = t.settings; });
+
+  // Home screen buttons
+  const btnPlayAI = document.getElementById('btn-play-ai');
+  if (btnPlayAI) btnPlayAI.textContent = t.playAI;
+  const btnPlayOnline = document.getElementById('btn-play-online');
+  if (btnPlayOnline) btnPlayOnline.textContent = t.playFriends;
+
+  // Battle modal
+  const battleSubtitle = document.querySelector('.battle-subtitle');
+  if (battleSubtitle) battleSubtitle.textContent = t.searchingOpponent;
+  const cancelBattleBtn = document.getElementById('btn-cancel-battle');
+  if (cancelBattleBtn) cancelBattleBtn.textContent = t.cancelBattle;
+
+  // Waiting screen cancel
+  const cancelWaitBtn = document.getElementById('btn-cancel-wait');
+  if (cancelWaitBtn) cancelWaitBtn.textContent = t.cancelWait;
+
+  // Settings modal labels
+  const yourNameLabel = document.querySelector('label[for="settings-name-input"]');
+  if (yourNameLabel) yourNameLabel.textContent = t.yourName;
+  const langLabel = document.querySelector('label[for="settings-language"]');
+  if (langLabel) langLabel.textContent = t.language;
+  const settingsHomeBtn = document.getElementById('btn-settings-home');
+  if (settingsHomeBtn) settingsHomeBtn.textContent = t.backToHome;
+
+  // Input placeholders
+  const nameInput = document.getElementById('settings-name-input');
+  if (nameInput) nameInput.placeholder = t.nameInputPlaceholder;
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) chatInput.placeholder = t.msgPlaceholder;
+
+  // Game screen buttons
+  const inviteBtn = document.getElementById('btn-invite');
+  if (inviteBtn) inviteBtn.textContent = t.shareLink;
+  const sendBtn = document.getElementById('btn-send-chat');
+  if (sendBtn) sendBtn.textContent = t.send;
+
+  // Leaderboard title
+  const lbTitle = document.querySelector('#screen-leaderboard .screen-header h2');
+  if (lbTitle) lbTitle.textContent = t.leaderboardTitle;
+}
+
+/* ===== SHARE GAME LINK ===== */
+function shareGameLink(rId) {
+  const url = window.location.origin + window.location.pathname + '#room=' + rId;
+  const text = 'Join my Tic Tac Toe game! Can you beat me? 🎮';
+  const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text);
+
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+}
+
+/* ===== DEVELOPER TELEGRAM ===== */
+function openDeveloperTelegram() {
+  const url = 'https://t.me/alokmaurya22';
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+/* ===== COUNTRY FLAG (name or code → emoji) ===== */
+function getCountryFlag(countryValue) {
+  if (!countryValue) return '';
+
+  const nameToCode = {
+    'India': 'IN', 'United States': 'US', 'Russia': 'RU', 'Brazil': 'BR',
+    'Germany': 'DE', 'France': 'FR', 'Japan': 'JP', 'South Korea': 'KR',
+    'United Kingdom': 'GB', 'Australia': 'AU', 'Canada': 'CA', 'Mexico': 'MX',
+    'Italy': 'IT', 'Spain': 'ES', 'Netherlands': 'NL', 'Turkey': 'TR',
+    'Argentina': 'AR', 'Poland': 'PL', 'Sweden': 'SE', 'Nigeria': 'NG',
+    'Indonesia': 'ID', 'Pakistan': 'PK', 'Bangladesh': 'BD', 'Philippines': 'PH',
+    'Vietnam': 'VN', 'Thailand': 'TH', 'Egypt': 'EG', 'Iran': 'IR',
+    'Saudi Arabia': 'SA', 'United Arab Emirates': 'AE', 'China': 'CN',
+    'Ukraine': 'UA', 'Romania': 'RO', 'Czech Republic': 'CZ',
+    'Portugal': 'PT', 'Greece': 'GR'
+  };
+
+  const code = nameToCode[countryValue] || countryValue.toUpperCase().slice(0, 2);
+  if (code.length < 2) return '';
+
+  // Convert A-Z to regional indicator symbols (🇦-🇿):
+  // Unicode regional indicator A = 0x1F1E6 = 127462, ASCII 'A' = 65, offset = 127397
+  return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
 }
 
 /* ===== USER IDENTITY ===== */
@@ -256,6 +447,10 @@ function setupEventListeners() {
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
 
+  // Developer Telegram link in about section
+  const devLinkBtn = document.getElementById('dev-link-btn');
+  if (devLinkBtn) devLinkBtn.addEventListener('click', openDeveloperTelegram);
+
   // Profile screen back button
   document.getElementById('btn-profile-back').addEventListener('click', () => {
     showScreen('home');
@@ -356,7 +551,11 @@ function setupEventListeners() {
   });
   document.getElementById('btn-save-name').addEventListener('click', saveName);
   document.getElementById('settings-language').addEventListener('change', e => {
-    localStorage.setItem('language', e.target.value);
+    lang = e.target.value;
+    try { localStorage.setItem('lang', lang); } catch (err) { console.warn('Failed to save language preference:', err); }
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    applyTranslations();
   });
 }
 
@@ -370,6 +569,7 @@ function startAIGame() {
   board        = Array(9).fill('');
   currentTurn  = 'X';
   gameOver     = false;
+  battleBotName = null;
 
   document.getElementById('difficulty-container').classList.remove('hidden');
   document.getElementById('btn-invite').classList.add('hidden');
@@ -417,6 +617,7 @@ async function startFriendsGame() {
 
     waitingForOpponent = true;
     joinRoom(newRoomId, 'X');
+    shareGameLink(newRoomId);
   } catch (e) {
     console.warn('startFriendsGame error:', e);
     alert('Could not create room. Please try again.');
@@ -746,7 +947,10 @@ function processAIGameMove(index, mark) {
   updateActiveTurn();
 
   if (mark === 'X') {
-    setStatus('AI Thinking...');
+    const thinkingText = battleBotName
+      ? battleBotName + ' is thinking...'
+      : 'Computer is thinking...';
+    setStatus(thinkingText);
     setTimeout(doAITurn, AI_MOVE_DELAY_MS);
   } else {
     setStatus('Your Turn');
@@ -956,22 +1160,7 @@ async function awardXP(outcome) {
 /* ===== INVITE / SHARE ===== */
 function handleInvite() {
   if (!roomId) return;
-  const url = window.location.origin + window.location.pathname + '#room=' + encodeURIComponent(roomId);
-  const tg  = window.Telegram?.WebApp;
-
-  if (tg?.openTelegramLink) {
-    const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url)
-      + '&text=' + encodeURIComponent('Join my Tic Tac Toe game!');
-    try { tg.openTelegramLink(shareUrl); return; } catch (e) { /* fallthrough */ }
-  }
-
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(url)
-      .then(() => showToast('Link copied!'))
-      .catch(() => prompt('Copy invite link:', url));
-  } else {
-    prompt('Copy invite link:', url);
-  }
+  shareGameLink(roomId);
 }
 
 /* ===== CHAT ===== */
@@ -1049,7 +1238,6 @@ async function loadLeaderboard() {
     users.forEach((user, i) => {
       const rank = i + 1;
       const isMe = user.id === currentUser.id;
-      const flag = countryToFlag(user.country);
 
       const row = document.createElement('div');
       row.className = 'leaderboard-row' + (isMe ? ' me' : '');
@@ -1059,13 +1247,9 @@ async function loadLeaderboard() {
       rankDiv.className = 'rank' + (rank <= 3 ? ' top-3' : '');
       rankDiv.textContent = rank <= 3 ? medals[rank - 1] : String(rank);
 
-      const flagDiv = document.createElement('div');
-      flagDiv.className = 'lb-flag';
-      flagDiv.textContent = flag;
-
       const nameDiv = document.createElement('div');
       nameDiv.className = 'lb-name';
-      nameDiv.textContent = user.name || 'Player';
+      nameDiv.textContent = getCountryFlag(user.country) + (user.country ? ' ' : '') + (user.name || 'Player');
 
       const statsDiv = document.createElement('div');
       statsDiv.className = 'lb-stats';
@@ -1081,7 +1265,6 @@ async function loadLeaderboard() {
       statsDiv.appendChild(winsDiv);
       statsDiv.appendChild(gamesDiv);
       row.appendChild(rankDiv);
-      row.appendChild(flagDiv);
       row.appendChild(nameDiv);
       row.appendChild(statsDiv);
       list.appendChild(row);
@@ -1315,6 +1498,7 @@ function startBotGame() {
   currentTurn  = 'X';
   gameOver     = false;
   aiDifficulty = 'medium';
+  battleBotName = botName;
 
   document.getElementById('difficulty-container').classList.add('hidden');
   document.getElementById('btn-invite').classList.add('hidden');
@@ -1362,7 +1546,6 @@ function stopDotsAnimation() {
 function openSettings() {
   document.getElementById('settings-name-input').value = currentUser.name;
 
-  const lang = localStorage.getItem('language') || 'en';
   const langSelect = document.getElementById('settings-language');
   if (langSelect) langSelect.value = lang;
 
