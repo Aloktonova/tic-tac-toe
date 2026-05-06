@@ -129,11 +129,13 @@ function detachAllListeners() {
 /* ===== USER PROFILE CACHE ===== */
 let cachedUserProfile = null;
 let cachedUserProfileTime = 0;
+let cachedUserProfileUid = null;
 
 async function getUserProfile(uid) {
   const now = Date.now();
   if (
     cachedUserProfile &&
+    cachedUserProfileUid === uid &&
     now - cachedUserProfileTime < PROFILE_CACHE_MS
   ) {
     return cachedUserProfile;
@@ -141,12 +143,14 @@ async function getUserProfile(uid) {
   const snap = await db.ref('users/' + uid).once('value');
   cachedUserProfile = snap.val() || {};
   cachedUserProfileTime = now;
+  cachedUserProfileUid = uid;
   return cachedUserProfile;
 }
 
 function invalidateProfileCache() {
   cachedUserProfile = null;
   cachedUserProfileTime = 0;
+  cachedUserProfileUid = null;
 }
 
 /* ===== STATE ===== */
