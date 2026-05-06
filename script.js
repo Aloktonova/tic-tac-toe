@@ -46,7 +46,7 @@ const WALLPAPERS = [
   },
   {
     id: 'galaxy',
-    name: 'Galaxy',
+    name: 'Midnight',
     price: 0,
     free: true,
     thumbnail: 'assets/wp-galaxy.jpg',
@@ -54,7 +54,7 @@ const WALLPAPERS = [
   },
   {
     id: 'ocean',
-    name: 'Ocean',
+    name: 'Ocean Blue',
     price: 15,
     free: false,
     thumbnail: 'assets/wp-ocean.jpg',
@@ -62,7 +62,7 @@ const WALLPAPERS = [
   },
   {
     id: 'forest',
-    name: 'Forest',
+    name: 'Emerald',
     price: 15,
     free: false,
     thumbnail: 'assets/wp-forest.jpg',
@@ -70,7 +70,7 @@ const WALLPAPERS = [
   },
   {
     id: 'fire',
-    name: 'Fire',
+    name: 'Crimson',
     price: 25,
     free: false,
     thumbnail: 'assets/wp-fire.jpg',
