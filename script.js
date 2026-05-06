@@ -247,12 +247,9 @@ let inBattleQueue  = false; // true while waiting in Firebase queue
 let settingsStatsRef = null;
 
 // Wallpaper state
-let currentWallpaper = 'galaxy';
-let purchasedWallpapers = (() => {
-  try {
-    return JSON.parse(localStorage.getItem('purchasedWallpapers') || '[]');
-  } catch (e) { return []; }
-})();
+let currentWallpaper = 'none';
+// Populated from Firebase after login; never persisted in localStorage
+let purchasedWallpapers = [];
 let previewingWallpaper = null;
 
 // Language
@@ -618,6 +615,21 @@ async function identifyUser() {
       currentUser.country        = d.country         || '';
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
+
+      // Load per-user purchased wallpapers from Firebase
+      const wpData = d.unlockedWallpapers || {};
+      purchasedWallpapers = Object.keys(wpData).filter(k => wpData[k] === true);
+
+      // Load per-user selected wallpaper from Firebase (fallback to localStorage then 'none')
+      if (d.selectedWallpaper) {
+        currentWallpaper = d.selectedWallpaper;
+      } else {
+        try {
+          currentWallpaper = localStorage.getItem('wallpaper') || 'none';
+        } catch (e) {
+          currentWallpaper = 'none';
+        }
+      }
     }
 
     // Real-time coins listener so UI updates instantly when coins are awarded
@@ -2003,6 +2015,15 @@ async function getTelegramStarsInvoiceUrl(wp) {
 }
 
 async function processPurchase(wp) {
+  const confirmBtn = document.getElementById('wp-purchase-confirm');
+  const originalText = confirmBtn?.textContent || 'Pay with Stars ⭐';
+
+  const setLoading = (loading) => {
+    if (!confirmBtn) return;
+    confirmBtn.disabled = loading;
+    confirmBtn.textContent = loading ? 'Opening payment…' : originalText;
+  };
+
   try {
     const tg = window.Telegram?.WebApp;
     if (!tg || !tg.openInvoice) {
@@ -2010,7 +2031,10 @@ async function processPurchase(wp) {
       return;
     }
 
+    setLoading(true);
     const invoiceUrl = await getTelegramStarsInvoiceUrl(wp);
+    setLoading(false);
+
     if (!invoiceUrl) {
       showToast('Telegram Stars payment is not configured yet.');
       return;
@@ -2019,11 +2043,15 @@ async function processPurchase(wp) {
     tg.openInvoice(invoiceUrl, (status) => {
       if (status === 'paid') {
         unlockWallpaper(wp.id);
+        showToast(wp.name + ' wallpaper unlocked! 🎉');
+      } else if (status === 'failed') {
+        showToast('Payment failed. Please try again.');
       } else if (status !== 'cancelled') {
         showToast('Payment not completed.');
       }
     });
   } catch (e) {
+    setLoading(false);
     console.error('processPurchase:', e);
     showToast('Failed to open Telegram Stars payment.');
   }
@@ -2032,10 +2060,7 @@ async function processPurchase(wp) {
 function unlockWallpaper(id) {
   if (!purchasedWallpapers.includes(id)) {
     purchasedWallpapers.push(id);
-    try {
-      localStorage.setItem('purchasedWallpapers', JSON.stringify(purchasedWallpapers));
-    } catch (e) {}
-    // Persist unlock to Firebase so it survives across devices
+    // Persist unlock to Firebase (source of truth for per-user purchases)
     const uid = ensureNormalizedUserId();
     if (uid && db) {
       db.ref('users/' + uid + '/unlockedWallpapers/' + id)
@@ -2055,12 +2080,22 @@ function handlePurchaseSuccess(id) {
 
 function applyWallpaper(wallpaperId) {
   currentWallpaper = wallpaperId;
+
+  // Cache in localStorage for instant startup before Firebase loads
   try {
     localStorage.setItem('wallpaper', wallpaperId);
   } catch (e) {}
 
+  // Save per-user selected wallpaper to Firebase
+  const uid = ensureNormalizedUserId();
+  if (uid && db) {
+    db.ref('users/' + uid + '/selectedWallpaper')
+      .set(wallpaperId)
+      .catch(e => console.error('applyWallpaper Firebase:', e));
+  }
+
   const wp = WALLPAPERS.find(w => w.id === wallpaperId);
-  const el = document.getElementById('gameWallpaper');
+  const el = document.getElementById('globalWallpaper');
   if (!el) return;
 
   if (!wp || !wp.fullImage) {
@@ -2077,11 +2112,16 @@ function applyWallpaper(wallpaperId) {
 }
 
 function loadSavedWallpaper() {
-  let saved = 'none';
-  try {
-    saved = localStorage.getItem('wallpaper') || 'none';
-  } catch (e) {}
-  applyWallpaper(saved);
+  // currentWallpaper is already set by identifyUser() from Firebase.
+  // Fall back to localStorage cache if Firebase data was unavailable (offline / no db).
+  if (!db || !currentUser.id) {
+    try {
+      currentWallpaper = localStorage.getItem('wallpaper') || 'none';
+    } catch (e) {
+      currentWallpaper = 'none';
+    }
+  }
+  applyWallpaper(currentWallpaper);
 }
 
 /* ===== RULES ===== */

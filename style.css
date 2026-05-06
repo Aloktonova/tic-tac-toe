@@ -38,7 +38,7 @@ html, body {
 }
 
 body {
-  background: linear-gradient(160deg, #0d0b1e 0%, #120825 50%, #0f0b28 100%);
+  background: #0d0b1e;
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   min-height: 100vh;
@@ -54,7 +54,30 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
+  z-index: 2;
   overflow-x: hidden;
+}
+
+/* ===== GLOBAL WALLPAPER LAYER ===== */
+/* Sits behind everything (z: 0), visible on every screen */
+.global-wallpaper {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+  transition: background-image 0.4s ease;
+}
+
+/* Dark gradient tint between wallpaper and app content for readability */
+.wallpaper-tint {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(13,11,30,0.82) 0%, rgba(18,8,37,0.82) 50%, rgba(15,11,40,0.82) 100%);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* ===== SCREENS ===== */
@@ -1217,27 +1240,7 @@ body {
   text-align: center;
 }
 
-/* ===== GAME WALLPAPER ===== */
-.game-wallpaper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 0;
-  opacity: 0.35;
-  transition: opacity 0.3s ease;
-}
-
-/* All game content must be above wallpaper */
-#screen-game > *:not(.game-wallpaper) {
-  position: relative;
-  z-index: 1;
-}
-
+/* ===== GAME BOARD OVERLAY ===== */
 #game-board {
   background: rgba(10, 8, 30, 0.75);
   backdrop-filter: blur(4px);
@@ -1514,6 +1517,12 @@ body {
   color: #94a3b8;
   margin-bottom: 20px;
   line-height: 1.5;
+}
+
+/* Loading state while invoice is being fetched */
+#wp-purchase-confirm:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 /* ===== NEW LEADERBOARD ===== */

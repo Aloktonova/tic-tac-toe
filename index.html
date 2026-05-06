@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Global wallpaper + dark tint — visible on every screen -->
+  <div id="globalWallpaper" class="global-wallpaper"></div>
+  <div class="wallpaper-tint"></div>
   <div id="app">
 
     <!-- ===== SCREEN 1: HOME ===== -->
@@ -47,7 +50,6 @@
 
     <!-- ===== SCREEN 2: GAME ===== -->
     <div id="screen-game" class="screen hidden">
-      <div id="gameWallpaper" class="game-wallpaper"></div>
       <div class="game-header">
         <button id="btn-back" class="back-btn" aria-label="Back to home">← Back</button>
         <div id="game-status" class="game-status">Your Turn</div>
