@@ -107,6 +107,30 @@ const WALLPAPERS = [
     fullImage: 'assets/wp-samurai.jpg'
   },
   {
+    id: 'moonlight',
+    name: 'Moonlight',
+    priceType: 'coins',
+    price: 120,
+    thumbnail: 'assets/wp-moonlight.jpg',
+    fullImage: 'assets/wp-moonlight.jpg'
+  },
+  {
+    id: 'meadow',
+    name: 'Meadow',
+    priceType: 'coins',
+    price: 80,
+    thumbnail: 'assets/wp-meadow.jpg',
+    fullImage: 'assets/wp-meadow.jpg'
+  },
+  {
+    id: 'castle',
+    name: 'Dark Castle',
+    priceType: 'stars',
+    price: 30,
+    thumbnail: 'assets/wp-castle.jpg',
+    fullImage: 'assets/wp-castle.jpg'
+  },
+  {
     id: 'neon',
     name: 'Neon City',
     priceType: 'stars',
