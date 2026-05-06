@@ -18,6 +18,8 @@ const WINNING_COMBOS = [
 
 const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
+const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
+const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -94,6 +96,59 @@ const WALLPAPERS = [
   }
 ];
 
+/* ===== LISTENER REGISTRY ===== */
+const activeListeners = {};
+
+function attachListener(key, ref, event, fn) {
+  if (activeListeners[key]) {
+    activeListeners[key].ref.off(
+      activeListeners[key].event,
+      activeListeners[key].fn
+    );
+    delete activeListeners[key];
+  }
+  ref.on(event, fn);
+  activeListeners[key] = { ref, event, fn };
+}
+
+function detachListener(key) {
+  if (!activeListeners[key]) return;
+  activeListeners[key].ref.off(
+    activeListeners[key].event,
+    activeListeners[key].fn
+  );
+  delete activeListeners[key];
+}
+
+function detachAllListeners() {
+  Object.keys(activeListeners).forEach(key => {
+    detachListener(key);
+  });
+}
+
+/* ===== USER PROFILE CACHE ===== */
+let cachedUserProfile = null;
+let cachedUserProfileTime = 0;
+
+async function getUserProfile(uid) {
+  const now = Date.now();
+  if (
+    cachedUserProfile &&
+    now - cachedUserProfileTime < PROFILE_CACHE_MS
+  ) {
+    return cachedUserProfile;
+  }
+  const snap = await db.ref('users/' + uid).once('value');
+  cachedUserProfile = snap.val() || {};
+  cachedUserProfileTime = now;
+  return cachedUserProfile;
+}
+
+function invalidateProfileCache() {
+  cachedUserProfile = null;
+  cachedUserProfileTime = 0;
+}
+
 /* ===== STATE ===== */
 let db = null;
 
@@ -131,6 +186,7 @@ let queueRef        = null;
 let battleTimer    = null;
 let battleCancelled = false;
 let dotsInterval   = null;
+let inBattleQueue  = false; // true while waiting in Firebase queue
 
 // Settings state
 let settingsStatsRef = null;
@@ -890,21 +946,20 @@ async function startOnlineMatchmaking() {
 function listenForMatch() {
   if (!db) return;
   queueRef = db.ref('queue/' + currentUser.id);
-  queueRef.on('value', async snap => {
+  const matchListenerFn = async snap => {
     if (!snap.exists()) return;
     const data = snap.val();
     if (data.status === 'matched' && data.roomId) {
-      cleanupQueueListener();
+      detachListener('queue');
       joinRoom(data.roomId, 'X');
     }
-  });
+  };
+  attachListener('queue', queueRef, 'value', matchListenerFn);
 }
 
 function cleanupQueueListener() {
-  if (queueRef) {
-    queueRef.off('value');
-    queueRef = null;
-  }
+  detachListener('queue');
+  queueRef = null;
 }
 
 function cancelWaiting() {
@@ -971,19 +1026,21 @@ function listenToRoom() {
   if (!db || !roomId) return;
   cleanupRoomListener();
 
-  roomListenerRef = db.ref('rooms/' + roomId);
-  roomListenerRef.on('value', snap => {
+  const roomRef = db.ref('rooms/' + roomId);
+  const roomValueListener = snap => {
     if (!snap.exists()) return;
     renderOnlineRoom(snap.val());
-  });
+  };
+  attachListener('room', roomRef, 'value', roomValueListener);
 
-  chatListenerRef = db.ref('rooms/' + roomId + '/messages').limitToLast(50);
-  chatListenerRef.on('child_added', snap => appendChatMessage(snap.val()));
+  const chatRef = db.ref('rooms/' + roomId + '/messages').limitToLast(50);
+  const chatChildListener = snap => appendChatMessage(snap.val());
+  attachListener('chat', chatRef, 'child_added', chatChildListener);
 }
 
 function cleanupRoomListener() {
-  if (roomListenerRef) { roomListenerRef.off('value'); roomListenerRef = null; }
-  if (chatListenerRef) { chatListenerRef.off('child_added'); chatListenerRef = null; }
+  detachListener('room');
+  detachListener('chat');
 }
 
 function renderOnlineRoom(room) {
@@ -1023,6 +1080,7 @@ function renderOnlineRoom(room) {
     if (!xpAwarded) {
       xpAwarded = true;
       awardXP(outcome);
+      setTimeout(() => detachListener('room'), 3000);
     }
   } else {
     gameOver = false;
@@ -1230,17 +1288,23 @@ async function makeOnlineMove(index) {
 
   const newBoard = [...board];
   newBoard[index] = playerMark;
-  const result  = checkWinner(newBoard);
+  const result   = checkWinner(newBoard);
   const nextTurn = playerMark === 'X' ? 'O' : 'X';
 
-  const update = {
-    board:       newBoard,
-    turn:        result ? currentTurn : nextTurn,
-    winner:      result ? (result.winner) : null,
-    winningCells: result ? result.cells : null
-  };
-
-  if (result && result.winner !== 'draw') {
+  let update;
+  if (!result) {
+    // Normal move — write only what changed
+    update = { board: newBoard, turn: nextTurn };
+  } else if (result.winner === 'draw') {
+    update = { board: newBoard, winner: 'draw', turn: null };
+  } else {
+    // Winning move
+    update = {
+      board:        newBoard,
+      winner:       result.winner,
+      winningCells: result.cells,
+      turn:         null
+    };
     if (result.winner === 'X') {
       update.playerXWins = firebase.database.ServerValue.increment(1);
     } else {
@@ -1289,11 +1353,13 @@ function playAgain() {
     // Alternate who goes first each round
     roomFirstTurn = roomFirstTurn === 'X' ? 'O' : 'X';
     xpAwarded = false; // reset for the new round
+    const newMatchId = Date.now();
     db.ref('rooms/' + roomId).update({
-      board:        Array(9).fill(''),
-      turn:         roomFirstTurn,
-      winner:       null,
-      winningCells: null,
+      board:              Array(9).fill(''),
+      turn:               roomFirstTurn,
+      winner:             null,
+      winningCells:       [],
+      'stats/matchId':    newMatchId,
       'stats/awardedKey': null
     }).catch(e => console.warn('Play again error:', e));
   }
@@ -1333,6 +1399,7 @@ async function awardXP(outcome) {
       games:      currentUser.games,
       lastActive: Date.now()
     });
+    invalidateProfileCache();
   } catch (e) {
     console.warn('XP update error:', e);
   }
@@ -1868,11 +1935,13 @@ function startBattleSearch() {
 
   // Add to Firebase queue (with future tournament fields)
   db.ref('queue/' + currentUser.id).set({
-    userId:    currentUser.id,
-    timestamp: Date.now(),
-    status:    'waiting',
+    userId:     currentUser.id,
+    timestamp:  Date.now(),
+    status:     'waiting',
     entry_paid: false // future: paid tournament entry flag
   }).then(() => {
+    inBattleQueue = true;
+    db.ref('queue/' + currentUser.id).onDisconnect().remove();
     searchBattleOpponent();
   }).catch(e => {
     console.warn('Battle queue error:', e);
@@ -1884,7 +1953,8 @@ function startBattleSearch() {
   // Timeout → bot fallback
   battleTimer = setTimeout(() => {
     if (!battleCancelled) {
-      cleanupQueueListener();
+      detachListener('queue');
+      inBattleQueue = false;
       if (db) db.ref('queue/' + currentUser.id).remove().catch(() => {});
       startBotGame();
     }
@@ -1901,9 +1971,22 @@ async function searchBattleOpponent() {
 
     if (queueSnap.exists()) {
       const entries = queueSnap.val();
-      const candidates = Object.entries(entries).filter(([uid]) => uid !== currentUser.id);
+      const now = Date.now();
+      const candidates = [];
 
-      for (const [opponentId] of candidates) {
+      Object.entries(entries).forEach(([uid, d]) => {
+        if (uid === currentUser.id) return;
+        if (!d || d.status !== 'waiting') return;
+        const age = now - (d.timestamp || 0);
+        if (age > QUEUE_ENTRY_MAX_AGE_MS) {
+          // Delete stale entry silently
+          db.ref('queue/' + uid).remove().catch(() => {});
+          return;
+        }
+        candidates.push({ uid, data: d });
+      });
+
+      for (const { uid: opponentId } of candidates) {
         const opRef = db.ref('queue/' + opponentId);
         const txResult = await opRef.transaction(data => {
           if (data && data.status === 'waiting') {
@@ -1915,6 +1998,8 @@ async function searchBattleOpponent() {
         if (!txResult.committed || battleCancelled) continue;
 
         clearTimeout(battleTimer);
+        inBattleQueue = false;
+        detachListener('queue');
 
         const opUserSnap = await db.ref('users/' + opponentId).once('value');
         const opUser     = opUserSnap.val() || {};
@@ -1959,23 +2044,26 @@ async function searchBattleOpponent() {
 function listenForBattleMatch() {
   if (!db || battleCancelled) return;
   queueRef = db.ref('queue/' + currentUser.id);
-  queueRef.on('value', snap => {
+  const battleQueueListenerFn = snap => {
     if (!snap.exists() || battleCancelled) return;
     const data = snap.val();
     if (data.status === 'matched' && data.roomId) {
       clearTimeout(battleTimer);
-      cleanupQueueListener();
+      inBattleQueue = false;
+      detachListener('queue');
       hideBattleModal();
       joinRoom(data.roomId, 'X');
     }
-  });
+  };
+  attachListener('queue', queueRef, 'value', battleQueueListenerFn);
 }
 
 function cancelBattleSearch() {
   battleCancelled = true;
   clearTimeout(battleTimer);
   stopDotsAnimation();
-  cleanupQueueListener();
+  detachListener('queue');
+  inBattleQueue = false;
   if (db) db.ref('queue/' + currentUser.id).remove().catch(() => {});
   hideBattleModal();
   showScreen('home');
@@ -2054,9 +2142,7 @@ function openSettings() {
   populateSettingsStats();
 
   if (db) {
-    if (settingsStatsRef) settingsStatsRef.off('value');
-    settingsStatsRef = db.ref('users/' + currentUser.id);
-    settingsStatsRef.on('value', snap => {
+    db.ref('users/' + currentUser.id).once('value').then(snap => {
       if (!snap.exists()) return;
       const d = snap.val();
       currentUser.xp     = d.xp     || currentUser.xp;
@@ -2065,7 +2151,7 @@ function openSettings() {
       currentUser.draws  = d.draws  || currentUser.draws;
       currentUser.games  = d.games  || currentUser.games;
       populateSettingsStats();
-    });
+    }).catch(e => console.warn('Settings stats error:', e));
   }
 
   document.getElementById('modal-settings').classList.remove('hidden');
@@ -2092,7 +2178,6 @@ function populateSettingsStats() {
 function closeSettings() {
   document.getElementById('modal-settings').classList.add('hidden');
   document.body.style.pointerEvents = 'auto';
-  detachSettingsListener();
 }
 
 function detachSettingsListener() {
@@ -2114,6 +2199,7 @@ async function saveName() {
   if (db) {
     try {
       await db.ref('users/' + currentUser.id).update({ name: newName });
+      invalidateProfileCache();
       showToast('Name saved!');
     } catch (e) {
       console.warn('Save name error:', e);
@@ -2322,3 +2408,22 @@ function renderAchievements(ach, wins, bestStreak) {
     grid.appendChild(card);
   });
 }
+
+/* ===== PAGE UNLOAD CLEANUP ===== */
+window.addEventListener('beforeunload', () => {
+  // Remove from queue if waiting
+  if (inBattleQueue && queueRef) {
+    queueRef.remove().catch(() => {});
+  }
+  // Detach all Firebase listeners
+  detachAllListeners();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (inBattleQueue && queueRef) {
+      queueRef.remove().catch(() => {});
+      inBattleQueue = false;
+    }
+  }
+});
