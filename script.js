@@ -35,6 +35,51 @@ const BOT_COUNTRIES = [
   'ES', 'IT', 'KR', 'AU', 'CA', 'MX', 'TR', 'PL', 'UA', 'NL'
 ];
 
+const WALLPAPERS = [
+  {
+    id: 'none',
+    name: 'None',
+    preview: 'transparent',
+    css: 'none'
+  },
+  {
+    id: 'galaxy',
+    name: 'Galaxy',
+    preview: 'linear-gradient(135deg,#0d0221,#1a0533,#0d1b4b)',
+    css: 'radial-gradient(ellipse at top,#1a0533 0%,#0d0221 50%,#000510 100%)'
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    preview: 'linear-gradient(135deg,#0c4a6e,#0369a1,#0c4a6e)',
+    css: 'linear-gradient(180deg,#082f49 0%,#0c4a6e 50%,#0369a1 100%)'
+  },
+  {
+    id: 'forest',
+    name: 'Forest',
+    preview: 'linear-gradient(135deg,#052e16,#14532d,#052e16)',
+    css: 'linear-gradient(180deg,#020d07 0%,#052e16 50%,#14532d 100%)'
+  },
+  {
+    id: 'fire',
+    name: 'Fire',
+    preview: 'linear-gradient(135deg,#450a0a,#7f1d1d,#991b1b)',
+    css: 'radial-gradient(ellipse at bottom,#991b1b 0%,#7f1d1d 40%,#450a0a 100%)'
+  },
+  {
+    id: 'aurora',
+    name: 'Aurora',
+    preview: 'linear-gradient(135deg,#1e1b4b,#4c1d95,#0f766e)',
+    css: 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)'
+  },
+  {
+    id: 'neon',
+    name: 'Neon City',
+    preview: 'linear-gradient(135deg,#0f0c29,#302b63,#1a0533)',
+    css: 'radial-gradient(ellipse at 30% 80%,#4f46e5 0%,transparent 50%), radial-gradient(ellipse at 70% 20%,#7c3aed 0%,transparent 50%), #0f0c29'
+  }
+];
+
 /* ===== STATE ===== */
 let db = null;
 
@@ -75,6 +120,9 @@ let dotsInterval   = null;
 
 // Settings state
 let settingsStatsRef = null;
+
+// Wallpaper state
+let currentWallpaper = 'galaxy';
 
 // Language
 let lang = localStorage.getItem('lang') || localStorage.getItem('language') || 'en';
@@ -182,6 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderRulesDefault(); // render default rules immediately
   checkUrlParams();
   applyTranslations();
+  loadSavedWallpaper();
   showScreen('home');
 });
 
@@ -258,10 +307,6 @@ function applyTranslations() {
   if (inviteBtn) inviteBtn.textContent = t.shareLink;
   const sendBtn = document.getElementById('btn-send-chat');
   if (sendBtn) sendBtn.textContent = t.send;
-
-  // Leaderboard title
-  const lbTitle = document.querySelector('#screen-leaderboard .screen-header h2');
-  if (lbTitle) lbTitle.textContent = t.leaderboardTitle;
 }
 
 /* ===== SHARE GAME LINK ===== */
@@ -514,6 +559,15 @@ function setupEventListeners() {
   // Battle modal cancel
   document.getElementById('btn-cancel-battle').addEventListener('click', cancelBattleSearch);
 
+  // Leaderboard tabs
+  document.querySelectorAll('.lb-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadLeaderboard(tab.dataset.tab);
+    });
+  });
+
   // Bottom nav (all nav instances)
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -529,7 +583,10 @@ function setupEventListeners() {
         return;
       }
 
-      if (screen === 'leaderboard') loadLeaderboard();
+      if (screen === 'leaderboard') {
+        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'monthly';
+        loadLeaderboard(activeTab);
+      }
       showScreen(screen);
       document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.screen === screen);
@@ -1207,73 +1264,222 @@ function appendChatMessage(msg) {
   container.scrollTop = container.scrollHeight;
 }
 
+/* ===== AVATAR COLOR ===== */
+function getAvatarColor(name) {
+  const colors = [
+    '#7c3aed', '#4f46e5', '#0891b2',
+    '#059669', '#d97706', '#dc2626',
+    '#db2777', '#a21caf', '#2563eb'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + hash;
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
 /* ===== LEADERBOARD ===== */
-async function loadLeaderboard() {
-  const list = document.getElementById('leaderboard-list');
-  list.innerHTML = '<div class="loading-text">Loading...</div>';
+async function loadLeaderboard(tab) {
+  tab = tab || 'monthly';
+
+  const podiumEl = document.getElementById('lb-podium');
+  const listEl   = document.getElementById('lb-list');
+  if (!podiumEl || !listEl) return;
+
+  podiumEl.innerHTML = '<div class="loading-text">Loading...</div>';
+  listEl.innerHTML   = '';
 
   if (!db) {
-    list.innerHTML = '<div class="loading-text">Leaderboard requires an internet connection.</div>';
+    podiumEl.innerHTML = '<div class="loading-text">Leaderboard requires an internet connection.</div>';
     return;
   }
 
   try {
-    const snap = await db.ref('users').orderByChild('wins').limitToLast(20).once('value');
+    let orderField, scoreCalc;
+    if (tab === 'lifetime') {
+      orderField  = 'wins';
+      scoreCalc   = u => (u.wins || 0) * 10 + (u.draws || 0) * 3;
+    } else if (tab === 'weekly') {
+      orderField  = 'weekly_wins';
+      scoreCalc   = u => (u.weekly_wins || 0) * 10;
+    } else {
+      orderField  = 'monthly_wins';
+      scoreCalc   = u => (u.monthly_wins || 0) * 10;
+    }
+
+    const snap = await db.ref('users').orderByChild(orderField).limitToLast(50).once('value');
     const users = [];
     snap.forEach(child => {
       const d = child.val();
       if (d) users.push({ id: child.key, ...d });
     });
 
-    users.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+    users.sort((a, b) => scoreCalc(b) - scoreCalc(a));
 
     if (!users.length) {
-      list.innerHTML = '<div class="loading-text">No players yet. Be the first!</div>';
+      podiumEl.innerHTML = '<div class="loading-text">No players yet. Be the first!</div>';
+      listEl.innerHTML   = '';
+      updateLbProfileCard([], scoreCalc);
       return;
     }
 
-    list.innerHTML = '';
-    const medals = ['🥇', '🥈', '🥉'];
+    updateLbProfileCard(users, scoreCalc);
 
-    users.forEach((user, i) => {
-      const rank = i + 1;
-      const isMe = user.id === currentUser.id;
+    // Build podium (top 3)
+    podiumEl.innerHTML = '';
+    const podiumOrder = [1, 0, 2]; // [#2, #1, #3] display order
+    const podiumColors = [
+      { border: '#f59e0b', glow: 'rgba(245,158,11,0.5)',  label: '🥇' },
+      { border: '#94a3b8', glow: 'rgba(148,163,184,0.4)', label: '🥈' },
+      { border: '#b45309', glow: 'rgba(180,83,9,0.4)',    label: '🥉' }
+    ];
+    const top3 = users.slice(0, 3);
+
+    const podiumWrap = document.createElement('div');
+    podiumWrap.className = 'lb-podium-inner';
+
+    podiumOrder.forEach(rankIdx => {
+      if (rankIdx >= top3.length) {
+        const empty = document.createElement('div');
+        empty.className = 'lb-podium-slot empty';
+        podiumWrap.appendChild(empty);
+        return;
+      }
+      const user   = top3[rankIdx];
+      const rank   = rankIdx + 1;
+      const color  = podiumColors[rankIdx];
+      const isMe   = user.id === currentUser.id;
+      const score  = scoreCalc(user);
+      const letter = (user.name || 'P').charAt(0).toUpperCase();
+      const bgColor = getAvatarColor(user.name || 'P');
+
+      const slot = document.createElement('div');
+      slot.className = 'lb-podium-slot rank-' + rank + (isMe ? ' me' : '');
+      slot.style.setProperty('--pod-border', color.border);
+      slot.style.setProperty('--pod-glow',   color.glow);
+
+      slot.innerHTML = `
+        <div class="pod-rank">${color.label}</div>
+        <div class="pod-avatar" style="background:${bgColor}">${letter}</div>
+        <div class="pod-name">${escapeHtml(user.name || 'Player')}</div>
+        <div class="pod-score">${score} pts</div>
+      `;
+      podiumWrap.appendChild(slot);
+    });
+    podiumEl.appendChild(podiumWrap);
+
+    // Build scrollable list (rank 4+)
+    listEl.innerHTML = '';
+    users.slice(3).forEach((user, i) => {
+      const rank  = i + 4;
+      const isMe  = user.id === currentUser.id;
+      const score = scoreCalc(user);
+      const letter = (user.name || 'P').charAt(0).toUpperCase();
+      const bgColor = getAvatarColor(user.name || 'P');
+      const flag   = getCountryFlag(user.country || '');
 
       const row = document.createElement('div');
-      row.className = 'leaderboard-row' + (isMe ? ' me' : '');
+      row.className = 'lb-row' + (isMe ? ' lb-row-me' : '');
       row.setAttribute('role', 'listitem');
 
-      const rankDiv = document.createElement('div');
-      rankDiv.className = 'rank' + (rank <= 3 ? ' top-3' : '');
-      rankDiv.textContent = rank <= 3 ? medals[rank - 1] : String(rank);
-
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'lb-name';
-      nameDiv.textContent = getCountryFlag(user.country) + (user.country ? ' ' : '') + (user.name || 'Player');
-
-      const statsDiv = document.createElement('div');
-      statsDiv.className = 'lb-stats';
-
-      const winsDiv = document.createElement('div');
-      winsDiv.className = 'lb-wins';
-      winsDiv.textContent = (user.wins || 0) + 'W';
-
-      const gamesDiv = document.createElement('div');
-      gamesDiv.className = 'lb-games';
-      gamesDiv.textContent = (user.games || 0) + ' games';
-
-      statsDiv.appendChild(winsDiv);
-      statsDiv.appendChild(gamesDiv);
-      row.appendChild(rankDiv);
-      row.appendChild(nameDiv);
-      row.appendChild(statsDiv);
-      list.appendChild(row);
+      row.innerHTML = `
+        <div class="lb-row-rank">${rank}</div>
+        <div class="lb-row-avatar" style="background:${bgColor}">${letter}</div>
+        <div class="lb-row-name">${flag ? '<span class="lb-flag">' + flag + '</span>' : ''}${escapeHtml(user.name || 'Player')}</div>
+        <div class="lb-row-score">${score} pts</div>
+      `;
+      listEl.appendChild(row);
     });
 
   } catch (e) {
     console.warn('Leaderboard error:', e);
-    list.innerHTML = '<div class="loading-text">Failed to load leaderboard.</div>';
+    podiumEl.innerHTML = '<div class="loading-text">Failed to load leaderboard.</div>';
   }
+}
+
+function updateLbProfileCard(users, scoreCalc) {
+  const nameEl   = document.getElementById('lb-my-name');
+  const pointsEl = document.getElementById('lb-my-points');
+  const rankEl   = document.getElementById('lb-my-rank');
+  const avatarEl = document.getElementById('lb-my-avatar');
+  if (!nameEl) return;
+
+  nameEl.textContent = currentUser.name || 'Player';
+
+  // Avatar
+  if (tgPhotoUrl) {
+    avatarEl.style.background = '';
+    avatarEl.style.backgroundImage = 'url(' + tgPhotoUrl + ')';
+    avatarEl.style.backgroundSize  = 'cover';
+    avatarEl.style.backgroundPosition = 'center';
+    avatarEl.textContent = '';
+  } else {
+    avatarEl.textContent = (currentUser.name || 'P').charAt(0).toUpperCase();
+    avatarEl.style.backgroundImage = '';
+    avatarEl.style.background = getAvatarColor(currentUser.name || 'P');
+  }
+
+  const myIdx = users.findIndex(u => u.id === currentUser.id);
+  if (myIdx >= 0) {
+    pointsEl.textContent = scoreCalc(users[myIdx]) + ' pts';
+    rankEl.textContent   = '#' + (myIdx + 1);
+  } else {
+    const myScore = scoreCalc(currentUser);
+    pointsEl.textContent = myScore + ' pts';
+    rankEl.textContent   = '#–';
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ===== WALLPAPER SYSTEM ===== */
+function renderWallpaperPicker() {
+  const grid = document.getElementById('wallpaperGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  WALLPAPERS.forEach(wp => {
+    const card = document.createElement('div');
+    card.className = 'wallpaper-card';
+    if (currentWallpaper === wp.id) {
+      card.classList.add('active');
+    }
+    card.style.background = wp.preview;
+    const label = document.createElement('span');
+    label.innerText = wp.name;
+    card.appendChild(label);
+    card.onclick = () => applyWallpaper(wp.id);
+    grid.appendChild(card);
+  });
+}
+
+function applyWallpaper(wallpaperId) {
+  currentWallpaper = wallpaperId;
+  try {
+    localStorage.setItem('wallpaper', wallpaperId);
+  } catch (e) {}
+  const wp = WALLPAPERS.find(w => w.id === wallpaperId);
+  const el = document.getElementById('gameWallpaper');
+  if (!el) return;
+  if (!wp || wp.css === 'none') {
+    el.style.background = 'none';
+  } else {
+    el.style.background = wp.css;
+  }
+  renderWallpaperPicker();
+}
+
+function loadSavedWallpaper() {
+  let saved = 'galaxy';
+  try {
+    saved = localStorage.getItem('wallpaper') || 'galaxy';
+  } catch (e) {}
+  applyWallpaper(saved);
 }
 
 /* ===== RULES ===== */
@@ -1568,6 +1774,7 @@ function openSettings() {
 
   document.getElementById('modal-settings').classList.remove('hidden');
   document.body.style.pointerEvents = 'auto';
+  renderWallpaperPicker();
 }
 
 function populateSettingsStats() {

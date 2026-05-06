@@ -47,6 +47,7 @@
 
     <!-- ===== SCREEN 2: GAME ===== -->
     <div id="screen-game" class="screen hidden">
+      <div id="gameWallpaper" class="game-wallpaper"></div>
       <div class="game-header">
         <button id="btn-back" class="back-btn" aria-label="Back to home">← Back</button>
         <div id="game-status" class="game-status">Your Turn</div>
@@ -126,11 +127,27 @@
 
     <!-- ===== SCREEN 4: LEADERBOARD ===== -->
     <div id="screen-leaderboard" class="screen hidden">
-      <div class="screen-header">
-        <h2>Leaderboard</h2>
+      <!-- Profile card -->
+      <div id="lb-profile-card" class="lb-profile-card">
+        <div id="lb-my-avatar" class="lb-my-avatar avatar-circle"></div>
+        <div class="lb-my-info">
+          <div id="lb-my-name" class="lb-my-name">Player</div>
+          <div id="lb-my-points" class="lb-my-points">0 pts</div>
+        </div>
+        <div id="lb-my-rank" class="lb-my-rank">#–</div>
       </div>
-      <div id="leaderboard-list" class="leaderboard-list" role="list" aria-label="Leaderboard">
-        <div class="loading-text">Loading...</div>
+
+      <!-- Tab selector -->
+      <div class="lb-tabs">
+        <button class="lb-tab active" data-tab="monthly">Monthly</button>
+        <button class="lb-tab" data-tab="lifetime">Lifetime</button>
+        <button class="lb-tab" data-tab="weekly">Weekly</button>
+      </div>
+
+      <!-- Scrollable content (podium + list) -->
+      <div id="lb-scroll" class="lb-scroll">
+        <div id="lb-podium" class="lb-podium"></div>
+        <div id="lb-list" class="lb-list" role="list" aria-label="Leaderboard"></div>
       </div>
       <nav class="bottom-nav" aria-label="Main navigation">
         <button class="nav-btn" data-screen="home">
@@ -281,6 +298,12 @@
           <div id="settings-draws" class="stat-value">0</div>
           <div class="stat-label">Draws</div>
         </div>
+      </div>
+
+      <!-- Wallpaper -->
+      <div class="settings-section">
+        <label class="settings-label">Wallpaper</label>
+        <div id="wallpaperGrid" class="wallpaper-grid"></div>
       </div>
 
       <!-- About -->
