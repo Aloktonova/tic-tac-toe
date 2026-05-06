@@ -1491,6 +1491,9 @@ function getAvatarColor(name) {
 
 /* ===== LEADERBOARD ===== */
 
+const MONTHLY_MS = 2592000000; // 30 days in ms
+const WEEKLY_MS  =  604800000; // 7 days in ms
+
 function calculatePoints(userData) {
   const wins   = userData.wins        || 0;
   const draws  = userData.draws       || 0;
@@ -1515,16 +1518,7 @@ function calculatePoints(userData) {
 
 function makeLetterAvatar(name, size) {
   const letter = (name || '?').trim().charAt(0).toUpperCase();
-  const colors = [
-    '#7c3aed', '#4f46e5', '#0891b2',
-    '#059669', '#d97706', '#dc2626',
-    '#db2777', '#2563eb', '#0f766e'
-  ];
-  let hash = 0;
-  for (let i = 0; i < (name || '').length; i++) {
-    hash += (name || '').charCodeAt(i);
-  }
-  const bg = colors[hash % colors.length];
+  const bg = getLetterAvatarBg(name);
   const div = document.createElement('div');
   div.className = 'letter-avatar';
   div.style.width           = size + 'px';
@@ -1540,6 +1534,19 @@ function makeLetterAvatar(name, size) {
   div.style.flexShrink      = '0';
   div.innerText = letter;
   return div;
+}
+
+function getLetterAvatarBg(name) {
+  const colors = [
+    '#7c3aed', '#4f46e5', '#0891b2',
+    '#059669', '#d97706', '#dc2626',
+    '#db2777', '#2563eb', '#0f766e'
+  ];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) {
+    hash += (name || '').charCodeAt(i);
+  }
+  return colors[hash % colors.length];
 }
 
 async function loadLeaderboard(tab) {
@@ -1567,9 +1574,9 @@ async function loadLeaderboard(tab) {
 
     // Filter for monthly / weekly tabs by lastActive timestamp
     if (tab === 'monthly') {
-      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < 2592000000));
+      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < MONTHLY_MS));
     } else if (tab === 'weekly') {
-      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < 604800000));
+      users = users.filter(u => u.lastActive && (Date.now() - u.lastActive < WEEKLY_MS));
     }
 
     users.sort((a, b) => calculatePoints(b) - calculatePoints(a));
@@ -1706,14 +1713,7 @@ function updateLbProfileCard(users) {
   // Letter avatar only — no profile photos in leaderboard
   const name   = currentUser.name || 'P';
   const letter = name.trim().charAt(0).toUpperCase();
-  const avColors = [
-    '#7c3aed', '#4f46e5', '#0891b2',
-    '#059669', '#d97706', '#dc2626',
-    '#db2777', '#2563eb', '#0f766e'
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
-  avatarEl.style.background      = avColors[hash % avColors.length];
+  avatarEl.style.background      = getLetterAvatarBg(name);
   avatarEl.style.backgroundImage = '';
   avatarEl.textContent           = letter;
 
