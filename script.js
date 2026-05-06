@@ -25,7 +25,11 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
 const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
+// Optional backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
+// Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
+// Optional direct invoice URL map keyed by wallpaper id, e.g. { castle: 'https://t.me/$....' }.
+// Configure it globally as window.__TG_STARS_INVOICE_URLS__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_URLS = window.__TG_STARS_INVOICE_URLS__ || {};
 
 const AVATAR_COLORS = [
