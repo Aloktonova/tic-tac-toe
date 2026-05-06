@@ -125,10 +125,14 @@ let settingsStatsRef = null;
 let currentWallpaper = 'galaxy';
 
 // Language
-let lang = localStorage.getItem('lang') || localStorage.getItem('language') || 'en';
+const SUPPORTED_LANGS = ['en', 'ru', 'es', 'fr', 'de', 'ar', 'zh'];
+let lang = 'en';
 // Migrate old 'language' key to 'lang'
 if (!localStorage.getItem('lang') && localStorage.getItem('language')) {
-  try { localStorage.removeItem('language'); } catch (e) {}
+  try {
+    localStorage.setItem('lang', localStorage.getItem('language'));
+    localStorage.removeItem('language');
+  } catch (e) {}
 }
 
 // Telegram photo URL (in-memory only, not persisted)
@@ -227,6 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFirebase();
   setupEventListeners();
   await identifyUser();
+  await loadUserLanguage();
   renderRulesDefault(); // render default rules immediately
   checkUrlParams();
   applyTranslations();
@@ -307,6 +312,87 @@ function applyTranslations() {
   if (inviteBtn) inviteBtn.textContent = t.shareLink;
   const sendBtn = document.getElementById('btn-send-chat');
   if (sendBtn) sendBtn.textContent = t.send;
+}
+
+/* ===== LANGUAGE HELPERS ===== */
+function normalizeLangCode(code) {
+  if (!code) return null;
+  const lower = String(code).toLowerCase().split('-')[0].split('_')[0];
+  if (SUPPORTED_LANGS.includes(lower)) return lower;
+  return null;
+}
+
+function ensureNormalizedUserId() {
+  return currentUser.id || null;
+}
+
+function saveLanguage(langCode) {
+  // Save to localStorage (device-specific)
+  try {
+    localStorage.setItem("lang", langCode);
+  } catch(e) {}
+
+  // Save to this user's own Firebase document only
+  const uid = ensureNormalizedUserId();
+  if (uid && db) {
+    db.ref("users/" + uid + "/language")
+      .set(langCode)
+      .catch(e => console.error("saveLanguage Firebase error:", e));
+  }
+}
+
+function setLanguage(langCode, persist = true) {
+  const normalized = normalizeLangCode(langCode) || "en";
+  lang = normalized;
+  document.documentElement.lang = normalized;
+  document.documentElement.dir = normalized === "ar" ? "rtl" : "ltr";
+  applyTranslations();
+  if (persist) {
+    saveLanguage(normalized);
+  }
+}
+
+async function loadUserLanguage() {
+  // Priority 1: localStorage (instant, device-local)
+  try {
+    const stored = localStorage.getItem("lang");
+    if (stored && SUPPORTED_LANGS.includes(stored)) {
+      setLanguage(stored, false);
+      return;
+    }
+  } catch(e) {}
+
+  // Priority 2: user's own Firebase document
+  const uid = ensureNormalizedUserId();
+  if (uid && db) {
+    try {
+      const snap = await db
+        .ref("users/" + uid + "/language")
+        .once("value");
+      const fbLang = snap.val();
+      if (fbLang && SUPPORTED_LANGS.includes(fbLang)) {
+        setLanguage(fbLang, false);
+        try {
+          localStorage.setItem("lang", fbLang);
+        } catch(e) {}
+        return;
+      }
+    } catch(e) {
+      console.error("loadUserLanguage Firebase:", e);
+    }
+  }
+
+  // Priority 3: Telegram user language code
+  const tgLang = normalizeLangCode(
+    window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code
+  );
+  if (tgLang) {
+    setLanguage(tgLang, false);
+    return;
+  }
+
+  // Priority 4: default to English
+  setLanguage("en", false);
 }
 
 /* ===== SHARE GAME LINK ===== */
@@ -608,11 +694,7 @@ function setupEventListeners() {
   });
   document.getElementById('btn-save-name').addEventListener('click', saveName);
   document.getElementById('settings-language').addEventListener('change', e => {
-    lang = e.target.value;
-    try { localStorage.setItem('lang', lang); } catch (err) { console.warn('Failed to save language preference:', err); }
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    applyTranslations();
+    setLanguage(e.target.value, true);
   });
 }
 
