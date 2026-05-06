@@ -1723,7 +1723,7 @@ function processPurchase(wp) {
   try {
     const tg = window.Telegram?.WebApp;
     if (tg && tg.openInvoice) {
-      // Attempt Telegram Stars payment (requires backend invoice URL in production)
+      // TODO: replace '' with a backend-generated invoice URL for production Telegram Stars payment
       tg.openInvoice('', (status) => {
         if (status === 'paid') {
           unlockWallpaper(wp.id);
@@ -1761,7 +1761,10 @@ function applyWallpaper(wallpaperId) {
     el.style.backgroundImage = 'none';
     el.style.background = 'none';
   } else {
-    el.style.backgroundImage = "url('" + wp.fullImage + "')";
+    // Sanitize path: fullImage values come from the WALLPAPERS constant but we escape
+    // single quotes defensively before embedding in the CSS url() value.
+    const safePath = wp.fullImage.replace(/'/g, '%27');
+    el.style.backgroundImage = "url('" + safePath + "')";
     el.style.backgroundSize = 'cover';
     el.style.backgroundPosition = 'center';
   }
