@@ -84,8 +84,12 @@ function resolveItem(input) {
     return { error: 'Unknown item' };
   }
 
+  if (!Number.isInteger(starsAmount) || starsAmount <= 0 || starsAmount > 10000) {
+    return { error: 'Invalid starsAmount range' };
+  }
+
   // Prevent client price tampering: require exact match with catalog.
-  if (!Number.isFinite(starsAmount) || starsAmount !== catalogItem.stars) {
+  if (starsAmount !== catalogItem.stars) {
     return { error: 'Invalid starsAmount' };
   }
 
