@@ -1186,16 +1186,6 @@ body {
   gap: 8px;
 }
 
-.coins-display {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--bg-card);
-  padding: 14px 24px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-}
-
 .coin-icon {
   width: 28px;
   height: 28px;
@@ -1887,3 +1877,143 @@ body {
   flex-shrink: 0;
 }
 
+/* ===== COINS DISPLAY (profile + settings) ===== */
+.coins-display-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  padding: 14px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+}
+
+.coins-display {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Settings modal coins badge */
+.settings-coins-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 20px;
+  align-self: flex-start;
+}
+
+.settings-coin-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-coin-icon::after {
+  content: 'C';
+  font-size: 11px;
+  font-weight: 900;
+  color: #78350f;
+  line-height: 1;
+}
+
+.settings-coins-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+/* ===== REFERRAL SECTION ===== */
+.referral-section {
+  margin-top: 0;
+  padding: 16px;
+  background: rgba(129, 140, 248, 0.08);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  border-radius: 16px;
+}
+
+.referral-section h4 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.referral-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16px;
+}
+
+.referral-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.referral-count,
+.referral-coins {
+  font-size: 28px;
+  font-weight: 800;
+  color: #818cf8;
+}
+
+.referral-label {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.referral-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.tier-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.tier-num {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.tier-reward {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.btn-invite-friends {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-invite-friends:active {
+  transform: scale(0.96);
+}
