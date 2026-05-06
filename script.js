@@ -38,45 +38,59 @@ const BOT_COUNTRIES = [
 const WALLPAPERS = [
   {
     id: 'none',
-    name: 'None',
-    preview: 'transparent',
-    css: 'none'
+    name: 'Default',
+    price: 0,
+    free: true,
+    thumbnail: null,
+    fullImage: null
   },
   {
     id: 'galaxy',
     name: 'Galaxy',
-    preview: 'linear-gradient(135deg,#0d0221,#1a0533,#0d1b4b)',
-    css: 'radial-gradient(ellipse at top,#1a0533 0%,#0d0221 50%,#000510 100%)'
+    price: 0,
+    free: true,
+    thumbnail: 'assets/wp-galaxy.jpg',
+    fullImage: 'assets/wp-galaxy.jpg'
   },
   {
     id: 'ocean',
     name: 'Ocean',
-    preview: 'linear-gradient(135deg,#0c4a6e,#0369a1,#0c4a6e)',
-    css: 'linear-gradient(180deg,#082f49 0%,#0c4a6e 50%,#0369a1 100%)'
+    price: 15,
+    free: false,
+    thumbnail: 'assets/wp-ocean.jpg',
+    fullImage: 'assets/wp-ocean.jpg'
   },
   {
     id: 'forest',
     name: 'Forest',
-    preview: 'linear-gradient(135deg,#052e16,#14532d,#052e16)',
-    css: 'linear-gradient(180deg,#020d07 0%,#052e16 50%,#14532d 100%)'
+    price: 15,
+    free: false,
+    thumbnail: 'assets/wp-forest.jpg',
+    fullImage: 'assets/wp-forest.jpg'
   },
   {
     id: 'fire',
     name: 'Fire',
-    preview: 'linear-gradient(135deg,#450a0a,#7f1d1d,#991b1b)',
-    css: 'radial-gradient(ellipse at bottom,#991b1b 0%,#7f1d1d 40%,#450a0a 100%)'
+    price: 25,
+    free: false,
+    thumbnail: 'assets/wp-fire.jpg',
+    fullImage: 'assets/wp-fire.jpg'
   },
   {
     id: 'aurora',
     name: 'Aurora',
-    preview: 'linear-gradient(135deg,#1e1b4b,#4c1d95,#0f766e)',
-    css: 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)'
+    price: 25,
+    free: false,
+    thumbnail: 'assets/wp-aurora.jpg',
+    fullImage: 'assets/wp-aurora.jpg'
   },
   {
     id: 'neon',
     name: 'Neon City',
-    preview: 'linear-gradient(135deg,#0f0c29,#302b63,#1a0533)',
-    css: 'radial-gradient(ellipse at 30% 80%,#4f46e5 0%,transparent 50%), radial-gradient(ellipse at 70% 20%,#7c3aed 0%,transparent 50%), #0f0c29'
+    price: 50,
+    free: false,
+    thumbnail: 'assets/wp-neon.jpg',
+    fullImage: 'assets/wp-neon.jpg'
   }
 ];
 
@@ -123,6 +137,12 @@ let settingsStatsRef = null;
 
 // Wallpaper state
 let currentWallpaper = 'galaxy';
+let purchasedWallpapers = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('purchasedWallpapers') || '[]');
+  } catch (e) { return []; }
+})();
+let previewingWallpaper = null;
 
 // Language
 const SUPPORTED_LANGS = ['en', 'ru', 'es', 'fr', 'de', 'ar', 'zh'];
@@ -696,6 +716,28 @@ function setupEventListeners() {
   document.getElementById('settings-language').addEventListener('change', e => {
     setLanguage(e.target.value, true);
   });
+
+  // Wallpaper preview modal
+  document.getElementById('closeWpPreviewBtn')
+    ?.addEventListener('click', closeWallpaperPreview);
+  document.getElementById('wallpaperPreviewModal')
+    ?.addEventListener('click', (e) => {
+      if (e.target.id === 'wallpaperPreviewModal') {
+        closeWallpaperPreview();
+      }
+    });
+
+  // Wallpaper purchase modal
+  document.getElementById('wp-purchase-close')
+    ?.addEventListener('click', closePurchaseModal);
+  document.getElementById('wp-purchase-cancel')
+    ?.addEventListener('click', closePurchaseModal);
+  document.getElementById('modal-wp-purchase')
+    ?.addEventListener('click', (e) => {
+      if (e.target.id === 'modal-wp-purchase') {
+        closePurchaseModal();
+      }
+    });
 }
 
 /* ===== AI GAME ===== */
@@ -1521,23 +1563,188 @@ function escapeHtml(str) {
 }
 
 /* ===== WALLPAPER SYSTEM ===== */
+function isWallpaperUnlocked(id) {
+  const wp = WALLPAPERS.find(w => w.id === id);
+  if (!wp) return false;
+  if (wp.free) return true;
+  return purchasedWallpapers.includes(id);
+}
+
 function renderWallpaperPicker() {
-  const grid = document.getElementById('wallpaperGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
+  const carousel = document.getElementById('wallpaperCarousel');
+  if (!carousel) return;
+  carousel.innerHTML = '';
+
   WALLPAPERS.forEach(wp => {
     const card = document.createElement('div');
     card.className = 'wallpaper-card';
+    const unlocked = isWallpaperUnlocked(wp.id);
+
+    if (!unlocked) card.classList.add('locked');
     if (currentWallpaper === wp.id) {
-      card.classList.add('active');
+      card.classList.add('selected');
     }
-    card.style.background = wp.preview;
-    const label = document.createElement('span');
-    label.innerText = wp.name;
-    card.appendChild(label);
-    card.onclick = () => applyWallpaper(wp.id);
-    grid.appendChild(card);
+
+    // Thumbnail image (lazy loaded)
+    if (wp.thumbnail) {
+      const img = document.createElement('img');
+      img.className = 'wp-thumb';
+      img.alt = wp.name;
+      img.loading = 'lazy';
+      img.src = wp.thumbnail;
+      card.appendChild(img);
+    } else {
+      // Default "None" card — no image
+      card.classList.add('wp-none');
+    }
+
+    // Overlay with name and price
+    const overlay = document.createElement('div');
+    overlay.className = 'wallpaper-card-overlay';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'wallpaper-card-name';
+    nameEl.innerText = wp.name;
+    overlay.appendChild(nameEl);
+
+    if (!unlocked && wp.price > 0) {
+      const priceEl = document.createElement('div');
+      priceEl.className = 'wallpaper-card-price';
+      priceEl.innerText = wp.price + ' ⭐';
+      overlay.appendChild(priceEl);
+    }
+    card.appendChild(overlay);
+
+    // Lock icon for locked wallpapers
+    if (!unlocked) {
+      const lockEl = document.createElement('div');
+      lockEl.className = 'wallpaper-lock-icon';
+      lockEl.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      card.appendChild(lockEl);
+    }
+
+    // Checkmark badge for selected wallpaper
+    if (currentWallpaper === wp.id) {
+      const badge = document.createElement('div');
+      badge.className = 'wallpaper-selected-badge';
+      badge.innerText = '✓';
+      card.appendChild(badge);
+    }
+
+    // Tap handler
+    card.onclick = () => {
+      openWallpaperPreview(wp);
+    };
+
+    carousel.appendChild(card);
   });
+}
+
+function openWallpaperPreview(wp) {
+  previewingWallpaper = wp;
+  const modal = document.getElementById('wallpaperPreviewModal');
+  const img = document.getElementById('wpPreviewImg');
+  const nameEl = document.getElementById('wpPreviewName');
+  const priceEl = document.getElementById('wpPreviewPrice');
+  const actionBtn = document.getElementById('wpActionBtn');
+  if (!modal) return;
+  const unlocked = isWallpaperUnlocked(wp.id);
+
+  // Load full image on demand
+  if (img && wp.fullImage) {
+    img.src = wp.fullImage;
+    img.classList.toggle('blurred', !unlocked);
+  } else if (img) {
+    img.src = '';
+  }
+
+  if (nameEl) nameEl.innerText = wp.name;
+
+  if (priceEl) {
+    if (!unlocked && wp.price > 0) {
+      priceEl.innerText = wp.price + ' ⭐ Stars';
+      priceEl.classList.remove('hidden');
+    } else {
+      priceEl.classList.add('hidden');
+    }
+  }
+
+  if (actionBtn) {
+    if (unlocked) {
+      actionBtn.innerText = currentWallpaper === wp.id ? 'Applied ✓' : 'Apply';
+      actionBtn.className = 'wp-action-btn btn-apply';
+      actionBtn.onclick = () => {
+        applyWallpaper(wp.id);
+        closeWallpaperPreview();
+        renderWallpaperPicker();
+      };
+    } else {
+      actionBtn.innerText = 'Unlock for ' + wp.price + ' ⭐';
+      actionBtn.className = 'wp-action-btn btn-unlock';
+      actionBtn.onclick = () => {
+        closeWallpaperPreview();
+        showPurchaseModal(wp);
+      };
+    }
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeWallpaperPreview() {
+  const modal = document.getElementById('wallpaperPreviewModal');
+  if (modal) modal.classList.add('hidden');
+  previewingWallpaper = null;
+}
+
+function showPurchaseModal(wp) {
+  const modal = document.getElementById('modal-wp-purchase');
+  if (!modal) return;
+  const titleEl = document.getElementById('wp-purchase-title');
+  const priceEl = document.getElementById('wp-purchase-price');
+  const confirmBtn = document.getElementById('wp-purchase-confirm');
+  if (titleEl) titleEl.innerText = 'Unlock ' + wp.name;
+  if (priceEl) priceEl.innerText = wp.price + ' ⭐ Stars';
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      closePurchaseModal();
+      processPurchase(wp);
+    };
+  }
+  modal.classList.remove('hidden');
+}
+
+function closePurchaseModal() {
+  const modal = document.getElementById('modal-wp-purchase');
+  if (modal) modal.classList.add('hidden');
+}
+
+function processPurchase(wp) {
+  try {
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.openInvoice) {
+      // Attempt Telegram Stars payment (requires backend invoice URL in production)
+      tg.openInvoice('', (status) => {
+        if (status === 'paid') {
+          unlockWallpaper(wp.id);
+        }
+      });
+      return;
+    }
+  } catch (e) {}
+  // Fallback: mark as unlocked directly (demo mode)
+  unlockWallpaper(wp.id);
+}
+
+function unlockWallpaper(id) {
+  if (!purchasedWallpapers.includes(id)) {
+    purchasedWallpapers.push(id);
+    try {
+      localStorage.setItem('purchasedWallpapers', JSON.stringify(purchasedWallpapers));
+    } catch (e) {}
+  }
+  applyWallpaper(id);
+  renderWallpaperPicker();
 }
 
 function applyWallpaper(wallpaperId) {
@@ -1545,15 +1752,19 @@ function applyWallpaper(wallpaperId) {
   try {
     localStorage.setItem('wallpaper', wallpaperId);
   } catch (e) {}
+
   const wp = WALLPAPERS.find(w => w.id === wallpaperId);
   const el = document.getElementById('gameWallpaper');
   if (!el) return;
-  if (!wp || wp.css === 'none') {
+
+  if (!wp || !wp.fullImage) {
+    el.style.backgroundImage = 'none';
     el.style.background = 'none';
   } else {
-    el.style.background = wp.css;
+    el.style.backgroundImage = "url('" + wp.fullImage + "')";
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
   }
-  renderWallpaperPicker();
 }
 
 function loadSavedWallpaper() {

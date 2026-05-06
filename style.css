@@ -1254,41 +1254,276 @@ body {
 }
 
 /* ===== WALLPAPER PICKER ===== */
-.wallpaper-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 10px;
+.wallpaper-carousel {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.wallpaper-carousel::-webkit-scrollbar {
+  display: none;
 }
 
 .wallpaper-card {
-  height: 70px;
-  border-radius: 12px;
-  cursor: pointer;
-  border: 2px solid transparent;
-  position: relative;
+  flex: 0 0 130px;
+  height: 190px;
+  border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 6px;
-}
-
-.wallpaper-card span {
-  font-size: 10px;
-  color: #fff;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-  font-weight: 600;
+  position: relative;
+  cursor: pointer;
+  scroll-snap-align: start;
+  border: 2px solid transparent;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  background: #1e293b;
+  flex-shrink: 0;
 }
 
 .wallpaper-card:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
-.wallpaper-card.active {
+.wallpaper-card.selected {
   border-color: #818cf8;
-  box-shadow: 0 0 12px rgba(129,140,248,0.5);
+  box-shadow: 0 0 16px rgba(129,140,248,0.6);
+}
+
+.wallpaper-card img.wp-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter 0.3s ease;
+}
+
+.wallpaper-card.locked img.wp-thumb {
+  filter: blur(6px) brightness(0.6);
+}
+
+.wallpaper-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.85) 0%,
+    transparent 100%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.wallpaper-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+
+.wallpaper-card-price {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.wallpaper-lock-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  color: #fff;
+  opacity: 0.9;
+}
+
+.wallpaper-selected-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  background: #818cf8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Default card for "None" option */
+.wallpaper-card.wp-none {
+  background: linear-gradient(
+    145deg, #0d0f2b, #111633
+  );
+  border: 2px solid rgba(129,140,248,0.2);
+}
+
+/* ===== WALLPAPER PREVIEW MODAL ===== */
+.wallpaper-preview-modal-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+  position: relative;
+}
+
+#wallpaperPreviewModal {
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#wallpaperPreviewModal.hidden {
+  display: none !important;
+}
+
+.wp-preview-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.wp-preview-image-wrap {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+.wp-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.3s ease;
+}
+
+.wp-preview-img.blurred {
+  filter: blur(20px) brightness(0.5);
+}
+
+.wp-preview-info {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 16px 24px 8px;
+  width: 100%;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.9) 0%,
+    transparent 100%
+  );
+}
+
+#wpPreviewName {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 4px;
+}
+
+.wp-preview-price {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f59e0b;
+  margin: 0;
+}
+
+.wp-action-btn {
+  position: relative;
+  z-index: 2;
+  width: calc(100% - 48px);
+  margin: 12px 24px 32px;
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-action-btn.btn-apply {
+  background: linear-gradient(
+    135deg, #7c3aed, #4f46e5
+  );
+  color: #fff;
+}
+
+.wp-action-btn.btn-unlock {
+  background: linear-gradient(
+    135deg, #f59e0b, #d97706
+  );
+  color: #000;
+}
+
+/* ===== WALLPAPER PURCHASE MODAL ===== */
+.wp-purchase-content {
+  text-align: center;
+  padding: 32px 24px 24px;
+}
+
+.wp-purchase-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.wp-purchase-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.wp-purchase-price {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 12px;
+}
+
+.wp-purchase-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 20px;
+  line-height: 1.5;
 }
 
 /* ===== NEW LEADERBOARD ===== */
