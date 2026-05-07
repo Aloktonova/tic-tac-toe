@@ -2014,6 +2014,17 @@ async function getTelegramStarsInvoiceUrl(wp) {
 }
 
 async function processPurchase(wp) {
+  const tgApp = window.Telegram?.WebApp;
+  console.log("Telegram WebApp:", {
+    version: tgApp?.version,
+    platform: tgApp?.platform,
+    hasOpenInvoice: typeof tgApp?.openInvoice,
+    initData: tgApp?.initData ? "present" : "missing"
+  });
+
+  showToast("TG v" + (tgApp?.version || "none")
+    + " inv:" + typeof tgApp?.openInvoice);
+
   const confirmBtn = document.getElementById('wp-purchase-confirm');
   const originalText = confirmBtn?.textContent || 'Pay with Stars ⭐';
 
