@@ -883,6 +883,7 @@ function setupEventListeners() {
     if (event?.type === 'pointerup') {
       lastBottomNavPointerTs = now;
     }
+    // On touch devices, pointerup is often followed by click for the same tap.
     if (event?.type === 'click' && now - lastBottomNavPointerTs < BOTTOM_NAV_DEBOUNCE_MS) {
       return;
     }
