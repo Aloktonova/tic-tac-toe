@@ -14,13 +14,8 @@
       return url + (url.includes('?') ? '&' : '?') + 'v=' + window.__APP_ASSET_VERSION__;
     };
   </script>
-  <link rel="stylesheet" id="appStylesheet" data-href="style.css">
   <script>
-    (function applyStylesheetVersion() {
-      const appStylesheet = document.getElementById('appStylesheet');
-      if (!appStylesheet) return;
-      appStylesheet.href = window.versionedAsset(appStylesheet.dataset.href);
-    })();
+    document.write('<link rel="stylesheet" href="' + window.versionedAsset('style.css') + '">');
   </script>
 </head>
 <body>

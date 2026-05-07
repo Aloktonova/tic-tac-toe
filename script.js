@@ -30,7 +30,7 @@ const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)'
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
 const versionedAssetUrl = window.versionedAsset || function(url) {
   if (!url) return url;
-  const fallbackVersion = String(window.__APP_ASSET_VERSION__ || '1');
+  const fallbackVersion = String(window.__APP_ASSET_VERSION__ || '10');
   return url + (url.includes('?') ? '&' : '?') + 'v=' + fallbackVersion;
 };
 const wallpaperAsset = filename => versionedAssetUrl(`assets/${filename}`);
