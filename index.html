@@ -16,8 +16,11 @@
   </script>
   <link rel="stylesheet" id="appStylesheet" data-href="style.css">
   <script>
-    const appStylesheet = document.getElementById('appStylesheet');
-    appStylesheet.href = window.versionedAsset(appStylesheet.dataset.href);
+    (function applyStylesheetVersion() {
+      const appStylesheet = document.getElementById('appStylesheet');
+      if (!appStylesheet) return;
+      appStylesheet.href = window.versionedAsset(appStylesheet.dataset.href);
+    })();
   </script>
 </head>
 <body>
@@ -35,7 +38,7 @@
         </div>
       </div>
       <div class="home-content">
-        <img id="homeIllustration" data-src="assets/tic-tac-toe-board.svg" src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
+        <img id="homeIllustration" data-src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
         <h1 class="home-title">Tic Tac Toe</h1>
         <div class="home-buttons">
           <button id="btn-play-ai" class="btn btn-primary">Play with Computer</button>
