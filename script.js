@@ -28,8 +28,7 @@ const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)'
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
-const versionedAssetUrl = url => window.versionedAsset(url);
-const wallpaperAsset = filename => versionedAssetUrl(`assets/${filename}`);
+const wallpaperAsset = filename => window.versionedAsset(`assets/${filename}`);
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
