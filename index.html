@@ -1,12 +1,23 @@
-<!-- APP_VERSION: 11 -->
+<!-- APP_VERSION: 20 -->
 <!DOCTYPE html>
-<html lang="en" data-version="11">
+<html lang="en" data-version="20">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  <script>
+    (function forceTelegramWebViewVersionUrl() {
+      const APP_VERSION = '20';
+      const isTelegramWebView = /Telegram/i.test(navigator.userAgent || '');
+      if (!isTelegramWebView) return;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('appv') === APP_VERSION) return;
+      url.searchParams.set('appv', APP_VERSION);
+      window.location.replace(url.toString());
+    })();
+  </script>
   <title>Tic Tac Toe</title>
   <script>
     window.__APP_ASSET_VERSION__ = document.documentElement.dataset.version || '0';

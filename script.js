@@ -598,13 +598,29 @@ function getCountryFlag(countryValue) {
 async function identifyUser() {
   try {
     const tg = window.Telegram?.WebApp;
-    const tgUser = tg?.initDataUnsafe?.user;
+    let tgUser = tg?.initDataUnsafe?.user || null;
+    if (!tgUser && tg?.initData) {
+      try {
+        const rawUser = new URLSearchParams(tg.initData).get('user');
+        tgUser = rawUser ? JSON.parse(rawUser) : null;
+      } catch (e) {
+        tgUser = null;
+      }
+    }
+    if (!tgUser && tg) {
+      for (let i = 0; i < 8; i++) {
+        await new Promise(resolve => setTimeout(resolve, 120));
+        tgUser = tg.initDataUnsafe?.user || tgUser;
+        if (tgUser?.id) break;
+      }
+    }
 
     if (tgUser?.id) {
       currentUser.id = String(tgUser.id);
       const parts = [tgUser.first_name];
       if (tgUser.last_name) parts.push(tgUser.last_name);
       currentUser.name = parts.join(' ').trim() || tgUser.username || 'Player';
+      if (tgUser.photo_url) tgPhotoUrl = tgUser.photo_url;
     } else {
       let fid = localStorage.getItem('fallbackId');
       if (!fid) {
@@ -854,29 +870,41 @@ function setupEventListeners() {
     });
 
   // Bottom nav (all nav instances)
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const screen = btn.dataset.screen;
+  let lastBottomNavPressTs = 0;
+  const handleBottomNav = (btn, event) => {
+    if (event?.type === 'touchend' || event?.type === 'pointerup') {
+      event.preventDefault();
+    }
+    const now = Date.now();
+    if (now - lastBottomNavPressTs < 250) return;
+    lastBottomNavPressTs = now;
+    const screen = btn.dataset.screen;
 
-      if (screen === 'battle') {
-        startBattleSearch();
-        return;
-      }
+    if (screen === 'battle') {
+      startBattleSearch();
+      return;
+    }
 
-      if (screen === 'settings') {
-        openSettings();
-        return;
-      }
+    if (screen === 'settings') {
+      openSettings();
+      return;
+    }
 
-      if (screen === 'leaderboard') {
-        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
-        loadLeaderboard(activeTab);
-      }
-      showScreen(screen);
-      document.querySelectorAll('.nav-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.screen === screen);
-      });
+    if (screen === 'leaderboard') {
+      const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
+      loadLeaderboard(activeTab);
+    }
+    showScreen(screen);
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.screen === screen);
     });
+  };
+
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const onNavPress = event => handleBottomNav(btn, event);
+    btn.addEventListener('click', onNavPress);
+    btn.addEventListener('touchend', onNavPress, { passive: false });
+    btn.addEventListener('pointerup', onNavPress);
   });
 
   // Settings modal
