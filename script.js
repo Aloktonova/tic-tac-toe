@@ -28,6 +28,7 @@ const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)'
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
+const BACKEND_URL = "https://tic-tac-toe-alpha-six-65.vercel.app";
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
