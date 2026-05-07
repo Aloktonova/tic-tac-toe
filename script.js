@@ -2048,6 +2048,9 @@ async function purchaseWallpaper(wallpaper) {
     );
 
     const data = await response.json();
+    console.log("Invoice response:", data);
+    showToast("Got: " + JSON.stringify(data)
+      .substring(0, 100));
 
     if (!data.invoiceLink) {
       throw new Error(
