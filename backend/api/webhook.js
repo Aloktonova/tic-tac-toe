@@ -1,3 +1,5 @@
+import { createSign } from "node:crypto";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -121,21 +123,26 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true });
 
-  } catch(e) {
-    console.error("webhook error:", e);
+  } catch(error) {
+    console.error("webhook error:", error);
     return res.status(200).json({ ok: true });
   }
 }
 
 // Create JWT for Firebase auth
 function createJWT(serviceAccount) {
-  const header = btoa(JSON.stringify({
+  if (!serviceAccount?.client_email
+    || !serviceAccount?.private_key) {
+    throw new Error("Invalid Firebase service account");
+  }
+
+  const header = Buffer.from(JSON.stringify({
     alg: "RS256",
     typ: "JWT"
-  }));
+  })).toString("base64url");
 
   const now = Math.floor(Date.now() / 1000);
-  const claim = btoa(JSON.stringify({
+  const claim = Buffer.from(JSON.stringify({
     iss: serviceAccount.client_email,
     scope:
       "https://www.googleapis.com/auth/firebase.database"
@@ -144,10 +151,15 @@ function createJWT(serviceAccount) {
       "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now
-  }));
+  })).toString("base64url");
 
-  // Note: Full JWT signing requires crypto
-  // For production use firebase-admin SDK
-  // This is a simplified version
-  return header + "." + claim + ".signature";
+  const signingInput = header + "." + claim;
+  const signer = createSign("RSA-SHA256");
+  signer.update(signingInput);
+  signer.end();
+  const signature = signer
+    .sign(serviceAccount.private_key)
+    .toString("base64url");
+
+  return signingInput + "." + signature;
 }

@@ -77,10 +77,10 @@ export default async function handler(req, res) {
       invoiceLink: data.result
     });
 
-  } catch(e) {
-    console.error("create-invoice error:", e);
+  } catch(error) {
+    console.error("create-invoice error:", error);
     return res.status(500).json({
-      error: "Internal server error"
+      error: "Failed to create invoice link"
     });
   }
 }
