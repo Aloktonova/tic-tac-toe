@@ -294,6 +294,8 @@ body {
   padding: 8px 0;
   transition: color 0.2s;
   min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .nav-btn:hover { color: var(--text-primary); }
 .nav-btn.active { color: #818cf8; }

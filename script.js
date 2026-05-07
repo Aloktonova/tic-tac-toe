@@ -20,6 +20,9 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
+const TELEGRAM_USER_RETRY_ATTEMPTS = 8; // allow short delay for Telegram WebView user hydration
+const TELEGRAM_USER_RETRY_DELAY_MS = 120;
+const BOTTOM_NAV_DEBOUNCE_MS = 250;
 
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
@@ -598,13 +601,32 @@ function getCountryFlag(countryValue) {
 async function identifyUser() {
   try {
     const tg = window.Telegram?.WebApp;
-    const tgUser = tg?.initDataUnsafe?.user;
+    let tgUser = tg?.initDataUnsafe?.user || null;
+    if (!tgUser && tg?.initData) {
+      try {
+        const rawUser = new URLSearchParams(tg.initData).get('user');
+        tgUser = rawUser ? JSON.parse(rawUser) : null;
+      } catch (e) {
+        console.warn('Telegram initData user parse failed:', e);
+        tgUser = null;
+      }
+    }
+    if (!tgUser && tg) {
+      for (let i = 0; i < TELEGRAM_USER_RETRY_ATTEMPTS; i++) {
+        tgUser = tg.initDataUnsafe?.user;
+        if (tgUser?.id) break;
+        if (i < TELEGRAM_USER_RETRY_ATTEMPTS - 1) {
+          await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
+        }
+      }
+    }
 
     if (tgUser?.id) {
       currentUser.id = String(tgUser.id);
       const parts = [tgUser.first_name];
       if (tgUser.last_name) parts.push(tgUser.last_name);
       currentUser.name = parts.join(' ').trim() || tgUser.username || 'Player';
+      if (tgUser.photo_url) tgPhotoUrl = tgUser.photo_url;
     } else {
       let fid = localStorage.getItem('fallbackId');
       if (!fid) {
@@ -854,29 +876,45 @@ function setupEventListeners() {
     });
 
   // Bottom nav (all nav instances)
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const screen = btn.dataset.screen;
+  let lastBottomNavPressTs = 0;
+  let lastBottomNavPointerTs = 0;
+  const handleBottomNav = (btn, event) => {
+    const now = Date.now();
+    if (event?.type === 'pointerup') {
+      lastBottomNavPointerTs = now;
+    }
+    // On touch devices, pointerup is often followed by click for the same tap.
+    if (event?.type === 'click' && now - lastBottomNavPointerTs < BOTTOM_NAV_DEBOUNCE_MS) {
+      return;
+    }
+    if (now - lastBottomNavPressTs < BOTTOM_NAV_DEBOUNCE_MS) return;
+    lastBottomNavPressTs = now;
+    const screen = btn.dataset.screen;
 
-      if (screen === 'battle') {
-        startBattleSearch();
-        return;
-      }
+    if (screen === 'battle') {
+      startBattleSearch();
+      return;
+    }
 
-      if (screen === 'settings') {
-        openSettings();
-        return;
-      }
+    if (screen === 'settings') {
+      openSettings();
+      return;
+    }
 
-      if (screen === 'leaderboard') {
-        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
-        loadLeaderboard(activeTab);
-      }
-      showScreen(screen);
-      document.querySelectorAll('.nav-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.screen === screen);
-      });
+    if (screen === 'leaderboard') {
+      const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
+      loadLeaderboard(activeTab);
+    }
+    showScreen(screen);
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.screen === screen);
     });
+  };
+
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const onNavPress = event => handleBottomNav(btn, event);
+    btn.addEventListener('click', onNavPress);
+    btn.addEventListener('pointerup', onNavPress);
   });
 
   // Settings modal
