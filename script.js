@@ -2025,8 +2025,14 @@ async function processPurchase(wp) {
 
   try {
     const tg = window.Telegram?.WebApp;
-    if (!tg || !tg.openInvoice) {
-      showToast('Telegram payment is only available inside Telegram.');
+    if (!tg) {
+      showToast('Purchase only available in Telegram app');
+      return;
+    }
+
+    if (!tg.openInvoice) {
+      showToast('Failed to open Telegram Stars payment.');
+      console.error('openInvoice not available', tg);
       return;
     }
 
@@ -2057,8 +2063,8 @@ async function processPurchase(wp) {
     });
   } catch (e) {
     setLoading(false);
-    console.error('processPurchase:', e);
-    showToast('Failed to open Telegram Stars payment.');
+    console.error('purchaseWallpaper full error:', e);
+    showToast('Error: ' + (e.message || 'Unknown error'));
   }
 }
 
