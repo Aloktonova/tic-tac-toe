@@ -20,9 +20,6 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
-const TELEGRAM_USER_RETRY_ATTEMPTS = 8; // allow short delay for Telegram WebView user hydration
-const TELEGRAM_USER_RETRY_DELAY_MS = 120;
-const BOTTOM_NAV_DEBOUNCE_MS = 250;
 
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
@@ -31,7 +28,6 @@ const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)'
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
-const wallpaperAsset = filename => window.versionedAsset(`assets/${filename}`);
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -63,88 +59,88 @@ const WALLPAPERS = [
     name: 'Galaxy',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-galaxy.jpg'),
-    fullImage: wallpaperAsset('wp-galaxy.jpg')
+    thumbnail: 'assets/wp-galaxy.jpg',
+    fullImage: 'assets/wp-galaxy.jpg'
   },
   {
     id: 'sakura',
     name: 'Sakura',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-sakura.jpg'),
-    fullImage: wallpaperAsset('wp-sakura.jpg')
+    thumbnail: 'assets/wp-sakura.jpg',
+    fullImage: 'assets/wp-sakura.jpg'
   },
   {
     id: 'ocean',
     name: 'Ocean',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-ocean.jpg'),
-    fullImage: wallpaperAsset('wp-ocean.jpg')
+    thumbnail: 'assets/wp-ocean.jpg',
+    fullImage: 'assets/wp-ocean.jpg'
   },
   {
     id: 'forest',
     name: 'Forest',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-forest.jpg'),
-    fullImage: wallpaperAsset('wp-forest.jpg')
+    thumbnail: 'assets/wp-forest.jpg',
+    fullImage: 'assets/wp-forest.jpg'
   },
   {
     id: 'fire',
     name: 'Fire',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-fire.jpg'),
-    fullImage: wallpaperAsset('wp-fire.jpg')
+    thumbnail: 'assets/wp-fire.jpg',
+    fullImage: 'assets/wp-fire.jpg'
   },
   {
     id: 'aurora',
     name: 'Aurora',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-aurora.jpg'),
-    fullImage: wallpaperAsset('wp-aurora.jpg')
+    thumbnail: 'assets/wp-aurora.jpg',
+    fullImage: 'assets/wp-aurora.jpg'
   },
   {
     id: 'samurai',
     name: 'Samurai',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-samurai.jpg'),
-    fullImage: wallpaperAsset('wp-samurai.jpg')
+    thumbnail: 'assets/wp-samurai.jpg',
+    fullImage: 'assets/wp-samurai.jpg'
   },
   {
     id: 'moonlight',
     name: 'Moonlight',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-moonlight.jpg'),
-    fullImage: wallpaperAsset('wp-moonlight.jpg')
+    thumbnail: 'assets/wp-moonlight.jpg',
+    fullImage: 'assets/wp-moonlight.jpg'
   },
   {
     id: 'meadow',
     name: 'Meadow',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-meadow.jpg'),
-    fullImage: wallpaperAsset('wp-meadow.jpg')
+    thumbnail: 'assets/wp-meadow.jpg',
+    fullImage: 'assets/wp-meadow.jpg'
   },
   {
     id: 'castle',
     name: 'Dark Castle',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-castle.jpg'),
-    fullImage: wallpaperAsset('wp-castle.jpg')
+    thumbnail: 'assets/wp-castle.jpg',
+    fullImage: 'assets/wp-castle.jpg'
   },
   {
     id: 'neon',
     name: 'Neon City',
     priceType: 'stars',
     price: 35,
-    thumbnail: wallpaperAsset('wp-neon.jpg'),
-    fullImage: wallpaperAsset('wp-neon.jpg')
+    thumbnail: 'assets/wp-neon.jpg',
+    fullImage: 'assets/wp-neon.jpg'
   }
 ];
 
@@ -272,30 +268,10 @@ let waitingForOpponent = false;
 
 // Battle bot name (set when playing against a named bot, null for normal AI)
 let battleBotName = null;
-let difficultyTriggerEl = null;
-let difficultyDropdownEl = null;
 
 // Coin / referral state
 let userCoins = 0;
 let userReferralCount = 0;
-
-function openDifficultyDropdown() {
-  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
-
-  const rect = difficultyTriggerEl.getBoundingClientRect();
-
-  difficultyDropdownEl.style.top = (rect.bottom + 6) + 'px';
-
-  difficultyDropdownEl.classList.add('open');
-  difficultyTriggerEl.setAttribute('aria-expanded', 'true');
-}
-
-function closeDifficultyDropdown() {
-  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
-  difficultyDropdownEl.classList.remove('open');
-  difficultyDropdownEl.style.top = '';
-  difficultyTriggerEl.setAttribute('aria-expanded', 'false');
-}
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -601,32 +577,13 @@ function getCountryFlag(countryValue) {
 async function identifyUser() {
   try {
     const tg = window.Telegram?.WebApp;
-    let tgUser = tg?.initDataUnsafe?.user || null;
-    if (!tgUser && tg?.initData) {
-      try {
-        const rawUser = new URLSearchParams(tg.initData).get('user');
-        tgUser = rawUser ? JSON.parse(rawUser) : null;
-      } catch (e) {
-        console.warn('Telegram initData user parse failed:', e);
-        tgUser = null;
-      }
-    }
-    if (!tgUser && tg) {
-      for (let i = 0; i < TELEGRAM_USER_RETRY_ATTEMPTS; i++) {
-        tgUser = tg.initDataUnsafe?.user;
-        if (tgUser?.id) break;
-        if (i < TELEGRAM_USER_RETRY_ATTEMPTS - 1) {
-          await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
-        }
-      }
-    }
+    const tgUser = tg?.initDataUnsafe?.user;
 
     if (tgUser?.id) {
       currentUser.id = String(tgUser.id);
       const parts = [tgUser.first_name];
       if (tgUser.last_name) parts.push(tgUser.last_name);
       currentUser.name = parts.join(' ').trim() || tgUser.username || 'Player';
-      if (tgUser.photo_url) tgPhotoUrl = tgUser.photo_url;
     } else {
       let fid = localStorage.getItem('fallbackId');
       if (!fid) {
@@ -797,38 +754,30 @@ function setupEventListeners() {
   });
 
   // Difficulty dropdown
-  difficultyTriggerEl = document.getElementById('difficulty-btn');
-  difficultyDropdownEl = document.getElementById('difficulty-menu');
+  const diffBtn  = document.getElementById('difficulty-btn');
+  const diffMenu = document.getElementById('difficulty-menu');
 
-  difficultyTriggerEl.addEventListener('click', e => {
+  diffBtn.addEventListener('click', e => {
     e.stopPropagation();
-    const isOpen = difficultyDropdownEl.classList.contains('open');
-    if (isOpen) {
-      closeDifficultyDropdown();
-    } else {
-      openDifficultyDropdown();
-    }
-    difficultyTriggerEl.classList.toggle('open', !isOpen);
+    const isOpen = !diffMenu.classList.contains('hidden');
+    diffMenu.classList.toggle('hidden', isOpen);
+    diffBtn.classList.toggle('open', !isOpen);
   });
 
   document.querySelectorAll('.difficulty-option').forEach(opt => {
     opt.addEventListener('click', () => {
       aiDifficulty = opt.dataset.value;
       document.getElementById('difficulty-label').textContent = opt.textContent.trim();
-      closeDifficultyDropdown();
-      difficultyTriggerEl.classList.remove('open');
+      diffMenu.classList.add('hidden');
+      diffBtn.classList.remove('open');
       document.querySelectorAll('.difficulty-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
     });
   });
 
-  document.addEventListener('click', e => {
-    if (!difficultyDropdownEl || !difficultyTriggerEl) return;
-    const clickedInsideTrigger = difficultyTriggerEl.contains(e.target);
-    const clickedInsideDropdown = difficultyDropdownEl.contains(e.target);
-    if (clickedInsideTrigger || clickedInsideDropdown) return;
-    closeDifficultyDropdown();
-    difficultyTriggerEl.classList.remove('open');
+  document.addEventListener('click', () => {
+    diffMenu.classList.add('hidden');
+    diffBtn.classList.remove('open');
   });
 
   // Board clicks and keyboard
@@ -876,45 +825,29 @@ function setupEventListeners() {
     });
 
   // Bottom nav (all nav instances)
-  let lastBottomNavPressTs = 0;
-  let lastBottomNavPointerTs = 0;
-  const handleBottomNav = (btn, event) => {
-    const now = Date.now();
-    if (event?.type === 'pointerup') {
-      lastBottomNavPointerTs = now;
-    }
-    // On touch devices, pointerup is often followed by click for the same tap.
-    if (event?.type === 'click' && now - lastBottomNavPointerTs < BOTTOM_NAV_DEBOUNCE_MS) {
-      return;
-    }
-    if (now - lastBottomNavPressTs < BOTTOM_NAV_DEBOUNCE_MS) return;
-    lastBottomNavPressTs = now;
-    const screen = btn.dataset.screen;
-
-    if (screen === 'battle') {
-      startBattleSearch();
-      return;
-    }
-
-    if (screen === 'settings') {
-      openSettings();
-      return;
-    }
-
-    if (screen === 'leaderboard') {
-      const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
-      loadLeaderboard(activeTab);
-    }
-    showScreen(screen);
-    document.querySelectorAll('.nav-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.screen === screen);
-    });
-  };
-
   document.querySelectorAll('.nav-btn').forEach(btn => {
-    const onNavPress = event => handleBottomNav(btn, event);
-    btn.addEventListener('click', onNavPress);
-    btn.addEventListener('pointerup', onNavPress);
+    btn.addEventListener('click', () => {
+      const screen = btn.dataset.screen;
+
+      if (screen === 'battle') {
+        startBattleSearch();
+        return;
+      }
+
+      if (screen === 'settings') {
+        openSettings();
+        return;
+      }
+
+      if (screen === 'leaderboard') {
+        const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
+        loadLeaderboard(activeTab);
+      }
+      showScreen(screen);
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.screen === screen);
+      });
+    });
   });
 
   // Settings modal

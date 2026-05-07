@@ -277,7 +277,7 @@ body {
   border-top: 1px solid rgba(129, 140, 248, 0.15);
   display: flex;
   align-items: center;
-  z-index: 300;
+  z-index: 100;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -294,8 +294,6 @@ body {
   padding: 8px 0;
   transition: color 0.2s;
   min-height: 44px;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 .nav-btn:hover { color: var(--text-primary); }
 .nav-btn.active { color: #818cf8; }
@@ -328,37 +326,6 @@ body {
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
   min-height: 52px;
-}
-
-.back-icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(129, 140, 248, 0.12);
-  border: 1px solid rgba(129, 140, 248, 0.25);
-  color: #818cf8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  box-shadow: none;
-  touch-action: manipulation;
-  flex-shrink: 0;
-  transition: background 0.2s ease,
-              transform 0.15s ease;
-}
-
-.back-icon-btn:hover {
-  background: rgba(129, 140, 248, 0.22);
-  transform: none;
-  box-shadow: none;
-}
-
-.back-icon-btn:active {
-  transform: scale(0.92);
-  background: rgba(129, 140, 248, 0.3);
 }
 
 .back-btn {
@@ -414,30 +381,17 @@ body {
 }
 .difficulty-btn.open .dropdown-arrow { transform: rotate(180deg); }
 
-.difficulty-dropdown {
-  position: fixed;
-  top: auto;
-  left: 50%;
-  transform: translateX(-50%) scaleY(0.92);
-  transform-origin: top center;
-  width: min(calc(100vw - 48px), 280px);
-  z-index: 500;
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.18s ease,
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+.difficulty-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
+  z-index: 200;
+  min-width: 110px;
   overflow: hidden;
   box-shadow: var(--shadow);
-}
-
-.difficulty-dropdown.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(-50%) scaleY(1);
 }
 
 .difficulty-option {
@@ -782,10 +736,6 @@ body {
 .rules-content li { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3px; }
 
 /* ===== PROFILE MODAL ===== */
-.modal {
-  z-index: 160;
-}
-
 .modal-overlay {
   position: fixed;
   inset: 0;
