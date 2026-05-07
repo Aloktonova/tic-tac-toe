@@ -3,8 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Tic Tac Toe</title>
-  <link rel="stylesheet" href="style.css">
+  <script>
+    window.__APP_ASSET_VERSION__ = '10';
+    window.versionedAsset = function(url) {
+      if (!url) return url;
+      return url + (url.includes('?') ? '&' : '?') + 'v=' + window.__APP_ASSET_VERSION__;
+    };
+  </script>
+  <link rel="stylesheet" id="appStylesheet" data-href="style.css">
+  <script>
+    const appStylesheet = document.getElementById('appStylesheet');
+    appStylesheet.href = window.versionedAsset(appStylesheet.dataset.href);
+  </script>
 </head>
 <body>
   <!-- Global wallpaper + dark tint — visible on every screen -->
@@ -21,7 +35,7 @@
         </div>
       </div>
       <div class="home-content">
-        <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
+        <img id="homeIllustration" data-src="assets/tic-tac-toe-board.svg" src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
         <h1 class="home-title">Tic Tac Toe</h1>
         <div class="home-buttons">
           <button id="btn-play-ai" class="btn btn-primary">Play with Computer</button>
@@ -440,6 +454,14 @@
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous"></script>
   <!-- App -->
-  <script src="script.js"></script>
+  <script id="appScript" data-src="script.js"></script>
+  <script>
+    const homeIllustration = document.getElementById('homeIllustration');
+    if (homeIllustration) {
+      homeIllustration.src = window.versionedAsset(homeIllustration.dataset.src);
+    }
+    const appScript = document.getElementById('appScript');
+    appScript.src = window.versionedAsset(appScript.dataset.src);
+  </script>
 </body>
 </html>
