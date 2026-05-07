@@ -20,6 +20,9 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
+const TELEGRAM_USER_RETRY_ATTEMPTS = 8; // allow short delay for Telegram WebView user hydration
+const TELEGRAM_USER_RETRY_DELAY_MS = 120;
+const BOTTOM_NAV_DEBOUNCE_MS = 250;
 
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
@@ -608,8 +611,8 @@ async function identifyUser() {
       }
     }
     if (!tgUser && tg) {
-      for (let i = 0; i < 8; i++) {
-        await new Promise(resolve => setTimeout(resolve, 120));
+      for (let i = 0; i < TELEGRAM_USER_RETRY_ATTEMPTS; i++) {
+        await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
         tgUser = tg.initDataUnsafe?.user || tgUser;
         if (tgUser?.id) break;
       }
@@ -876,7 +879,7 @@ function setupEventListeners() {
       event.preventDefault();
     }
     const now = Date.now();
-    if (now - lastBottomNavPressTs < 250) return;
+    if (now - lastBottomNavPressTs < BOTTOM_NAV_DEBOUNCE_MS) return;
     lastBottomNavPressTs = now;
     const screen = btn.dataset.screen;
 
