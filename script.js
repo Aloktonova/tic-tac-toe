@@ -612,7 +612,7 @@ async function identifyUser() {
     }
     if (!tgUser && tg) {
       for (let i = 0; i < TELEGRAM_USER_RETRY_ATTEMPTS; i++) {
-        tgUser = tg.initDataUnsafe?.user || tgUser;
+        tgUser = tg.initDataUnsafe?.user;
         if (tgUser?.id) break;
         if (i < TELEGRAM_USER_RETRY_ATTEMPTS - 1) {
           await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
@@ -905,7 +905,6 @@ function setupEventListeners() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     const onNavPress = event => handleBottomNav(btn, event);
     btn.addEventListener('click', onNavPress);
-    btn.addEventListener('touchend', onNavPress);
     btn.addEventListener('pointerup', onNavPress);
   });
 
