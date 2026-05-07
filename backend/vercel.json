@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health.js"
+    },
+    {
+      "src": "/api/create-invoice",
+      "dest": "/api/create-invoice.js"
+    },
+    {
+      "src": "/api/webhook",
+      "dest": "/api/webhook.js"
+    }
+  ]
+}
