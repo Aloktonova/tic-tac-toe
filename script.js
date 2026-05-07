@@ -28,6 +28,7 @@ const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)'
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
+const wallpaperAsset = filename => window.versionedAsset(`assets/${filename}`);
 
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
@@ -59,88 +60,88 @@ const WALLPAPERS = [
     name: 'Galaxy',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-galaxy.jpg',
-    fullImage: 'assets/wp-galaxy.jpg'
+    thumbnail: wallpaperAsset('wp-galaxy.jpg'),
+    fullImage: wallpaperAsset('wp-galaxy.jpg')
   },
   {
     id: 'sakura',
     name: 'Sakura',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-sakura.jpg',
-    fullImage: 'assets/wp-sakura.jpg'
+    thumbnail: wallpaperAsset('wp-sakura.jpg'),
+    fullImage: wallpaperAsset('wp-sakura.jpg')
   },
   {
     id: 'ocean',
     name: 'Ocean',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-ocean.jpg',
-    fullImage: 'assets/wp-ocean.jpg'
+    thumbnail: wallpaperAsset('wp-ocean.jpg'),
+    fullImage: wallpaperAsset('wp-ocean.jpg')
   },
   {
     id: 'forest',
     name: 'Forest',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-forest.jpg',
-    fullImage: 'assets/wp-forest.jpg'
+    thumbnail: wallpaperAsset('wp-forest.jpg'),
+    fullImage: wallpaperAsset('wp-forest.jpg')
   },
   {
     id: 'fire',
     name: 'Fire',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-fire.jpg',
-    fullImage: 'assets/wp-fire.jpg'
+    thumbnail: wallpaperAsset('wp-fire.jpg'),
+    fullImage: wallpaperAsset('wp-fire.jpg')
   },
   {
     id: 'aurora',
     name: 'Aurora',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-aurora.jpg',
-    fullImage: 'assets/wp-aurora.jpg'
+    thumbnail: wallpaperAsset('wp-aurora.jpg'),
+    fullImage: wallpaperAsset('wp-aurora.jpg')
   },
   {
     id: 'samurai',
     name: 'Samurai',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-samurai.jpg',
-    fullImage: 'assets/wp-samurai.jpg'
+    thumbnail: wallpaperAsset('wp-samurai.jpg'),
+    fullImage: wallpaperAsset('wp-samurai.jpg')
   },
   {
     id: 'moonlight',
     name: 'Moonlight',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-moonlight.jpg',
-    fullImage: 'assets/wp-moonlight.jpg'
+    thumbnail: wallpaperAsset('wp-moonlight.jpg'),
+    fullImage: wallpaperAsset('wp-moonlight.jpg')
   },
   {
     id: 'meadow',
     name: 'Meadow',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-meadow.jpg',
-    fullImage: 'assets/wp-meadow.jpg'
+    thumbnail: wallpaperAsset('wp-meadow.jpg'),
+    fullImage: wallpaperAsset('wp-meadow.jpg')
   },
   {
     id: 'castle',
     name: 'Dark Castle',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-castle.jpg',
-    fullImage: 'assets/wp-castle.jpg'
+    thumbnail: wallpaperAsset('wp-castle.jpg'),
+    fullImage: wallpaperAsset('wp-castle.jpg')
   },
   {
     id: 'neon',
     name: 'Neon City',
     priceType: 'stars',
     price: 35,
-    thumbnail: 'assets/wp-neon.jpg',
-    fullImage: 'assets/wp-neon.jpg'
+    thumbnail: wallpaperAsset('wp-neon.jpg'),
+    fullImage: wallpaperAsset('wp-neon.jpg')
   }
 ];
 
@@ -268,10 +269,30 @@ let waitingForOpponent = false;
 
 // Battle bot name (set when playing against a named bot, null for normal AI)
 let battleBotName = null;
+let difficultyTriggerEl = null;
+let difficultyDropdownEl = null;
 
 // Coin / referral state
 let userCoins = 0;
 let userReferralCount = 0;
+
+function openDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+
+  const rect = difficultyTriggerEl.getBoundingClientRect();
+
+  difficultyDropdownEl.style.top = (rect.bottom + 6) + 'px';
+
+  difficultyDropdownEl.classList.add('open');
+  difficultyTriggerEl.setAttribute('aria-expanded', 'true');
+}
+
+function closeDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+  difficultyDropdownEl.classList.remove('open');
+  difficultyDropdownEl.style.top = '';
+  difficultyTriggerEl.setAttribute('aria-expanded', 'false');
+}
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -754,30 +775,38 @@ function setupEventListeners() {
   });
 
   // Difficulty dropdown
-  const diffBtn  = document.getElementById('difficulty-btn');
-  const diffMenu = document.getElementById('difficulty-menu');
+  difficultyTriggerEl = document.getElementById('difficulty-btn');
+  difficultyDropdownEl = document.getElementById('difficulty-menu');
 
-  diffBtn.addEventListener('click', e => {
+  difficultyTriggerEl.addEventListener('click', e => {
     e.stopPropagation();
-    const isOpen = !diffMenu.classList.contains('hidden');
-    diffMenu.classList.toggle('hidden', isOpen);
-    diffBtn.classList.toggle('open', !isOpen);
+    const isOpen = difficultyDropdownEl.classList.contains('open');
+    if (isOpen) {
+      closeDifficultyDropdown();
+    } else {
+      openDifficultyDropdown();
+    }
+    difficultyTriggerEl.classList.toggle('open', !isOpen);
   });
 
   document.querySelectorAll('.difficulty-option').forEach(opt => {
     opt.addEventListener('click', () => {
       aiDifficulty = opt.dataset.value;
       document.getElementById('difficulty-label').textContent = opt.textContent.trim();
-      diffMenu.classList.add('hidden');
-      diffBtn.classList.remove('open');
+      closeDifficultyDropdown();
+      difficultyTriggerEl.classList.remove('open');
       document.querySelectorAll('.difficulty-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
     });
   });
 
-  document.addEventListener('click', () => {
-    diffMenu.classList.add('hidden');
-    diffBtn.classList.remove('open');
+  document.addEventListener('click', e => {
+    if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+    const clickedInsideTrigger = difficultyTriggerEl.contains(e.target);
+    const clickedInsideDropdown = difficultyDropdownEl.contains(e.target);
+    if (clickedInsideTrigger || clickedInsideDropdown) return;
+    closeDifficultyDropdown();
+    difficultyTriggerEl.classList.remove('open');
   });
 
   // Board clicks and keyboard
