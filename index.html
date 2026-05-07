@@ -15,7 +15,10 @@
     };
   </script>
   <script>
-    document.write('<link rel="stylesheet" href="' + window.versionedAsset('style.css') + '">');
+    const appStylesheet = document.createElement('link');
+    appStylesheet.rel = 'stylesheet';
+    appStylesheet.href = window.versionedAsset('style.css');
+    document.head.appendChild(appStylesheet);
   </script>
 </head>
 <body>
@@ -34,6 +37,12 @@
       </div>
       <div class="home-content">
         <img id="homeIllustration" data-src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
+        <script>
+          const homeIllustration = document.getElementById('homeIllustration');
+          if (homeIllustration) {
+            homeIllustration.src = window.versionedAsset(homeIllustration.dataset.src);
+          }
+        </script>
         <h1 class="home-title">Tic Tac Toe</h1>
         <div class="home-buttons">
           <button id="btn-play-ai" class="btn btn-primary">Play with Computer</button>
@@ -454,12 +463,10 @@
   <!-- App -->
   <script id="appScript" data-src="script.js"></script>
   <script>
-    const homeIllustration = document.getElementById('homeIllustration');
-    if (homeIllustration) {
-      homeIllustration.src = window.versionedAsset(homeIllustration.dataset.src);
-    }
     const appScript = document.getElementById('appScript');
-    appScript.src = window.versionedAsset(appScript.dataset.src);
+    if (appScript) {
+      appScript.src = window.versionedAsset(appScript.dataset.src);
+    }
   </script>
 </body>
 </html>
