@@ -461,12 +461,10 @@
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous"></script>
   <!-- App -->
-  <script id="appScript" data-src="script.js"></script>
   <script>
-    const appScript = document.getElementById('appScript');
-    if (appScript) {
-      appScript.src = window.versionedAsset(appScript.dataset.src);
-    }
+    const appScript = document.createElement('script');
+    appScript.src = window.versionedAsset('script.js');
+    document.body.appendChild(appScript);
   </script>
 </body>
 </html>
