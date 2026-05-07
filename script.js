@@ -607,6 +607,7 @@ async function identifyUser() {
         const rawUser = new URLSearchParams(tg.initData).get('user');
         tgUser = rawUser ? JSON.parse(rawUser) : null;
       } catch (e) {
+        console.warn('Telegram initData user parse failed:', e);
         tgUser = null;
       }
     }
@@ -876,8 +877,15 @@ function setupEventListeners() {
 
   // Bottom nav (all nav instances)
   let lastBottomNavPressTs = 0;
+  let lastBottomNavPointerTs = 0;
   const handleBottomNav = (btn, event) => {
     const now = Date.now();
+    if (event?.type === 'pointerup') {
+      lastBottomNavPointerTs = now;
+    }
+    if (event?.type === 'click' && now - lastBottomNavPointerTs < BOTTOM_NAV_DEBOUNCE_MS) {
+      return;
+    }
     if (now - lastBottomNavPressTs < BOTTOM_NAV_DEBOUNCE_MS) return;
     lastBottomNavPressTs = now;
     const screen = btn.dataset.screen;
