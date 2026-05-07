@@ -612,9 +612,11 @@ async function identifyUser() {
     }
     if (!tgUser && tg) {
       for (let i = 0; i < TELEGRAM_USER_RETRY_ATTEMPTS; i++) {
-        await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
         tgUser = tg.initDataUnsafe?.user || tgUser;
         if (tgUser?.id) break;
+        if (i < TELEGRAM_USER_RETRY_ATTEMPTS - 1) {
+          await new Promise(resolve => setTimeout(resolve, TELEGRAM_USER_RETRY_DELAY_MS));
+        }
       }
     }
 
@@ -875,9 +877,6 @@ function setupEventListeners() {
   // Bottom nav (all nav instances)
   let lastBottomNavPressTs = 0;
   const handleBottomNav = (btn, event) => {
-    if (event?.type === 'touchend' || event?.type === 'pointerup') {
-      event.preventDefault();
-    }
     const now = Date.now();
     if (now - lastBottomNavPressTs < BOTTOM_NAV_DEBOUNCE_MS) return;
     lastBottomNavPressTs = now;
@@ -906,7 +905,7 @@ function setupEventListeners() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     const onNavPress = event => handleBottomNav(btn, event);
     btn.addEventListener('click', onNavPress);
-    btn.addEventListener('touchend', onNavPress, { passive: false });
+    btn.addEventListener('touchend', onNavPress);
     btn.addEventListener('pointerup', onNavPress);
   });
 
