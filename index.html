@@ -1,37 +1,10 @@
-<!-- APP_VERSION: 20 -->
 <!DOCTYPE html>
-<html lang="en" data-version="20">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <script>
-    (function forceTelegramWebViewVersionUrl() {
-      const APP_VERSION = '20';
-      const isTelegramWebView = /Telegram/i.test(navigator.userAgent || '');
-      if (!isTelegramWebView) return;
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('appv') === APP_VERSION) return;
-      url.searchParams.set('appv', APP_VERSION);
-      window.location.replace(url.toString());
-    })();
-  </script>
   <title>Tic Tac Toe</title>
-  <script>
-    window.__APP_ASSET_VERSION__ = document.documentElement.dataset.version || '0';
-    window.versionedAsset = function(url) {
-      if (!url) return url;
-      return url + (url.includes('?') ? '&' : '?') + 'v=' + window.__APP_ASSET_VERSION__;
-    };
-  </script>
-  <script>
-    const appStylesheet = document.createElement('link');
-    appStylesheet.rel = 'stylesheet';
-    appStylesheet.href = window.versionedAsset('style.css');
-    document.head.appendChild(appStylesheet);
-  </script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Global wallpaper + dark tint — visible on every screen -->
@@ -48,13 +21,7 @@
         </div>
       </div>
       <div class="home-content">
-        <img id="homeIllustration" data-src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
-        <script>
-          const homeIllustration = document.getElementById('homeIllustration');
-          if (homeIllustration) {
-            homeIllustration.src = window.versionedAsset(homeIllustration.dataset.src);
-          }
-        </script>
+        <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
         <h1 class="home-title">Tic Tac Toe</h1>
         <div class="home-buttons">
           <button id="btn-play-ai" class="btn btn-primary">Play with Computer</button>
@@ -84,19 +51,15 @@
     <!-- ===== SCREEN 2: GAME ===== -->
     <div id="screen-game" class="screen hidden">
       <div class="game-header">
-        <button id="btn-back" class="back-icon-btn" aria-label="Back to home">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M15 18L9 12L15 6"></path>
-          </svg>
-        </button>
+        <button id="btn-back" class="back-btn" aria-label="Back to home">← Back</button>
         <div id="game-status" class="game-status">Your Turn</div>
         <!-- AI difficulty dropdown (AI mode only) -->
         <div id="difficulty-container" class="difficulty-container hidden">
-          <div id="difficulty-btn" class="difficulty-btn" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-label="Select difficulty">
+          <div id="difficulty-btn" class="difficulty-btn" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Select difficulty">
             <span id="difficulty-label">Medium</span>
             <span class="dropdown-arrow" aria-hidden="true">▾</span>
           </div>
-          <div id="difficulty-menu" class="difficulty-menu difficulty-dropdown" role="listbox">
+          <div id="difficulty-menu" class="difficulty-menu hidden" role="listbox">
             <div class="difficulty-option" data-value="easy" role="option">Easy</div>
             <div class="difficulty-option selected" data-value="medium" role="option">Medium</div>
             <div class="difficulty-option" data-value="hard" role="option">Hard</div>
@@ -477,10 +440,6 @@
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous"></script>
   <!-- App -->
-  <script>
-    const appScript = document.createElement('script');
-    appScript.src = window.versionedAsset('script.js');
-    document.body.appendChild(appScript);
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
