@@ -269,10 +269,30 @@ let waitingForOpponent = false;
 
 // Battle bot name (set when playing against a named bot, null for normal AI)
 let battleBotName = null;
+let difficultyTriggerEl = null;
+let difficultyDropdownEl = null;
 
 // Coin / referral state
 let userCoins = 0;
 let userReferralCount = 0;
+
+function openDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+
+  const rect = difficultyTriggerEl.getBoundingClientRect();
+
+  difficultyDropdownEl.style.top = (rect.bottom + 6) + 'px';
+
+  difficultyDropdownEl.classList.add('open');
+  difficultyTriggerEl.setAttribute('aria-expanded', 'true');
+}
+
+function closeDifficultyDropdown() {
+  if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+  difficultyDropdownEl.classList.remove('open');
+  difficultyDropdownEl.style.top = '';
+  difficultyTriggerEl.setAttribute('aria-expanded', 'false');
+}
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -755,30 +775,38 @@ function setupEventListeners() {
   });
 
   // Difficulty dropdown
-  const diffBtn  = document.getElementById('difficulty-btn');
-  const diffMenu = document.getElementById('difficulty-menu');
+  difficultyTriggerEl = document.getElementById('difficulty-btn');
+  difficultyDropdownEl = document.getElementById('difficulty-menu');
 
-  diffBtn.addEventListener('click', e => {
+  difficultyTriggerEl.addEventListener('click', e => {
     e.stopPropagation();
-    const isOpen = !diffMenu.classList.contains('hidden');
-    diffMenu.classList.toggle('hidden', isOpen);
-    diffBtn.classList.toggle('open', !isOpen);
+    const isOpen = difficultyDropdownEl.classList.contains('open');
+    if (isOpen) {
+      closeDifficultyDropdown();
+    } else {
+      openDifficultyDropdown();
+    }
+    difficultyTriggerEl.classList.toggle('open', !isOpen);
   });
 
   document.querySelectorAll('.difficulty-option').forEach(opt => {
     opt.addEventListener('click', () => {
       aiDifficulty = opt.dataset.value;
       document.getElementById('difficulty-label').textContent = opt.textContent.trim();
-      diffMenu.classList.add('hidden');
-      diffBtn.classList.remove('open');
+      closeDifficultyDropdown();
+      difficultyTriggerEl.classList.remove('open');
       document.querySelectorAll('.difficulty-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
     });
   });
 
-  document.addEventListener('click', () => {
-    diffMenu.classList.add('hidden');
-    diffBtn.classList.remove('open');
+  document.addEventListener('click', e => {
+    if (!difficultyDropdownEl || !difficultyTriggerEl) return;
+    const clickedInsideTrigger = difficultyTriggerEl.contains(e.target);
+    const clickedInsideDropdown = difficultyDropdownEl.contains(e.target);
+    if (clickedInsideTrigger || clickedInsideDropdown) return;
+    closeDifficultyDropdown();
+    difficultyTriggerEl.classList.remove('open');
   });
 
   // Board clicks and keyboard
