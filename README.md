@@ -34,13 +34,32 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 
 1. Clone this repository.
 2. Add your Firebase configuration in `script.js`.
-3. Open `index.html` locally or deploy the project on GitHub Pages.
+3. Start Telegram Stars backend endpoint:
+   - `TELEGRAM_BOT_TOKEN=<your_bot_token> node backend/server.js`
+4. Configure frontend endpoint before loading `script.js`:
+   - `window.__TG_STARS_INVOICE_ENDPOINT__ = "https://<your-domain>/api/telegram/stars/invoice";`
+5. Open `index.html` locally or deploy the project.
 
 ## Project Structure
 
 - `index.html` — Main app layout and Telegram/Firebase script imports.
 - `style.css` — UI styling for screens, board, modals, and responsive layout.
 - `script.js` — Game logic, AI modes, Firebase multiplayer sync, Telegram WebApp integration, and player stats.
+- `backend/server.js` — Telegram Stars invoice endpoint using Bot API `createInvoiceLink`.
+
+## Telegram Stars Payments
+
+- Frontend sends `telegramUserId`, `itemType`, `wallpaperId`/`itemId`, and `starsAmount` to backend endpoint.
+- Backend validates against server-side catalog and calls Telegram Bot API `createInvoiceLink` with:
+  - `title`
+  - `description`
+  - `payload`
+  - `currency: "XTR"`
+  - `prices`
+- Frontend opens checkout via `Telegram.WebApp.openInvoice(invoiceUrl)`.
+- Wallpaper unlock happens only after callback status is `paid`.
+- Purchases are stored in Firebase per user under:
+  - `users/{telegramUserId}/ownedWallpapers/{wallpaperId}: true`
 
 ## Gameplay
 

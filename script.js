@@ -21,6 +21,14 @@ const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 
+// Referral system configuration
+const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
+const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
+const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
+// Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
+// Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
+const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
+
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
   '#5b21b6', '#4338ca', '#3730a3', '#312e81'
@@ -40,57 +48,97 @@ const BOT_COUNTRIES = [
 const WALLPAPERS = [
   {
     id: 'none',
-    name: 'Default',
+    name: 'Simple Blue',
+    priceType: 'free',
     price: 0,
-    free: true,
     thumbnail: null,
     fullImage: null
   },
   {
     id: 'galaxy',
-    name: 'Midnight',
-    price: 0,
-    free: true,
+    name: 'Galaxy',
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-galaxy.jpg',
     fullImage: 'assets/wp-galaxy.jpg'
   },
   {
+    id: 'sakura',
+    name: 'Sakura',
+    priceType: 'stars',
+    price: 35,
+    thumbnail: 'assets/wp-sakura.jpg',
+    fullImage: 'assets/wp-sakura.jpg'
+  },
+  {
     id: 'ocean',
-    name: 'Ocean Blue',
-    price: 15,
-    free: false,
+    name: 'Ocean',
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-ocean.jpg',
     fullImage: 'assets/wp-ocean.jpg'
   },
   {
     id: 'forest',
-    name: 'Emerald',
-    price: 15,
-    free: false,
+    name: 'Forest',
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-forest.jpg',
     fullImage: 'assets/wp-forest.jpg'
   },
   {
     id: 'fire',
-    name: 'Crimson',
-    price: 25,
-    free: false,
+    name: 'Fire',
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-fire.jpg',
     fullImage: 'assets/wp-fire.jpg'
   },
   {
     id: 'aurora',
     name: 'Aurora',
-    price: 25,
-    free: false,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-aurora.jpg',
     fullImage: 'assets/wp-aurora.jpg'
   },
   {
+    id: 'samurai',
+    name: 'Samurai',
+    priceType: 'stars',
+    price: 35,
+    thumbnail: 'assets/wp-samurai.jpg',
+    fullImage: 'assets/wp-samurai.jpg'
+  },
+  {
+    id: 'moonlight',
+    name: 'Moonlight',
+    priceType: 'stars',
+    price: 35,
+    thumbnail: 'assets/wp-moonlight.jpg',
+    fullImage: 'assets/wp-moonlight.jpg'
+  },
+  {
+    id: 'meadow',
+    name: 'Meadow',
+    priceType: 'stars',
+    price: 35,
+    thumbnail: 'assets/wp-meadow.jpg',
+    fullImage: 'assets/wp-meadow.jpg'
+  },
+  {
+    id: 'castle',
+    name: 'Dark Castle',
+    priceType: 'stars',
+    price: 35,
+    thumbnail: 'assets/wp-castle.jpg',
+    fullImage: 'assets/wp-castle.jpg'
+  },
+  {
     id: 'neon',
     name: 'Neon City',
-    price: 50,
-    free: false,
+    priceType: 'stars',
+    price: 35,
     thumbnail: 'assets/wp-neon.jpg',
     fullImage: 'assets/wp-neon.jpg'
   }
@@ -196,12 +244,9 @@ let inBattleQueue  = false; // true while waiting in Firebase queue
 let settingsStatsRef = null;
 
 // Wallpaper state
-let currentWallpaper = 'galaxy';
-let purchasedWallpapers = (() => {
-  try {
-    return JSON.parse(localStorage.getItem('purchasedWallpapers') || '[]');
-  } catch (e) { return []; }
-})();
+let currentWallpaper = 'none';
+// Populated from Firebase after login; never persisted in localStorage
+let purchasedWallpapers = [];
 let previewingWallpaper = null;
 
 // Language
@@ -223,6 +268,10 @@ let waitingForOpponent = false;
 
 // Battle bot name (set when playing against a named bot, null for normal AI)
 let battleBotName = null;
+
+// Coin / referral state
+let userCoins = 0;
+let userReferralCount = 0;
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -317,6 +366,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTranslations();
   loadSavedWallpaper();
   showScreen('home');
+  handleReferralOnStart();
 });
 
 function initTelegram() {
@@ -560,7 +610,31 @@ async function identifyUser() {
       currentUser.games          = d.games           || 0;
       currentUser.xpBoostExpiry  = d.xpBoostExpiry   || 0;
       currentUser.country        = d.country         || '';
+      userCoins                  = d.coins           || 0;
+      userReferralCount          = d.referralCount   || 0;
+
+      // Load per-user purchased wallpapers from Firebase.
+      // Backward compatible with older path `unlockedWallpapers`.
+      const wpData = d.ownedWallpapers || d.unlockedWallpapers || {};
+      purchasedWallpapers = Object.keys(wpData).filter(k => wpData[k] === true);
+
+      // Load per-user selected wallpaper from Firebase (fallback to localStorage then 'none')
+      if (d.selectedWallpaper) {
+        currentWallpaper = d.selectedWallpaper;
+      } else {
+        try {
+          currentWallpaper = localStorage.getItem('wallpaper') || 'none';
+        } catch (e) {
+          currentWallpaper = 'none';
+        }
+      }
     }
+
+    // Real-time coins listener so UI updates instantly when coins are awarded
+    db.ref('users/' + currentUser.id + '/coins').on('value', snap => {
+      userCoins = snap.val() || 0;
+      updateCoinsDisplay();
+    });
 
     // Update / create user doc
     const updates = { name: currentUser.name, lastActive: Date.now() };
@@ -1739,7 +1813,7 @@ function escapeHtml(str) {
 function isWallpaperUnlocked(id) {
   const wp = WALLPAPERS.find(w => w.id === id);
   if (!wp) return false;
-  if (wp.free) return true;
+  if (wp.priceType === 'free') return true;
   return purchasedWallpapers.includes(id);
 }
 
@@ -1783,7 +1857,11 @@ function renderWallpaperPicker() {
     if (!unlocked && wp.price > 0) {
       const priceEl = document.createElement('div');
       priceEl.className = 'wallpaper-card-price';
-      priceEl.innerText = wp.price + ' ⭐';
+      if (wp.priceType === 'coins') {
+        priceEl.innerText = wp.price + ' coins';
+      } else {
+        priceEl.innerText = wp.price + ' ⭐';
+      }
       overlay.appendChild(priceEl);
     }
     card.appendChild(overlay);
@@ -1835,7 +1913,11 @@ function openWallpaperPreview(wp) {
 
   if (priceEl) {
     if (!unlocked && wp.price > 0) {
-      priceEl.innerText = wp.price + ' ⭐ Stars';
+      if (wp.priceType === 'coins') {
+        priceEl.innerText = wp.price + ' coins';
+      } else {
+        priceEl.innerText = wp.price + ' ⭐ Stars';
+      }
       priceEl.classList.remove('hidden');
     } else {
       priceEl.classList.add('hidden');
@@ -1850,6 +1932,13 @@ function openWallpaperPreview(wp) {
         applyWallpaper(wp.id);
         closeWallpaperPreview();
         renderWallpaperPicker();
+      };
+    } else if (wp.priceType === 'coins') {
+      actionBtn.innerText = 'Buy for ' + wp.price + ' coins';
+      actionBtn.className = 'wp-action-btn btn-unlock';
+      actionBtn.onclick = () => {
+        closeWallpaperPreview();
+        purchaseWithCoins(wp);
       };
     } else {
       actionBtn.innerText = 'Unlock for ' + wp.price + ' ⭐';
@@ -1879,6 +1968,7 @@ function showPurchaseModal(wp) {
   if (titleEl) titleEl.innerText = 'Unlock ' + wp.name;
   if (priceEl) priceEl.innerText = wp.price + ' ⭐ Stars';
   if (confirmBtn) {
+    confirmBtn.textContent = 'Pay with Stars ⭐';
     confirmBtn.onclick = () => {
       closePurchaseModal();
       processPurchase(wp);
@@ -1892,47 +1982,128 @@ function closePurchaseModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-function processPurchase(wp) {
-  try {
-    const tg = window.Telegram?.WebApp;
-    if (tg && tg.openInvoice) {
-      // TODO: replace '' with a backend-generated invoice URL for production Telegram Stars payment
-      tg.openInvoice('', (status) => {
-        if (status === 'paid') {
-          unlockWallpaper(wp.id);
-        }
-      });
-      return;
-    }
-  } catch (e) {}
-  // Fallback: mark as unlocked directly (demo mode)
-  unlockWallpaper(wp.id);
+async function getTelegramStarsInvoiceUrl(wp) {
+  if (!TELEGRAM_STARS_INVOICE_ENDPOINT) {
+    throw new Error('Missing window.__TG_STARS_INVOICE_ENDPOINT__');
+  }
+
+  const tg = window.Telegram?.WebApp;
+  const uid = ensureNormalizedUserId();
+  if (!uid) {
+    throw new Error('Missing Telegram user id');
+  }
+  const res = await fetch(TELEGRAM_STARS_INVOICE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      telegramUserId: uid,
+      itemType: 'wallpaper',
+      wallpaperId: wp.id,
+      starsAmount: wp.price,
+      initData: tg?.initData || ''
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error('Invoice endpoint failed with status ' + res.status);
+  }
+
+  const data = await res.json();
+  return typeof data?.invoiceUrl === 'string' ? data.invoiceUrl.trim() : '';
 }
 
-function unlockWallpaper(id) {
+async function processPurchase(wp) {
+  const confirmBtn = document.getElementById('wp-purchase-confirm');
+  const originalText = confirmBtn?.textContent || 'Pay with Stars ⭐';
+
+  const setLoading = (loading) => {
+    if (!confirmBtn) return;
+    confirmBtn.disabled = loading;
+    confirmBtn.textContent = loading ? 'Opening payment…' : originalText;
+  };
+
+  try {
+    const tg = window.Telegram?.WebApp;
+    if (!tg || !tg.openInvoice) {
+      showToast('Telegram payment is only available inside Telegram.');
+      return;
+    }
+
+    setLoading(true);
+    const invoiceUrl = await getTelegramStarsInvoiceUrl(wp);
+    setLoading(false);
+
+    if (!invoiceUrl) {
+      showToast('Telegram Stars payment is not configured yet.');
+      return;
+    }
+
+    tg.openInvoice(invoiceUrl, (status) => {
+      if (status === 'paid') {
+        unlockWallpaper(wp.id)
+          .then(() => {
+            showToast(wp.name + ' wallpaper unlocked! 🎉');
+          })
+          .catch((err) => {
+            console.error('unlockWallpaper after paid:', err);
+            showToast('Payment succeeded, but unlock failed. Please reopen app.');
+          });
+      } else if (status === 'failed') {
+        showToast('Payment failed. Please try again.');
+      } else if (status !== 'cancelled') {
+        showToast('Payment not completed.');
+      }
+    });
+  } catch (e) {
+    setLoading(false);
+    console.error('processPurchase:', e);
+    showToast('Failed to open Telegram Stars payment.');
+  }
+}
+
+async function unlockWallpaper(id) {
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) {
+    throw new Error('User or database unavailable');
+  }
+
   if (!purchasedWallpapers.includes(id)) {
+    await db.ref('users/' + uid + '/ownedWallpapers/' + id).set(true);
     purchasedWallpapers.push(id);
-    try {
-      localStorage.setItem('purchasedWallpapers', JSON.stringify(purchasedWallpapers));
-    } catch (e) {}
   }
   applyWallpaper(id);
   renderWallpaperPicker();
 }
 
+async function handlePurchaseSuccess(id) {
+  await unlockWallpaper(id);
+  closeWallpaperPreview();
+  closePurchaseModal();
+}
+
 function applyWallpaper(wallpaperId) {
   currentWallpaper = wallpaperId;
+
+  // Cache in localStorage for instant startup before Firebase loads
   try {
     localStorage.setItem('wallpaper', wallpaperId);
   } catch (e) {}
 
+  // Save per-user selected wallpaper to Firebase
+  const uid = ensureNormalizedUserId();
+  if (uid && db) {
+    db.ref('users/' + uid + '/selectedWallpaper')
+      .set(wallpaperId)
+      .catch(e => console.error('applyWallpaper Firebase:', e));
+  }
+
   const wp = WALLPAPERS.find(w => w.id === wallpaperId);
-  const el = document.getElementById('gameWallpaper');
+  const el = document.getElementById('globalWallpaper');
   if (!el) return;
 
   if (!wp || !wp.fullImage) {
     el.style.backgroundImage = 'none';
-    el.style.background = 'none';
+    el.style.background = DEFAULT_WALLPAPER_BACKGROUND;
   } else {
     // Sanitize path: fullImage values come from the WALLPAPERS constant but we escape
     // single quotes defensively before embedding in the CSS url() value.
@@ -1944,11 +2115,16 @@ function applyWallpaper(wallpaperId) {
 }
 
 function loadSavedWallpaper() {
-  let saved = 'galaxy';
-  try {
-    saved = localStorage.getItem('wallpaper') || 'galaxy';
-  } catch (e) {}
-  applyWallpaper(saved);
+  // currentWallpaper is already set by identifyUser() from Firebase.
+  // Fall back to localStorage cache if Firebase data was unavailable (offline / no db).
+  if (!db || !currentUser.id) {
+    try {
+      currentWallpaper = localStorage.getItem('wallpaper') || 'none';
+    } catch (e) {
+      currentWallpaper = 'none';
+    }
+  }
+  applyWallpaper(currentWallpaper);
 }
 
 /* ===== RULES ===== */
@@ -2383,6 +2559,24 @@ async function loadProfile() {
 
     const achievements = d.achievements || {};
     renderProfileUI(merged, achievements);
+
+    // Load referral stats
+    db.ref('users/' + currentUser.id + '/referralCount')
+      .once('value')
+      .then(refSnap => {
+        const count = refSnap.val() || 0;
+        userReferralCount = count;
+        const countEl = document.getElementById('referralCount');
+        if (countEl) countEl.innerText = count;
+
+        // Calculate total coins earned from referrals using tier table
+        let totalCoins = 0;
+        for (let i = 1; i <= count; i++) {
+          totalCoins += REFERRAL_COIN_TIERS[Math.min(i - 1, REFERRAL_COIN_TIERS.length - 1)];
+        }
+        const coinsEl = document.getElementById('referralCoinsEarned');
+        if (coinsEl) coinsEl.innerText = totalCoins;
+      });
   } catch (e) {
     console.warn('loadProfile error:', e);
   }
@@ -2423,8 +2617,9 @@ function renderProfileUI(data, achievements) {
   document.getElementById('profile-winrate').textContent = winRate + '%';
   document.getElementById('profile-streak').textContent  = streak;
 
-  // Coins
-  document.getElementById('profile-coins').textContent = 'Coins: ' + (data.coins || 0);
+  // Coins — sync in-memory value then update all display elements
+  userCoins = data.coins || userCoins;
+  updateCoinsDisplay();
 
   // Achievements
   renderAchievements(achievements, wins, streak);
@@ -2513,6 +2708,126 @@ function renderAchievements(ach, wins, bestStreak) {
 
     grid.appendChild(card);
   });
+}
+
+/* ===== COIN SYSTEM ===== */
+function updateCoinsDisplay() {
+  const els = document.querySelectorAll('.coins-display');
+  els.forEach(el => {
+    el.innerText = userCoins + ' coins';
+  });
+}
+
+async function awardCoins(uid, amount, reason) {
+  if (!db || !uid || amount <= 0) return;
+  try {
+    await db.ref('users/' + uid + '/coins')
+      .transaction(current => {
+        return (current || 0) + amount;
+      });
+    showToast('+' + amount + ' coins! ' + reason);
+  } catch (e) {
+    console.error('awardCoins failed:', e);
+  }
+}
+
+/* ===== COIN WALLPAPER PURCHASE ===== */
+async function purchaseWithCoins(wallpaper) {
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) return;
+
+  if (userCoins < wallpaper.price) {
+    showToast('Not enough coins. Invite friends to earn more!');
+    return;
+  }
+
+  try {
+    const result = await db
+      .ref('users/' + uid + '/coins')
+      .transaction(current => {
+        const c = current || 0;
+        if (c < wallpaper.price) {
+          return undefined; // returning undefined aborts the transaction without writing
+        }
+        return c - wallpaper.price;
+      });
+
+    if (!result.committed) {
+      showToast('Not enough coins.');
+      return;
+    }
+
+    await handlePurchaseSuccess(wallpaper.id);
+
+  } catch (e) {
+    console.error('purchaseWithCoins:', e);
+    showToast('Purchase failed. Try again.');
+  }
+}
+
+/* ===== REFERRAL SYSTEM ===== */
+function getReferralLink() {
+  const uid = ensureNormalizedUserId();
+  if (!uid) return null;
+  return 'https://t.me/' + REFERRAL_BOT_USERNAME + '?startapp=ref_' + uid;
+}
+
+function shareReferralLink() {
+  const link = getReferralLink();
+  if (!link) return;
+
+  const text = 'Play Tic Tac Toe with me! Join and we both get coins!';
+  const shareUrl = 'https://t.me/share/url?url='
+    + encodeURIComponent(link)
+    + '&text=' + encodeURIComponent(text);
+
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(shareUrl);
+  } else {
+    navigator.clipboard.writeText(link)
+      .then(() => showToast('Referral link copied!'))
+      .catch(() => showToast(link));
+  }
+}
+
+async function handleReferralOnStart() {
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) return;
+
+  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  if (!startParam || !startParam.startsWith('ref_')) return;
+
+  const referrerId = startParam.replace('ref_', '');
+
+  // Block self-referral
+  if (referrerId === uid) return;
+
+  // Check if this user was already referred
+  const userSnap = await db.ref('users/' + uid).once('value');
+  const userData = userSnap.val() || {};
+  if (userData.referredBy) return;
+
+  // Check referrer exists
+  const referrerSnap = await db.ref('users/' + referrerId).once('value');
+  if (!referrerSnap.exists()) return;
+
+  // Record referredBy on new user
+  await db.ref('users/' + uid + '/referredBy').set(referrerId);
+
+  // Add this user to referrer's referrals list
+  await db.ref('users/' + referrerId + '/referrals/' + uid).set(Date.now());
+
+  // Increment referrer's referral count atomically and award tiered coins
+  const refCountSnap = await db
+    .ref('users/' + referrerId + '/referralCount')
+    .transaction(current => (current || 0) + 1);
+
+  const newCount = refCountSnap.snapshot.val() || 1;
+
+  // REFERRAL_COIN_TIERS: index 0 = 1st referral, 1 = 2nd, 2+ = 3rd and beyond
+  const coinsToAward = REFERRAL_COIN_TIERS[Math.min(newCount - 1, REFERRAL_COIN_TIERS.length - 1)];
+
+  await awardCoins(referrerId, coinsToAward, 'Friend joined via your link!');
 }
 
 /* ===== PAGE UNLOAD CLEANUP ===== */

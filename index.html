@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Global wallpaper + dark tint — visible on every screen -->
+  <div id="globalWallpaper" class="global-wallpaper"></div>
+  <div class="wallpaper-tint"></div>
   <div id="app">
 
     <!-- ===== SCREEN 1: HOME ===== -->
@@ -47,7 +50,6 @@
 
     <!-- ===== SCREEN 2: GAME ===== -->
     <div id="screen-game" class="screen hidden">
-      <div id="gameWallpaper" class="game-wallpaper"></div>
       <div class="game-header">
         <button id="btn-back" class="back-btn" aria-label="Back to home">← Back</button>
         <div id="game-status" class="game-status">Your Turn</div>
@@ -235,11 +237,43 @@
 
         <!-- Coins -->
         <div class="profile-section profile-coins-section">
-          <div class="coins-display">
+          <div class="coins-display-wrap">
             <div class="coin-icon" aria-hidden="true"></div>
-            <span id="profile-coins" class="coins-value">Coins: 0</span>
+            <span id="profile-coins" class="coins-display coins-value">0 coins</span>
           </div>
           <div class="coins-info-text">Earn coins by inviting friends</div>
+        </div>
+
+        <!-- Referral -->
+        <div class="profile-section">
+          <div class="referral-section">
+            <h4 aria-label="Invite Friends and Earn Coins"><span aria-hidden="true">👥</span> Invite Friends &amp; Earn Coins</h4>
+            <div class="referral-stats">
+              <div class="referral-stat">
+                <span id="referralCount" class="referral-count">0</span>
+                <span class="referral-label">Friends<br>Invited</span>
+              </div>
+              <div class="referral-stat">
+                <span id="referralCoinsEarned" class="referral-coins">0</span>
+                <span class="referral-label">Coins<br>Earned</span>
+              </div>
+            </div>
+            <div class="referral-tiers">
+              <div class="tier-row">
+                <span class="tier-num">1st friend</span>
+                <span class="tier-reward">+50 coins</span>
+              </div>
+              <div class="tier-row">
+                <span class="tier-num">2nd friend</span>
+                <span class="tier-reward">+70 coins</span>
+              </div>
+              <div class="tier-row">
+                <span class="tier-num">3rd+ friends</span>
+                <span class="tier-reward">+100 coins each</span>
+              </div>
+            </div>
+            <button class="btn-invite-friends" onclick="shareReferralLink()">🎁 Invite Friends</button>
+          </div>
         </div>
       </div>
     </div>
@@ -286,6 +320,12 @@
   <div id="modal-settings" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="modal-content settings-modal">
       <button id="settings-close" class="modal-close" aria-label="Close settings">✕</button>
+
+      <!-- Coins badge -->
+      <div class="settings-coins-badge">
+        <span class="settings-coin-icon" aria-hidden="true"></span>
+        <span class="coins-display settings-coins-value">0 coins</span>
+      </div>
 
       <!-- Name Editor -->
       <div class="settings-section">
