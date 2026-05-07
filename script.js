@@ -2013,69 +2013,80 @@ async function getTelegramStarsInvoiceUrl(wp) {
   return typeof data?.invoiceUrl === 'string' ? data.invoiceUrl.trim() : '';
 }
 
-async function processPurchase(wp) {
+async function purchaseWallpaper(wallpaper) {
   const tgApp = window.Telegram?.WebApp;
-  console.log("Telegram WebApp:", {
-    version: tgApp?.version,
-    platform: tgApp?.platform,
-    hasOpenInvoice: typeof tgApp?.openInvoice,
-    initData: tgApp?.initData ? "present" : "missing"
-  });
+  const uid = ensureNormalizedUserId();
 
-  showToast("TG v" + (tgApp?.version || "none")
-    + " inv:" + typeof tgApp?.openInvoice);
+  if (!uid) {
+    showToast("Cannot verify your identity");
+    return;
+  }
 
-  const confirmBtn = document.getElementById('wp-purchase-confirm');
-  const originalText = confirmBtn?.textContent || 'Pay with Stars ⭐';
-
-  const setLoading = (loading) => {
-    if (!confirmBtn) return;
-    confirmBtn.disabled = loading;
-    confirmBtn.textContent = loading ? 'Opening payment…' : originalText;
-  };
+  const buyBtn = document.getElementById(
+    "confirmPurchaseBtn"
+  );
+  if (buyBtn) {
+    buyBtn.disabled = true;
+    buyBtn.innerText = "Loading...";
+  }
 
   try {
-    const tg = window.Telegram?.WebApp;
-    if (!tg) {
-      showToast('Purchase only available in Telegram app');
-      return;
-    }
-
-    if (!tg.openInvoice) {
-      showToast('Failed to open Telegram Stars payment.');
-      console.error('openInvoice not available', tg);
-      return;
-    }
-
-    setLoading(true);
-    const invoiceUrl = await getTelegramStarsInvoiceUrl(wp);
-    setLoading(false);
-
-    if (!invoiceUrl) {
-      showToast('Telegram Stars payment is not configured yet.');
-      return;
-    }
-
-    tg.openInvoice(invoiceUrl, (status) => {
-      if (status === 'paid') {
-        unlockWallpaper(wp.id)
-          .then(() => {
-            showToast(wp.name + ' wallpaper unlocked! 🎉');
-          })
-          .catch((err) => {
-            console.error('unlockWallpaper after paid:', err);
-            showToast('Payment succeeded, but unlock failed. Please reopen app.');
-          });
-      } else if (status === 'failed') {
-        showToast('Payment failed. Please try again.');
-      } else if (status !== 'cancelled') {
-        showToast('Payment not completed.');
+    const response = await fetch(
+      BACKEND_URL + "/api/create-invoice",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          wallpaperId: wallpaper.id,
+          wallpaperName: wallpaper.name,
+          price: wallpaper.price,
+          userId: uid
+        })
       }
-    });
-  } catch (e) {
-    setLoading(false);
-    console.error('purchaseWallpaper full error:', e);
-    showToast('Error: ' + (e.message || 'Unknown error'));
+    );
+
+    const data = await response.json();
+
+    if (!data.invoiceLink) {
+      throw new Error(
+        "No invoice link received"
+      );
+    }
+
+    if (buyBtn) {
+      buyBtn.disabled = false;
+      buyBtn.innerText =
+        "Buy for " + wallpaper.price + " ⭐";
+    }
+
+    if (tgApp && tgApp.openInvoice) {
+      tgApp.openInvoice(
+        data.invoiceLink,
+        (status) => {
+          if (status === "paid") {
+            handlePurchaseSuccess(wallpaper.id);
+          } else if (status === "cancelled") {
+            showToast("Purchase cancelled");
+          } else if (status === "failed") {
+            showToast("Payment failed. Try again.");
+          }
+        }
+      );
+    } else {
+      window.open(data.invoiceLink, "_blank");
+    }
+
+  } catch(e) {
+    console.error("purchaseWallpaper:", e);
+    showToast("Error: " + (e.message ||
+      "Connection failed"));
+    if (buyBtn) {
+      buyBtn.disabled = false;
+      buyBtn.innerText =
+        "Buy for " + wallpaper.price + " ⭐";
+    }
   }
 }
 
