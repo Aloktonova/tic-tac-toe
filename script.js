@@ -1972,7 +1972,7 @@ function showPurchaseModal(wp) {
     confirmBtn.textContent = 'Pay with Stars ⭐';
     confirmBtn.onclick = () => {
       closePurchaseModal();
-      processPurchase(wp);
+      purchaseWallpaper(wp);
     };
   }
   modal.classList.remove('hidden');
