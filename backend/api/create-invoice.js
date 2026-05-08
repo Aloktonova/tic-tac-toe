@@ -1,3 +1,12 @@
+const PRODUCTS = {
+  galaxy: { name: "Galaxy", price: 35 },
+  ocean: { name: "Ocean", price: 35 },
+  forest: { name: "Forest", price: 35 },
+  fire: { name: "Fire", price: 35 },
+  aurora: { name: "Aurora", price: 35 },
+  neon: { name: "Neon City", price: 50 }
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods",
@@ -23,14 +32,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { wallpaperId, wallpaperName,
-      price, userId } = req.body;
-
-    if (!wallpaperId || !price || !userId) {
+    const { wallpaperId, userId } = req.body;
+    const product = PRODUCTS[wallpaperId];
+    if (!product) {
       return res.status(400).json({
-        error: "Missing required fields"
+        error: "Invalid product"
       });
     }
+    const wallpaperName = product.name;
+    const price = product.price;
 
     const telegramRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
