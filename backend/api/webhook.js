@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { PRODUCT_CATALOG } from "./_product-catalog.js";
 
 const MAX_INVOICE_PAYLOAD_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_INVOICE_PAYLOAD_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 function isValidTelegramUserId(userId) {
   return typeof userId === "string" && /^[0-9]{1,20}$/.test(userId);
@@ -42,7 +43,9 @@ function verifyInvoicePayload(payload, secret) {
   if (!PRODUCT_CATALOG[wallpaperId]) return null;
   if (!isValidTelegramUserId(userId)) return null;
   if (!Number.isFinite(issuedAtMs) || issuedAtMs <= 0) return null;
-  if (Date.now() - issuedAtMs > MAX_INVOICE_PAYLOAD_AGE_MS) return null;
+  const now = Date.now();
+  if (now - issuedAtMs > MAX_INVOICE_PAYLOAD_AGE_MS) return null;
+  if (issuedAtMs - now > MAX_INVOICE_PAYLOAD_FUTURE_SKEW_MS) return null;
   if (!/^[A-Za-z0-9_-]{4,40}$/.test(nonce)) return null;
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(signature)) return null;
 
@@ -74,7 +77,9 @@ async function answerPreCheckoutQuery({ botToken, queryId, ok, errorMessage }) {
 }
 
 async function isPaymentAlreadyProcessed({ dbUrl, chargeId }) {
-  const existing = await fetch(`${dbUrl}/payments/${chargeId}.json`);
+  const existing = await fetch(
+    `${dbUrl}/payments/${encodeURIComponent(chargeId)}.json`
+  );
   if (!existing.ok) {
     throw new Error("Could not read payment state");
   }
@@ -85,34 +90,31 @@ async function isPaymentAlreadyProcessed({ dbUrl, chargeId }) {
 async function writeVerifiedEntitlement({
   dbUrl, chargeId, userId, wallpaperId, amount, currency
 }) {
-  await fetch(
-    `${dbUrl}/payments/${chargeId}.json`,
+  const createdAt = Date.now();
+  const patchRes = await fetch(
+    `${dbUrl}/.json`,
     {
-      method: "PUT",
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        chargeId,
-        userId,
-        wallpaperId,
-        amount,
-        currency,
-        verified: true,
-        createdAt: Date.now()
+        [`payments/${chargeId}`]: {
+          chargeId,
+          userId,
+          wallpaperId,
+          amount,
+          currency,
+          verified: true,
+          createdAt
+        },
+        [`users/${userId}/ownedWallpapers/${wallpaperId}`]: true
       })
     }
   );
-  await fetch(
-    `${dbUrl}/users/${userId}/ownedWallpapers/${wallpaperId}.json`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: "true"
-    }
-  );
+  if (!patchRes.ok) {
+    throw new Error("Could not persist verified entitlement");
+  }
 }
 
 export default async function handler(req, res) {
