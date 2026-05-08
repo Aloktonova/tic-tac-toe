@@ -20,6 +20,8 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
+const PURCHASE_VERIFY_TIMEOUT_MS = 25000;
+const PURCHASE_VERIFY_POLL_MS = 1500;
 
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
@@ -2111,11 +2113,9 @@ async function handlePurchaseSuccess(id) {
 async function waitForOwnedWallpaperVerification(id) {
   const uid = ensureNormalizedUserId();
   if (!uid || !db) return false;
-  const maxWaitMs = 25000;
-  const pollIntervalMs = 1500;
   const startedAt = Date.now();
 
-  while (Date.now() - startedAt < maxWaitMs) {
+  while (Date.now() - startedAt < PURCHASE_VERIFY_TIMEOUT_MS) {
     try {
       const ownedSnap = await db
         .ref('users/' + uid + '/ownedWallpapers/' + id)
@@ -2126,7 +2126,7 @@ async function waitForOwnedWallpaperVerification(id) {
     } catch (e) {
       console.warn('verify purchase read failed:', e);
     }
-    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    await new Promise(resolve => setTimeout(resolve, PURCHASE_VERIFY_POLL_MS));
   }
   return false;
 }

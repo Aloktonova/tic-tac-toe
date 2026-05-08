@@ -1,18 +1,5 @@
 import crypto from "node:crypto";
-
-const PRODUCT_CATALOG = Object.freeze({
-  galaxy: { id: "galaxy", name: "Galaxy", stars: 35 },
-  sakura: { id: "sakura", name: "Sakura", stars: 35 },
-  ocean: { id: "ocean", name: "Ocean", stars: 35 },
-  forest: { id: "forest", name: "Forest", stars: 35 },
-  fire: { id: "fire", name: "Fire", stars: 35 },
-  aurora: { id: "aurora", name: "Aurora", stars: 35 },
-  samurai: { id: "samurai", name: "Samurai", stars: 35 },
-  moonlight: { id: "moonlight", name: "Moonlight", stars: 35 },
-  meadow: { id: "meadow", name: "Meadow", stars: 35 },
-  castle: { id: "castle", name: "Dark Castle", stars: 35 },
-  neon: { id: "neon", name: "Neon City", stars: 35 }
-});
+import { PRODUCT_CATALOG } from "./_product-catalog.js";
 
 function isValidTelegramUserId(userId) {
   return typeof userId === "string" && /^[0-9]{1,20}$/.test(userId);
@@ -120,7 +107,7 @@ export default async function handler(req, res) {
     });
 
   } catch(e) {
-    console.error("create-invoice error");
+    console.error("create-invoice error:", e?.message || "unknown");
     return res.status(500).json({
       error: e.message || "Internal server error"
     });
