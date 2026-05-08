@@ -774,7 +774,16 @@ function setupEventListeners() {
 
   // Game
   document.getElementById('btn-back').addEventListener('click', leaveGame);
-  document.getElementById('btn-play-again').addEventListener('click', playAgain);
+  const playAgainBtn = document.getElementById('btn-play-again');
+  if (playAgainBtn) {
+    playAgainBtn.onclick = () => {
+      if (gameMode === 'ai') {
+        restartGame();
+      } else {
+        goHome();
+      }
+    };
+  }
   document.getElementById('btn-invite').addEventListener('click', handleInvite);
   document.getElementById('btn-send-chat').addEventListener('click', sendChatMessage);
   document.getElementById('chat-input').addEventListener('keydown', e => {
@@ -1461,30 +1470,20 @@ function showResultOverlay(outcome) {
 }
 
 /* ===== PLAY AGAIN ===== */
-function playAgain() {
-  if (gameMode === 'ai') {
-    board       = Array(9).fill('');
-    currentTurn = 'X';
-    gameOver    = false;
-    xpAwarded   = false;
-    renderBoard();
-    setStatus('Your Turn');
-    updateActiveTurn();
-    document.getElementById('result-overlay').classList.add('hidden');
-  } else if (gameMode === 'online' && db && roomId) {
-    // Alternate who goes first each round
-    roomFirstTurn = roomFirstTurn === 'X' ? 'O' : 'X';
-    xpAwarded = false; // reset for the new round
-    const newMatchId = Date.now();
-    db.ref('rooms/' + roomId).update({
-      board:              Array(9).fill(''),
-      turn:               roomFirstTurn,
-      winner:             null,
-      winningCells:       [],
-      'stats/matchId':    newMatchId,
-      'stats/awardedKey': null
-    }).catch(e => console.warn('Play again error:', e));
-  }
+function restartGame() {
+  board       = Array(9).fill('');
+  currentTurn = 'X';
+  gameOver    = false;
+  xpAwarded   = false;
+  renderBoard();
+  setStatus('Your Turn');
+  updateActiveTurn();
+  document.getElementById('result-overlay').classList.add('hidden');
+}
+
+function goHome() {
+  document.getElementById('result-overlay').classList.add('hidden');
+  leaveGame();
 }
 
 /* ===== LEAVE GAME ===== */
