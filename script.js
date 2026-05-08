@@ -1839,6 +1839,21 @@ function renderWallpaperPicker() {
       img.className = 'wp-thumb';
       img.alt = wp.name;
       img.loading = 'lazy';
+      img.onerror = function() {
+        this.style.display = "none";
+        const gradients = {
+          galaxy: "radial-gradient(ellipse at top, #1a0533, #0d0221, #000510)",
+          ocean: "linear-gradient(180deg, #082f49, #0c4a6e, #0369a1)",
+          forest: "linear-gradient(180deg, #020d07, #052e16, #14532d)",
+          fire: "radial-gradient(ellipse at bottom, #991b1b, #7f1d1d, #450a0a)",
+          aurora: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+          neon: "radial-gradient(ellipse at 30% 80%, #4f46e5, transparent), radial-gradient(ellipse at 70% 20%, #7c3aed, transparent), #0f0c29",
+          sakura: "linear-gradient(135deg, #831843, #9d174d, #be185d)"
+        };
+        card.style.background =
+          gradients[wp.id] ||
+          "linear-gradient(135deg, #1e1b4b, #0d0f2b)";
+      };
       img.src = wp.thumbnail;
       card.appendChild(img);
     } else {
@@ -1904,6 +1919,11 @@ function openWallpaperPreview(wp) {
 
   // Load full image on demand
   if (img && wp.fullImage) {
+    img.onerror = function() {
+      this.style.display = "none";
+      document.getElementById("wpPreviewBlur")
+        ?.classList.remove("hidden");
+    };
     img.src = wp.fullImage;
     img.classList.toggle('blurred', !unlocked);
   } else if (img) {
@@ -1970,9 +1990,9 @@ function showPurchaseModal(wp) {
   if (priceEl) priceEl.innerText = wp.price + ' ⭐ Stars';
   if (confirmBtn) {
     confirmBtn.textContent = 'Pay with Stars ⭐';
-    confirmBtn.onclick = () => {
+    confirmBtn.onclick = async () => {
+      await purchaseWallpaper(wp);
       closePurchaseModal();
-      purchaseWallpaper(wp);
     };
   }
   modal.classList.remove('hidden');
@@ -2048,9 +2068,6 @@ async function purchaseWallpaper(wallpaper) {
     );
 
     const data = await response.json();
-    console.log("Invoice response:", data);
-    showToast("Got: " + JSON.stringify(data)
-      .substring(0, 100));
 
     if (!data.invoiceLink) {
       throw new Error(
@@ -2065,18 +2082,28 @@ async function purchaseWallpaper(wallpaper) {
     }
 
     if (tgApp && tgApp.openInvoice) {
-      tgApp.openInvoice(
-        data.invoiceLink,
-        (status) => {
-          if (status === "paid") {
-            handlePurchaseSuccess(wallpaper.id);
-          } else if (status === "cancelled") {
-            showToast("Purchase cancelled");
-          } else if (status === "failed") {
-            showToast("Payment failed. Try again.");
+      try {
+        tgApp.openInvoice(
+          data.invoiceLink,
+          (status) => {
+            console.log("Payment status:", status);
+            if (status === "paid") {
+              handlePurchaseSuccess(wallpaper.id);
+              showToast("Wallpaper unlocked!");
+            } else if (status === "cancelled") {
+              showToast("Purchase cancelled");
+            } else if (status === "failed") {
+              showToast("Payment failed. Try again.");
+            } else {
+              showToast("Status: " + status);
+            }
           }
-        }
-      );
+        );
+      } catch(invoiceErr) {
+        console.error("openInvoice error:", invoiceErr);
+        showToast("Cannot open payment: "
+          + invoiceErr.message);
+      }
     } else {
       window.open(data.invoiceLink, "_blank");
     }
