@@ -90,12 +90,6 @@ body {
 #homeScreen,
 #gameScreen,
 #leaderboardScreen,
-#screen-home,
-#screen-game,
-#screen-leaderboard,
-#screen-profile,
-#screen-waiting,
-#screen-rules,
 #toast,
 #toast-msg {
   z-index: 1;
@@ -119,13 +113,7 @@ body {
 
 #homeScreen,
 #gameScreen,
-#leaderboardScreen,
-#screen-home,
-#screen-game,
-#screen-leaderboard,
-#screen-profile,
-#screen-waiting,
-#screen-rules {
+#leaderboardScreen {
   background: transparent;
 }
 
