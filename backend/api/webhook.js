@@ -3,6 +3,7 @@ import { PRODUCT_CATALOG } from "./_product-catalog.js";
 
 const MAX_INVOICE_PAYLOAD_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_INVOICE_PAYLOAD_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const SIGNATURE_LENGTH = 22;
 
 function isValidTelegramUserId(userId) {
   return typeof userId === "string" && /^[0-9]{1,20}$/.test(userId);
@@ -26,7 +27,7 @@ function buildPayloadSignature(secret, payloadData) {
   return crypto.createHmac("sha256", secret)
     .update(payloadData)
     .digest("base64url")
-    .slice(0, 22);
+    .slice(0, SIGNATURE_LENGTH);
 }
 
 function verifyInvoicePayload(payload, secret) {
@@ -47,7 +48,8 @@ function verifyInvoicePayload(payload, secret) {
   if (now - issuedAtMs > MAX_INVOICE_PAYLOAD_AGE_MS) return null;
   if (issuedAtMs - now > MAX_INVOICE_PAYLOAD_FUTURE_SKEW_MS) return null;
   if (!/^[A-Za-z0-9_-]{4,40}$/.test(nonce)) return null;
-  if (!/^[A-Za-z0-9_-]{10,40}$/.test(signature)) return null;
+  if (signature.length !== SIGNATURE_LENGTH) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(signature)) return null;
 
   const payloadData = "v1|" + wallpaperId + "|" + userId
     + "|" + issuedAtMs + "|" + nonce;
@@ -81,7 +83,9 @@ async function isPaymentAlreadyProcessed({ dbUrl, chargeId }) {
     `${dbUrl}/payments/${encodeURIComponent(chargeId)}.json`
   );
   if (!existing.ok) {
-    throw new Error("Could not read payment state");
+    throw new Error(
+      `Could not read payment state for charge ${chargeId} (status ${existing.status})`
+    );
   }
   const existingBody = await existing.json();
   return existingBody !== null;
@@ -113,7 +117,9 @@ async function writeVerifiedEntitlement({
     }
   );
   if (!patchRes.ok) {
-    throw new Error("Could not persist verified entitlement");
+    throw new Error(
+      `Could not persist verified entitlement for charge ${chargeId} (status ${patchRes.status})`
+    );
   }
 }
 

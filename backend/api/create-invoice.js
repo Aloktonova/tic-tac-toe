@@ -1,19 +1,22 @@
 import crypto from "node:crypto";
 import { PRODUCT_CATALOG } from "./_product-catalog.js";
 
+const NONCE_SIZE_BYTES = 10;
+const SIGNATURE_LENGTH = 22;
+
 function isValidTelegramUserId(userId) {
   return typeof userId === "string" && /^[0-9]{1,20}$/.test(userId);
 }
 
 function buildSignedInvoicePayload({ wallpaperId, userId, secret }) {
   const issuedAtMs = Date.now();
-  const nonce = crypto.randomBytes(5).toString("base64url");
+  const nonce = crypto.randomBytes(NONCE_SIZE_BYTES).toString("base64url");
   const payloadData =
     "v1|" + wallpaperId + "|" + userId + "|" + issuedAtMs + "|" + nonce;
   const signature = crypto.createHmac("sha256", secret)
     .update(payloadData)
     .digest("base64url")
-    .slice(0, 22);
+    .slice(0, SIGNATURE_LENGTH);
   return "v1:" + wallpaperId + ":" + userId + ":"
     + issuedAtMs + ":" + nonce + ":" + signature;
 }
