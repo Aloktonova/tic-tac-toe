@@ -31,6 +31,7 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const TELEGRAM_MINI_APP_NAME = 'app';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
+const WALLPAPER_STORAGE_KEY = 'wallpaper';
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
@@ -636,7 +637,7 @@ async function identifyUser() {
         currentWallpaper = d.selectedWallpaper;
       } else {
         try {
-          currentWallpaper = localStorage.getItem('wallpaper') || 'none';
+          currentWallpaper = localStorage.getItem(WALLPAPER_STORAGE_KEY) || 'none';
         } catch (e) {
           currentWallpaper = 'none';
         }
@@ -2177,7 +2178,7 @@ async function handlePurchaseSuccess(id) {
 function applyWallpaper(wallpaperId) {
   currentWallpaper = wallpaperId;
   try {
-    localStorage.setItem("wallpaper", wallpaperId);
+    localStorage.setItem(WALLPAPER_STORAGE_KEY, wallpaperId);
   } catch(e) {}
 
   const el = document.getElementById("globalWallpaper");
@@ -2203,7 +2204,7 @@ function applyWallpaper(wallpaperId) {
 function loadSavedWallpaper() {
   let saved = "none";
   try {
-    saved = localStorage.getItem("wallpaper") || "none";
+    saved = localStorage.getItem(WALLPAPER_STORAGE_KEY) || "none";
   } catch(e) {}
   applyWallpaper(saved);
 }
