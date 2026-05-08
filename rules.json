@@ -1,109 +1,59 @@
 {
   "rules": {
-    ".read": false,
-    ".write": false,
-
-    "players": {
+    "users": {
       "$userId": {
-        ".read": true,
-        ".write": "(!data.exists() && newData.hasChildren(['name', 'wins']) && newData.child('name').isString() && newData.child('wins').isNumber() && newData.child('wins').val() === 0) || (data.exists() && newData.hasChildren(['name', 'wins']) && newData.child('name').isString() && newData.child('wins').isNumber() && newData.child('wins').val() === data.child('wins').val() && (!newData.child('lastWinRoomId').exists() || newData.child('lastWinRoomId').val() === data.child('lastWinRoomId').val()) && (!newData.child('lastAwardedKey').exists() || newData.child('lastAwardedKey').val() === data.child('lastAwardedKey').val())) || (data.exists() && newData.hasChildren(['name', 'wins', 'lastWinRoomId', 'lastAwardedKey']) && newData.child('name').isString() && newData.child('wins').isNumber() && data.child('wins').isNumber() && newData.child('wins').val() === data.child('wins').val() + 1 && newData.child('lastWinRoomId').isString() && newData.child('lastAwardedKey').isString() && (!data.child('lastAwardedKey').exists() || data.child('lastAwardedKey').val() !== newData.child('lastAwardedKey').val()) && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('stats').child('awardedKey').val() === newData.child('lastAwardedKey').val() && ((root.child('rooms').child(newData.child('lastWinRoomId').val()).child('winner').val() === 'X' && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('players').child('X').child('id').val() === $userId) || (root.child('rooms').child(newData.child('lastWinRoomId').val()).child('winner').val() === 'O' && root.child('rooms').child(newData.child('lastWinRoomId').val()).child('players').child('O').child('id').val() === $userId)))",
-        "name": { ".validate": "newData.isString()" },
-        "wins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "lastWinRoomId": { ".validate": "newData.val() === null || newData.isString()" },
-        "lastAwardedKey": { ".validate": "newData.val() === null || newData.isString()" },
-        "$other": { ".validate": false }
+        ".read": "$userId === auth.uid || auth !== null",
+        ".write": false,
+        "name": {
+          ".write": "$userId === auth.uid"
+        },
+        "language": {
+          ".write": "$userId === auth.uid"
+        },
+        "lastActive": {
+          ".write": "$userId === auth.uid"
+        },
+        "unlockedWallpapers": {
+          ".read": "$userId === auth.uid",
+          ".write": false
+        },
+        "coins": {
+          ".read": "$userId === auth.uid",
+          ".write": false
+        },
+        "wins": {
+          ".read": true,
+          ".write": false
+        },
+        "losses": {
+          ".read": "$userId === auth.uid",
+          ".write": false
+        },
+        "xp": {
+          ".read": "$userId === auth.uid",
+          ".write": false
+        }
       }
     },
-
     "rooms": {
       "$roomId": {
         ".read": true,
-        ".write": true,
-        ".validate": "newData.hasChildren(['board', 'turn', 'players'])",
-
-        "board": {
-          "$index": {
-            ".validate": "newData.isString() && (newData.val() === '' || newData.val() === 'X' || newData.val() === 'O')"
-          }
-        },
-
-        "turn": {
-          ".validate": "newData.val() === 'X' || newData.val() === 'O' || newData.val() === null"
-        },
-
-        "winner": {
-          ".validate": "newData.val() === null || newData.val() === 'X' || newData.val() === 'O' || newData.val() === 'draw'"
-        },
-
-        "winningCells": {
-          "$i": {
-            ".validate": "newData.isNumber()"
-          }
-        },
-
-        "playerXWins": {
-          ".validate": "newData.isNumber() && newData.val() >= 0"
-        },
-
-        "playerOWins": {
-          ".validate": "newData.isNumber() && newData.val() >= 0"
-        },
-
-        "playerX": {
-          ".validate": "newData.isString() && (!data.exists() || data.val() === newData.val())"
-        },
-
-        "playerO": {
-          ".validate": "newData.val() === null || (newData.isString() && (!data.exists() || data.val() === newData.val()))"
-        },
-
-        "stats": {
-          "matchId": {
-            ".validate": "newData.isNumber() && newData.val() >= 1"
-          },
-          "awardedKey": {
-            ".validate": "newData.val() === null || (newData.isString() && newData.val().matches(/^[-_A-Za-z0-9]+:[0-9]+$/))"
-          },
-          "$other": { ".validate": false }
-        },
-
-        "players": {
-          ".validate": "newData.hasChildren(['X'])",
-
-          "X": {
-            ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').isString() && newData.child('name').isString()",
-            "id": {
-              ".validate": "!data.exists() || data.val() === newData.val()"
-            },
-            "name": { ".validate": "newData.isString()" },
-            "$other": { ".validate": false }
-          },
-
-          "O": {
-            ".validate": "newData.val() === null || (newData.hasChildren(['id', 'name']) && newData.child('id').isString() && newData.child('name').isString())",
-            "id": {
-              ".validate": "!data.exists() || data.val() === newData.val()"
-            },
-            "name": { ".validate": "newData.isString()" },
-            "$other": { ".validate": false }
-          },
-
-          "$other": { ".validate": false }
-        },
-
-        "messages": {
-          "$messageId": {
-            ".validate": "newData.hasChildren(['userId', 'name', 'text', 'time'])",
-            "userId":     { ".validate": "newData.isString()" },
-            "name":       { ".validate": "newData.isString()" },
-            "text":       { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 500" },
-            "time":       { ".validate": "newData.isNumber()" },
-            "$other":     { ".validate": false }
-          }
-        },
-
-        "$other": { ".validate": false }
+        ".write": "auth !== null"
       }
+    },
+    "queue": {
+      "$userId": {
+        ".read": true,
+        ".write": "$userId === auth.uid"
+      }
+    },
+    "payments": {
+      ".read": false,
+      ".write": false
+    },
+    "leaderboard": {
+      ".read": true,
+      ".write": false
     }
   }
 }
