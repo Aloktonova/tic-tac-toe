@@ -34,12 +34,8 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 
 1. Clone this repository.
 2. Add your Firebase configuration in `script.js`.
-3. Deploy/run the backend API routes in `backend/api` (for example on Vercel) with:
-   - `BOT_TOKEN`
-   - `APP_ORIGIN`
-   - `FIREBASE_DATABASE_URL`
-   - `PAYMENT_PAYLOAD_SECRET`
-   - `TELEGRAM_WEBHOOK_SECRET`
+3. Start Telegram Stars backend endpoint:
+   - `TELEGRAM_BOT_TOKEN=<your_bot_token> node backend/server.js`
 4. Configure frontend endpoint before loading `script.js`:
    - `window.__TG_STARS_INVOICE_ENDPOINT__ = "https://<your-domain>/api/telegram/stars/invoice";`
 5. Open `index.html` locally or deploy the project.
@@ -49,21 +45,19 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 - `index.html` — Main app layout and Telegram/Firebase script imports.
 - `style.css` — UI styling for screens, board, modals, and responsive layout.
 - `script.js` — Game logic, AI modes, Firebase multiplayer sync, Telegram WebApp integration, and player stats.
-- `backend/api/create-invoice.js` — Creates Telegram Stars invoice links from server-side catalog data.
-- `backend/api/webhook.js` — Verifies Telegram payment updates and grants entitlements server-side.
+- `backend/server.js` — Telegram Stars invoice endpoint using Bot API `createInvoiceLink`.
 
 ## Telegram Stars Payments
 
-- Frontend sends only `wallpaperId` and `userId` to backend.
-- Backend uses a server-side catalog and signed payload, then calls Telegram Bot API `createInvoiceLink` with:
+- Frontend sends `telegramUserId`, `itemType`, `wallpaperId`/`itemId`, and `starsAmount` to backend endpoint.
+- Backend validates against server-side catalog and calls Telegram Bot API `createInvoiceLink` with:
   - `title`
   - `description`
   - `payload`
   - `currency: "XTR"`
   - `prices`
 - Frontend opens checkout via `Telegram.WebApp.openInvoice(invoiceUrl)`.
-- Frontend treats callback `status === "paid"` as provisional and waits for backend verification.
-- Webhook validates secret header, payload signature, user binding, and amount/currency before entitlement write.
+- Wallpaper unlock happens only after callback status is `paid`.
 - Purchases are stored in Firebase per user under:
   - `users/{telegramUserId}/ownedWallpapers/{wallpaperId}: true`
 
