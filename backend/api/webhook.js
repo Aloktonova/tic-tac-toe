@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     if (!TELEGRAM_WEBHOOK_SECRET) missing.push("TELEGRAM_WEBHOOK_SECRET");
     if (!PAYMENT_PAYLOAD_SECRET) missing.push("PAYMENT_PAYLOAD_SECRET");
     console.error("Webhook env missing:", missing.join(","));
-    return res.status(200).json({ ok: true });
+    return res.status(500).json({ error: "Webhook misconfigured" });
   }
 
   if (!verifyWebhookSecret(req, TELEGRAM_WEBHOOK_SECRET)) {
@@ -177,6 +177,7 @@ export default async function handler(req, res) {
       PAYMENT_PAYLOAD_SECRET
     );
     if (!parsedPayload || typeof chargeId !== "string" || !chargeId.trim()) {
+      console.warn("Rejected successful_payment: invalid payload or charge id");
       return res.status(200).json({ ok: true });
     }
 
@@ -184,11 +185,13 @@ export default async function handler(req, res) {
     if (!product
       || payment.currency !== "XTR"
       || Number(payment.total_amount) !== product.stars) {
+      console.warn("Rejected successful_payment: price/currency mismatch");
       return res.status(200).json({ ok: true });
     }
 
     const messageFromId = String(update.message?.from?.id || "");
     if (messageFromId !== parsedPayload.userId) {
+      console.warn("Rejected successful_payment: user id mismatch");
       return res.status(200).json({ ok: true });
     }
 

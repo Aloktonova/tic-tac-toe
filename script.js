@@ -2113,9 +2113,9 @@ async function handlePurchaseSuccess(id) {
 async function waitForOwnedWallpaperVerification(id) {
   const uid = ensureNormalizedUserId();
   if (!uid || !db) return false;
-  const startedAt = Date.now();
+  const timeoutAt = Date.now() + PURCHASE_VERIFY_TIMEOUT_MS;
 
-  while (Date.now() - startedAt < PURCHASE_VERIFY_TIMEOUT_MS) {
+  while (Date.now() < timeoutAt) {
     try {
       const ownedSnap = await db
         .ref('users/' + uid + '/ownedWallpapers/' + id)

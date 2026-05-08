@@ -19,10 +19,13 @@ function buildSignedInvoicePayload({ wallpaperId, userId, secret }) {
 }
 
 export default async function handler(req, res) {
-  const allowedOrigin = process.env.APP_ORIGIN || "";
-  if (allowedOrigin) {
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  const allowedOrigin = process.env.APP_ORIGIN;
+  if (!allowedOrigin) {
+    return res.status(500).json({
+      error: "APP_ORIGIN not configured"
+    });
   }
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
