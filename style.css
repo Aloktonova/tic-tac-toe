@@ -19,6 +19,7 @@
   --highlight-win: #818cf8;
   --nav-bg: #09071a;
   --nav-height: 64px;
+  --wallpaper-overlay-opacity: 0.72;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
@@ -38,7 +39,7 @@ html, body {
 }
 
 body {
-  background: #0d0b1e;
+  background: #050314;
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   min-height: 100vh;
@@ -62,22 +63,42 @@ body {
 /* Sits behind everything (z: 0), visible on every screen */
 .global-wallpaper {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   z-index: 0;
+  opacity: 0;
   pointer-events: none;
-  transition: background-image 0.4s ease;
+  transition: opacity 0.4s ease;
 }
 
-/* Dark gradient tint between wallpaper and app content for readability */
-.wallpaper-tint {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(160deg, rgba(13,11,30,0.82) 0%, rgba(18,8,37,0.82) 50%, rgba(15,11,40,0.82) 100%);
+/* Dark overlay so text stays readable */
+.global-wallpaper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 3, 20, var(--wallpaper-overlay-opacity));
+}
+
+.screen,
+#homeScreen,
+#gameScreen,
+#leaderboardScreen,
+#toast,
+#toast-msg {
   z-index: 1;
-  pointer-events: none;
+}
+
+.modal {
+  position: relative;
+  z-index: 160;
 }
 
 /* ===== SCREENS ===== */
@@ -88,6 +109,13 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  background: transparent;
+}
+
+#homeScreen,
+#gameScreen,
+#leaderboardScreen {
+  background: transparent;
 }
 
 .hidden {
@@ -277,7 +305,7 @@ body {
   border-top: 1px solid rgba(129, 140, 248, 0.15);
   display: flex;
   align-items: center;
-  z-index: 100;
+  z-index: 300;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -434,12 +462,14 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 6px;
-  background: var(--bg-secondary);
+  padding: 8px 12px;
+  background: rgba(15, 12, 40, 0.6);
   border-radius: var(--radius);
   border: 2px solid var(--border-color);
   transition: border-color 0.25s, background 0.25s;
   min-width: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .player-info.active-turn {
   border-color: var(--accent-neon);
@@ -672,15 +702,32 @@ body {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--bg-secondary);
+  background: rgba(15, 12, 40, 0.6);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
   margin-bottom: 8px;
   transition: border-color 0.2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .leaderboard-row.me {
   border-color: var(--accent-neon);
   background: rgba(129, 140, 248, 0.06);
+}
+
+.player-stat-block,
+.player-card {
+  background: rgba(15, 12, 40, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.leaderboard-card {
+  background: rgba(15, 12, 40, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .rank {
@@ -751,7 +798,9 @@ body {
 .modal-content {
   width: 100%;
   max-width: 480px;
-  background: var(--bg-secondary);
+  background: rgba(15, 12, 40, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 24px 24px 0 0;
   padding: 28px 24px calc(28px + env(safe-area-inset-bottom, 0));
   position: relative;
@@ -1242,8 +1291,15 @@ body {
 
 /* ===== GAME BOARD OVERLAY ===== */
 #game-board {
-  background: rgba(10, 8, 30, 0.75);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 8, 30, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+#board {
+  background: rgba(10, 8, 30, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* ===== WALLPAPER PICKER ===== */
@@ -1538,11 +1594,13 @@ body {
   gap: 14px;
   margin: 14px 14px 0;
   padding: 14px 16px;
-  background: rgba(26, 20, 56, 0.8);
+  background: rgba(15, 12, 40, 0.6);
   border: 1px solid rgba(124, 58, 237, 0.45);
   border-radius: 16px;
   box-shadow: 0 0 18px rgba(124, 58, 237, 0.2);
   flex-shrink: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .lb-my-avatar {
@@ -1711,11 +1769,13 @@ body {
   align-items: center;
   gap: 10px;
   padding: 11px 14px;
-  background: var(--bg-secondary);
+  background: rgba(15, 12, 40, 0.6);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
   border-left: 3px solid transparent;
   transition: border-color 0.2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .lb-row-me {
