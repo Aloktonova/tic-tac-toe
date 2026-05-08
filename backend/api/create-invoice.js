@@ -6,6 +6,9 @@ const PRODUCTS = {
   aurora: { name: "Aurora", price: 35 },
   neon: { name: "Neon City", price: 50 }
 };
+const requestLog = new Map();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX = 5; // max 5 invoices per minute
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -39,6 +42,21 @@ export default async function handler(req, res) {
         error: "Invalid product"
       });
     }
+    const clientIp = req.headers["x-forwarded-for"]
+      || req.socket?.remoteAddress || "unknown";
+    const now = Date.now();
+    const userKey = (userId || "anon") + "_" + clientIp;
+    const userLog = requestLog.get(userKey) || [];
+    const recentRequests = userLog.filter(
+      t => now - t < RATE_LIMIT_WINDOW_MS
+    );
+    if (recentRequests.length >= RATE_LIMIT_MAX) {
+      return res.status(429).json({
+        error: "Too many requests. Try again later."
+      });
+    }
+    recentRequests.push(now);
+    requestLog.set(userKey, recentRequests);
     const wallpaperName = product.name;
     const price = product.price;
 
