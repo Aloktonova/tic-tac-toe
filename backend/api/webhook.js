@@ -1,10 +1,30 @@
+import crypto from "node:crypto";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   const secret = req.headers[
     "x-telegram-bot-api-secret-token"
   ];
-  if (secret !== process.env.WEBHOOK_SECRET) {
+  const expectedSecret = process.env.WEBHOOK_SECRET;
+  if (
+    !expectedSecret
+    || typeof secret !== "string"
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const secretBuffer = Buffer.from(secret);
+  const expectedBuffer = Buffer.from(expectedSecret);
+  if (
+    secretBuffer.length !== expectedBuffer.length
+    || !crypto.timingSafeEqual(
+      secretBuffer,
+      expectedBuffer
+    )
+  ) {
     return res.status(401).json({
       error: "Unauthorized"
     });
