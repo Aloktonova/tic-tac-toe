@@ -1,6 +1,15 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
+  const secret = req.headers[
+    "x-telegram-bot-api-secret-token"
+  ];
+  if (secret !== process.env.WEBHOOK_SECRET) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
   if (req.method !== "POST") {
     return res.status(200).end();
   }
