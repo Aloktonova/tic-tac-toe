@@ -96,13 +96,14 @@ body {
 #screen-profile,
 #screen-waiting,
 #screen-rules,
-.modal,
-.modal-overlay,
-.bottom-nav,
 #toast,
 #toast-msg {
-  position: relative;
   z-index: 1;
+}
+
+.modal {
+  position: relative;
+  z-index: 160;
 }
 
 /* ===== SCREENS ===== */

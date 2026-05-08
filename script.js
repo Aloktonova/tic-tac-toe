@@ -2180,22 +2180,17 @@ function applyWallpaper(wallpaperId) {
     localStorage.setItem("wallpaper", wallpaperId);
   } catch(e) {}
 
-  const el = document.getElementById(
-    "globalWallpaper"
-  );
+  const el = document.getElementById("globalWallpaper");
   if (!el) return;
 
-  const wp = WALLPAPERS.find(
-    w => w.id === wallpaperId
-  );
+  const wp = WALLPAPERS.find(w => w.id === wallpaperId);
 
   if (!wp || !wp.fullImage) {
     el.style.backgroundImage = "none";
     el.style.opacity = "0";
   } else {
     const safePath = wp.fullImage.replace(/'/g, "%27");
-    el.style.backgroundImage =
-      "url('" + safePath + "')";
+    el.style.backgroundImage = "url('" + safePath + "')";
     el.style.backgroundSize = "cover";
     el.style.backgroundPosition = "center";
     el.style.backgroundRepeat = "no-repeat";
@@ -2208,8 +2203,7 @@ function applyWallpaper(wallpaperId) {
 function loadSavedWallpaper() {
   let saved = "none";
   try {
-    saved = localStorage.getItem("wallpaper")
-      || "none";
+    saved = localStorage.getItem("wallpaper") || "none";
   } catch(e) {}
   applyWallpaper(saved);
 }
