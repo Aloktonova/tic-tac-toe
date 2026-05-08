@@ -2193,8 +2193,9 @@ function applyWallpaper(wallpaperId) {
     el.style.backgroundImage = "none";
     el.style.opacity = "0";
   } else {
+    const safePath = wp.fullImage.replace(/'/g, "%27");
     el.style.backgroundImage =
-      "url('" + wp.fullImage + "')";
+      "url('" + safePath + "')";
     el.style.backgroundSize = "cover";
     el.style.backgroundPosition = "center";
     el.style.backgroundRepeat = "no-repeat";
