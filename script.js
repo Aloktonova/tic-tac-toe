@@ -29,6 +29,7 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 // The app name "app" must match what BotFather shows.
 // Check with: https://t.me/Tictocgame22_bot/app
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
+const TELEGRAM_MINI_APP_NAME = 'app';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
 const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
@@ -534,11 +535,9 @@ async function loadUserLanguage() {
 
 /* ===== SHARE GAME LINK ===== */
 function buildInviteLink(roomId) {
-  const botUsername = 'Tictocgame22_bot';
-  const appName = 'app';
   const startParam = 'room_' + roomId;
-  return 'https://t.me/' + botUsername
-    + '/' + appName
+  return 'https://t.me/' + REFERRAL_BOT_USERNAME
+    + '/' + TELEGRAM_MINI_APP_NAME
     + '?startapp=' + startParam;
 }
 
@@ -2865,7 +2864,7 @@ async function purchaseWithCoins(wallpaper) {
 function getReferralLink() {
   const uid = ensureNormalizedUserId();
   if (!uid) return null;
-  return 'https://t.me/Tictocgame22_bot/app'
+  return 'https://t.me/' + REFERRAL_BOT_USERNAME + '/' + TELEGRAM_MINI_APP_NAME
     + '?startapp=ref_' + uid;
 }
 
