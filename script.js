@@ -20,8 +20,6 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
-const PURCHASE_VERIFY_TIMEOUT_MS = 25000;
-const PURCHASE_VERIFY_POLL_MS = 1500;
 
 // Referral system configuration
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
@@ -2042,12 +2040,17 @@ async function purchaseWallpaper(wallpaper) {
         },
         body: JSON.stringify({
           wallpaperId: wallpaper.id,
+          wallpaperName: wallpaper.name,
+          price: wallpaper.price,
           userId: uid
         })
       }
     );
 
     const data = await response.json();
+    console.log("Invoice response:", data);
+    showToast("Got: " + JSON.stringify(data)
+      .substring(0, 100));
 
     if (!data.invoiceLink) {
       throw new Error(
@@ -2066,7 +2069,7 @@ async function purchaseWallpaper(wallpaper) {
         data.invoiceLink,
         (status) => {
           if (status === "paid") {
-            handleTelegramPaymentSuccess(wallpaper.id);
+            handlePurchaseSuccess(wallpaper.id);
           } else if (status === "cancelled") {
             showToast("Purchase cancelled");
           } else if (status === "failed") {
@@ -2108,48 +2111,6 @@ async function handlePurchaseSuccess(id) {
   await unlockWallpaper(id);
   closeWallpaperPreview();
   closePurchaseModal();
-}
-
-async function waitForOwnedWallpaperVerification(id) {
-  const uid = ensureNormalizedUserId();
-  if (!uid || !db) return false;
-  const timeoutAt = Date.now() + PURCHASE_VERIFY_TIMEOUT_MS;
-
-  while (Date.now() < timeoutAt) {
-    try {
-      const ownedSnap = await db
-        .ref('users/' + uid + '/ownedWallpapers/' + id)
-        .once('value');
-      if (ownedSnap.val() === true) {
-        return true;
-      }
-    } catch (e) {
-      console.warn('verify purchase read failed:', e);
-    }
-    await new Promise(resolve => setTimeout(resolve, PURCHASE_VERIFY_POLL_MS));
-  }
-  return false;
-}
-
-function applyVerifiedWallpaperOwnership(id) {
-  if (!purchasedWallpapers.includes(id)) {
-    purchasedWallpapers.push(id);
-  }
-  applyWallpaper(id);
-  renderWallpaperPicker();
-}
-
-async function handleTelegramPaymentSuccess(id) {
-  showToast('Payment received. Verifying...');
-  const verified = await waitForOwnedWallpaperVerification(id);
-  if (!verified) {
-    showToast('Verification pending. Please reopen wallpapers shortly.');
-    return;
-  }
-  applyVerifiedWallpaperOwnership(id);
-  closeWallpaperPreview();
-  closePurchaseModal();
-  showToast('Wallpaper unlocked!');
 }
 
 function applyWallpaper(wallpaperId) {
