@@ -22,6 +22,12 @@ const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 
 // Referral system configuration
+// IMPORTANT: Make sure your bot has a
+// Mini App configured in BotFather.
+// Go to BotFather → /mybots → Bot Settings
+// → Mini App → Set URL to your GitHub Pages URL
+// The app name "app" must match what BotFather shows.
+// Check with: https://t.me/Tictocgame22_bot/app
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
 const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
@@ -527,8 +533,17 @@ async function loadUserLanguage() {
 }
 
 /* ===== SHARE GAME LINK ===== */
+function buildInviteLink(roomId) {
+  const botUsername = 'Tictocgame22_bot';
+  const appName = 'app';
+  const startParam = 'room_' + roomId;
+  return 'https://t.me/' + botUsername
+    + '/' + appName
+    + '?startapp=' + startParam;
+}
+
 function shareGameLink(rId) {
-  const url = window.location.origin + window.location.pathname + '#room=' + rId;
+  const url = buildInviteLink(rId);
   const text = 'Join my Tic Tac Toe game! Can you beat me? 🎮';
   const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text);
 
@@ -714,12 +729,26 @@ function setAvatarColor(el, name) {
 }
 
 /* ===== URL PARAMS (invite link) ===== */
+function getRoomIdFromUrl() {
+  // Method 1: Telegram Mini App start_param
+  const startParam = window.Telegram?.WebApp
+    ?.initDataUnsafe?.start_param;
+  if (startParam && startParam.startsWith('room_')) {
+    return startParam.replace('room_', '');
+  }
+
+  // Method 2: URL hash fallback for browser
+  const hash = window.location.hash;
+  if (hash.startsWith('#room=')) {
+    return hash.replace('#room=', '').trim();
+  }
+
+  return null;
+}
+
 function checkUrlParams() {
   try {
-    // Support ?room= (legacy) and #room= (new share format)
-    const params     = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const inviteRoom = params.get('room') || hashParams.get('room');
+    const inviteRoom = getRoomIdFromUrl();
     if (inviteRoom) joinRoomAsO(inviteRoom);
   } catch (e) {
     console.warn('URL params:', e);
@@ -2836,7 +2865,8 @@ async function purchaseWithCoins(wallpaper) {
 function getReferralLink() {
   const uid = ensureNormalizedUserId();
   if (!uid) return null;
-  return 'https://t.me/' + REFERRAL_BOT_USERNAME + '?startapp=ref_' + uid;
+  return 'https://t.me/Tictocgame22_bot/app'
+    + '?startapp=ref_' + uid;
 }
 
 function shareReferralLink() {
