@@ -1,5 +1,3 @@
-import { createSign } from "node:crypto";
-
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -10,15 +8,20 @@ export default async function handler(req, res) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
   const FIREBASE_DATABASE_URL =
     process.env.FIREBASE_DATABASE_URL;
-  const FIREBASE_SERVICE_ACCOUNT =
-    process.env.FIREBASE_SERVICE_ACCOUNT;
 
   try {
     const update = req.body;
+    console.log("Webhook update:",
+      JSON.stringify(update));
 
-    // Handle pre_checkout_query
+    // CRITICAL: Handle pre_checkout_query
+    // MUST respond within 10 seconds
+    // or payment is cancelled
     if (update.pre_checkout_query) {
-      await fetch(
+      console.log("pre_checkout_query received:",
+        update.pre_checkout_query.id);
+
+      const answer = await fetch(
         `https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`,
         {
           method: "POST",
@@ -32,6 +35,10 @@ export default async function handler(req, res) {
           })
         }
       );
+      const answerData = await answer.json();
+      console.log("answerPreCheckoutQuery:",
+        answerData);
+
       return res.status(200).json({ ok: true });
     }
 
@@ -43,63 +50,40 @@ export default async function handler(req, res) {
       const chargeId =
         payment.telegram_payment_charge_id;
 
-      // Parse payload: wp_{wallpaperId}_{userId}
-      const parts = payload.split("_");
-      // Format: wp, wallpaperId, userId
-      const wallpaperId = parts[1];
-      const userId = parts.slice(2).join("_");
+      console.log("successful_payment:",
+        payload, chargeId);
 
-      if (wallpaperId && userId
-        && FIREBASE_DATABASE_URL
-        && FIREBASE_SERVICE_ACCOUNT) {
+      // Parse payload: wallpaperId_userId
+      const underscoreIndex = payload.indexOf("_");
+      const wallpaperId =
+        payload.substring(0, underscoreIndex);
+      const userId =
+        payload.substring(underscoreIndex + 1);
 
-        // Save to Firebase using REST API
-        // No SDK needed — use Firebase REST API
-        const serviceAccount = JSON.parse(
-          FIREBASE_SERVICE_ACCOUNT
-        );
+      console.log("Unlocking:", wallpaperId,
+        "for user:", userId);
 
-        // Get access token for Firebase REST
-        const tokenResponse = await fetch(
-          "https://oauth2.googleapis.com/token",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-            body: JSON.stringify({
-              grant_type:
-                "urn:ietf:params:oauth:grant-type:jwt-bearer",
-              assertion: createJWT(serviceAccount)
-            })
-          }
-        );
-        const tokenData =
-          await tokenResponse.json();
-        const accessToken =
-          tokenData.access_token;
-
-        if (accessToken) {
-          // Unlock wallpaper in Firebase
-          await fetch(
-            FIREBASE_DATABASE_URL
-            + "/users/" + userId
-            + "/unlockedWallpapers/"
-            + wallpaperId + ".json"
-            + "?access_token=" + accessToken,
+      // Save to Firebase using REST API
+      if (FIREBASE_DATABASE_URL
+        && wallpaperId && userId) {
+        try {
+          // Unlock wallpaper
+          const fbRes = await fetch(
+            `${FIREBASE_DATABASE_URL}/users/${userId}/unlockedWallpapers/${wallpaperId}.json`,
             {
               method: "PUT",
+              headers: {
+                "Content-Type": "application/json"
+              },
               body: "true"
             }
           );
+          console.log("Firebase unlock status:",
+            fbRes.status);
 
           // Save payment record
           await fetch(
-            FIREBASE_DATABASE_URL
-            + "/payments/" + chargeId
-            + ".json"
-            + "?access_token=" + accessToken,
+            `${FIREBASE_DATABASE_URL}/payments/${chargeId}.json`,
             {
               method: "PUT",
               headers: {
@@ -115,6 +99,8 @@ export default async function handler(req, res) {
               })
             }
           );
+        } catch(fbErr) {
+          console.error("Firebase error:", fbErr);
         }
       }
 
@@ -123,43 +109,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true });
 
-  } catch(error) {
-    console.error("webhook error:", error);
+  } catch(e) {
+    console.error("Webhook error:", e);
+    // Always return 200 to Telegram
     return res.status(200).json({ ok: true });
   }
-}
-
-// Create JWT for Firebase auth
-function createJWT(serviceAccount) {
-  if (!serviceAccount?.client_email
-    || !serviceAccount?.private_key) {
-    throw new Error("Invalid Firebase service account");
-  }
-
-  const header = Buffer.from(JSON.stringify({
-    alg: "RS256",
-    typ: "JWT"
-  })).toString("base64url");
-
-  const now = Math.floor(Date.now() / 1000);
-  const claim = Buffer.from(JSON.stringify({
-    iss: serviceAccount.client_email,
-    scope:
-      "https://www.googleapis.com/auth/firebase.database"
-      + " https://www.googleapis.com/auth/userinfo.email",
-    aud:
-      "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now
-  })).toString("base64url");
-
-  const signingInput = header + "." + claim;
-  const signer = createSign("RSA-SHA256");
-  signer.update(signingInput);
-  signer.end();
-  const signature = signer
-    .sign(serviceAccount.private_key)
-    .toString("base64url");
-
-  return signingInput + "." + signature;
 }

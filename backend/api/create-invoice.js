@@ -1,13 +1,9 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type"
-  );
+  res.setHeader("Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers",
+    "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -27,12 +23,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const {
-      wallpaperId,
-      wallpaperName,
-      price,
-      userId
-    } = req.body;
+    const { wallpaperId, wallpaperName,
+      price, userId } = req.body;
 
     if (!wallpaperId || !price || !userId) {
       return res.status(400).json({
@@ -40,7 +32,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const response = await fetch(
+    const telegramRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
       {
         method: "POST",
@@ -50,26 +42,24 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           title: wallpaperName + " Wallpaper",
           description: "Unlock " + wallpaperName
-            + " wallpaper permanently",
-          payload: "wp_" + wallpaperId
-            + "_" + userId,
+            + " wallpaper permanently in Tic Tac Toe",
+          payload: wallpaperId + "_" + userId,
           provider_token: "",
           currency: "XTR",
           prices: [{
-            label: wallpaperName,
+            label: wallpaperName + " Wallpaper",
             amount: price
           }]
         })
       }
     );
 
-    const data = await response.json();
+    const data = await telegramRes.json();
+    console.log("Telegram createInvoiceLink:", data);
 
     if (!data.ok) {
-      console.error("Telegram API error:", data);
       return res.status(500).json({
-        error: "Failed to create invoice",
-        details: data.description
+        error: data.description || "Telegram API error"
       });
     }
 
@@ -77,10 +67,10 @@ export default async function handler(req, res) {
       invoiceLink: data.result
     });
 
-  } catch(error) {
-    console.error("create-invoice error:", error);
+  } catch(e) {
+    console.error("create-invoice error:", e);
     return res.status(500).json({
-      error: "Failed to create invoice link"
+      error: e.message || "Internal server error"
     });
   }
 }
