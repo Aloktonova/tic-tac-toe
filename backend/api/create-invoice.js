@@ -1,10 +1,15 @@
 const PRODUCTS = {
-  galaxy: { name: "Galaxy", price: 35 },
-  ocean: { name: "Ocean", price: 35 },
-  forest: { name: "Forest", price: 35 },
-  fire: { name: "Fire", price: 35 },
-  aurora: { name: "Aurora", price: 35 },
-  neon: { name: "Neon City", price: 50 }
+  galaxy:   { name: "Galaxy",      price: 35 },
+  sakura:   { name: "Sakura",      price: 35 },
+  ocean:    { name: "Ocean",       price: 35 },
+  forest:   { name: "Forest",      price: 35 },
+  fire:     { name: "Fire",        price: 35 },
+  aurora:   { name: "Aurora",      price: 35 },
+  samurai:  { name: "Samurai",     price: 35 },
+  moonlight:{ name: "Moonlight",   price: 35 },
+  meadow:   { name: "Meadow",      price: 35 },
+  castle:   { name: "Dark Castle", price: 35 },
+  neon:     { name: "Neon City",   price: 35 }
 };
 const requestLog = new Map();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
