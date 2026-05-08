@@ -1,6 +1,6 @@
 {
   "version": 2,
   "env": {
-    "WEBHOOK_SECRET": "mySecretKey123XYZ"
+    "WEBHOOK_SECRET": "<set-in-vercel-project-env>"
   }
 }
