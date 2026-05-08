@@ -2108,7 +2108,15 @@ async function unlockWallpaper(id) {
 }
 
 async function handlePurchaseSuccess(id) {
-  await unlockWallpaper(id);
+  const unlockedWallpapers = new Set(purchasedWallpapers);
+  unlockedWallpapers.add(id);
+  purchasedWallpapers = Array.from(unlockedWallpapers);
+  try {
+    localStorage.setItem('unlockedWallpapers', JSON.stringify(purchasedWallpapers));
+  } catch (e) {}
+  applyWallpaper(id);
+  renderWallpaperPicker();
+  showToast('Purchase successful!');
   closeWallpaperPreview();
   closePurchaseModal();
 }
