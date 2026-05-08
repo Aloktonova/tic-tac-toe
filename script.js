@@ -536,8 +536,7 @@ async function loadUserLanguage() {
 /* ===== SHARE GAME LINK ===== */
 function buildInviteLink(roomId) {
   const startParam = 'room_' + roomId;
-  return 'https://t.me/' + REFERRAL_BOT_USERNAME
-    + '/' + TELEGRAM_MINI_APP_NAME
+  return 'https://t.me/Tictocgame22_bot/Play'
     + '?startapp=' + startParam;
 }
 
@@ -2864,7 +2863,7 @@ async function purchaseWithCoins(wallpaper) {
 function getReferralLink() {
   const uid = ensureNormalizedUserId();
   if (!uid) return null;
-  return 'https://t.me/' + REFERRAL_BOT_USERNAME + '/' + TELEGRAM_MINI_APP_NAME
+  return 'https://t.me/Tictocgame22_bot/Play'
     + '?startapp=ref_' + uid;
 }
 
