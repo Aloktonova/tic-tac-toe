@@ -31,7 +31,6 @@ const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const REFERRAL_BOT_USERNAME = 'Tictocgame22_bot';
 const TELEGRAM_MINI_APP_NAME = 'app';
 const REFERRAL_COIN_TIERS = [50, 70, 100]; // coins for 1st, 2nd, 3rd+ referral
-const DEFAULT_WALLPAPER_BACKGROUND = 'linear-gradient(135deg, #1e40af, #2563eb)';
 // Backend endpoint that returns { invoiceUrl } for Telegram Stars purchases.
 // Configure it globally as window.__TG_STARS_INVOICE_ENDPOINT__ before loading script.js.
 const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || '';
@@ -2177,48 +2176,41 @@ async function handlePurchaseSuccess(id) {
 
 function applyWallpaper(wallpaperId) {
   currentWallpaper = wallpaperId;
-
-  // Cache in localStorage for instant startup before Firebase loads
   try {
-    localStorage.setItem('wallpaper', wallpaperId);
-  } catch (e) {}
+    localStorage.setItem("wallpaper", wallpaperId);
+  } catch(e) {}
 
-  // Save per-user selected wallpaper to Firebase
-  const uid = ensureNormalizedUserId();
-  if (uid && db) {
-    db.ref('users/' + uid + '/selectedWallpaper')
-      .set(wallpaperId)
-      .catch(e => console.error('applyWallpaper Firebase:', e));
-  }
-
-  const wp = WALLPAPERS.find(w => w.id === wallpaperId);
-  const el = document.getElementById('globalWallpaper');
+  const el = document.getElementById(
+    "globalWallpaper"
+  );
   if (!el) return;
 
+  const wp = WALLPAPERS.find(
+    w => w.id === wallpaperId
+  );
+
   if (!wp || !wp.fullImage) {
-    el.style.backgroundImage = 'none';
-    el.style.background = DEFAULT_WALLPAPER_BACKGROUND;
+    el.style.backgroundImage = "none";
+    el.style.opacity = "0";
   } else {
-    // Sanitize path: fullImage values come from the WALLPAPERS constant but we escape
-    // single quotes defensively before embedding in the CSS url() value.
-    const safePath = wp.fullImage.replace(/'/g, '%27');
-    el.style.backgroundImage = "url('" + safePath + "')";
-    el.style.backgroundSize = 'cover';
-    el.style.backgroundPosition = 'center';
+    el.style.backgroundImage =
+      "url('" + wp.fullImage + "')";
+    el.style.backgroundSize = "cover";
+    el.style.backgroundPosition = "center";
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.opacity = "1";
   }
+
+  renderWallpaperPicker();
 }
 
 function loadSavedWallpaper() {
-  // currentWallpaper is already set by identifyUser() from Firebase.
-  // Fall back to localStorage cache if Firebase data was unavailable (offline / no db).
-  if (!db || !currentUser.id) {
-    try {
-      currentWallpaper = localStorage.getItem('wallpaper') || 'none';
-    } catch (e) {
-      currentWallpaper = 'none';
-    }
-  }
-  applyWallpaper(currentWallpaper);
+  let saved = "none";
+  try {
+    saved = localStorage.getItem("wallpaper")
+      || "none";
+  } catch(e) {}
+  applyWallpaper(saved);
 }
 
 /* ===== RULES ===== */
