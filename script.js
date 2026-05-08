@@ -2040,17 +2040,12 @@ async function purchaseWallpaper(wallpaper) {
         },
         body: JSON.stringify({
           wallpaperId: wallpaper.id,
-          wallpaperName: wallpaper.name,
-          price: wallpaper.price,
           userId: uid
         })
       }
     );
 
     const data = await response.json();
-    console.log("Invoice response:", data);
-    showToast("Got: " + JSON.stringify(data)
-      .substring(0, 100));
 
     if (!data.invoiceLink) {
       throw new Error(
@@ -2069,7 +2064,7 @@ async function purchaseWallpaper(wallpaper) {
         data.invoiceLink,
         (status) => {
           if (status === "paid") {
-            handlePurchaseSuccess(wallpaper.id);
+            handleTelegramPaymentSuccess(wallpaper.id);
           } else if (status === "cancelled") {
             showToast("Purchase cancelled");
           } else if (status === "failed") {
@@ -2111,6 +2106,50 @@ async function handlePurchaseSuccess(id) {
   await unlockWallpaper(id);
   closeWallpaperPreview();
   closePurchaseModal();
+}
+
+async function waitForOwnedWallpaperVerification(id) {
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) return false;
+  const maxWaitMs = 25000;
+  const pollIntervalMs = 1500;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < maxWaitMs) {
+    try {
+      const ownedSnap = await db
+        .ref('users/' + uid + '/ownedWallpapers/' + id)
+        .once('value');
+      if (ownedSnap.val() === true) {
+        return true;
+      }
+    } catch (e) {
+      console.warn('verify purchase read failed:', e);
+    }
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+  }
+  return false;
+}
+
+function applyVerifiedWallpaperOwnership(id) {
+  if (!purchasedWallpapers.includes(id)) {
+    purchasedWallpapers.push(id);
+  }
+  applyWallpaper(id);
+  renderWallpaperPicker();
+}
+
+async function handleTelegramPaymentSuccess(id) {
+  showToast('Payment received. Verifying...');
+  const verified = await waitForOwnedWallpaperVerification(id);
+  if (!verified) {
+    showToast('Verification pending. Please reopen wallpapers shortly.');
+    return;
+  }
+  applyVerifiedWallpaperOwnership(id);
+  closeWallpaperPreview();
+  closePurchaseModal();
+  showToast('Wallpaper unlocked!');
 }
 
 function applyWallpaper(wallpaperId) {
