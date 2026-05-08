@@ -40,6 +40,8 @@ function verifyInvoicePayload(payload, secret) {
   const issuedAtMs = Number(parts[3]);
   const nonce = parts[4];
   const signature = parts[5];
+  if (signature.length !== SIGNATURE_LENGTH) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(signature)) return null;
 
   if (!PRODUCT_CATALOG[wallpaperId]) return null;
   if (!isValidTelegramUserId(userId)) return null;
@@ -48,8 +50,6 @@ function verifyInvoicePayload(payload, secret) {
   if (now - issuedAtMs > MAX_INVOICE_PAYLOAD_AGE_MS) return null;
   if (issuedAtMs - now > MAX_INVOICE_PAYLOAD_FUTURE_SKEW_MS) return null;
   if (!/^[A-Za-z0-9_-]{4,40}$/.test(nonce)) return null;
-  if (signature.length !== SIGNATURE_LENGTH) return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(signature)) return null;
 
   const payloadData = "v1|" + wallpaperId + "|" + userId
     + "|" + issuedAtMs + "|" + nonce;
@@ -222,7 +222,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
 
   } catch(e) {
-    console.error("Webhook error:", e?.message || "unknown");
+    console.error("Webhook error:", e);
     return res.status(200).json({ ok: true });
   }
 }
