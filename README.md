@@ -38,7 +38,9 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
    - `TELEGRAM_BOT_TOKEN=<your_bot_token> node backend/server.js`
 4. Configure frontend endpoint before loading `script.js`:
    - `window.__TG_STARS_INVOICE_ENDPOINT__ = "https://<your-domain>/api/telegram/stars/invoice";`
-5. Open `index.html` locally or deploy the project.
+5. Register Telegram webhook with secret token:
+   - `https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://<your-domain>/api/webhook&secret_token=<your_webhook_secret>`
+6. Open `index.html` locally or deploy the project.
 
 ## Project Structure
 

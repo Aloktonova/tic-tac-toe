@@ -1,3 +1,6 @@
 {
-  "version": 2
+  "version": 2,
+  "env": {
+    "WEBHOOK_SECRET": "<set-in-vercel-project-env>"
+  }
 }
