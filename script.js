@@ -2951,6 +2951,10 @@ async function loadUnlockedAchievements() {
 async function claimAchievement(achievementId) {
   const uid = ensureNormalizedUserId();
   if (!uid) return;
+  const achievement = ACHIEVEMENTS.find(
+    item => item.id === achievementId
+  );
+  const reward = achievement?.reward || 50;
 
   if (achievementId === "join_channel") {
     // Verify channel membership via backend
@@ -2986,7 +2990,7 @@ async function claimAchievement(achievementId) {
         return;
       }
 
-      showToast("+50 coins! Achievement claimed!");
+      showToast("+" + reward + " coins! Achievement claimed!");
       loadUnlockedAchievements();
       return;
     } catch(e) {
@@ -3005,9 +3009,9 @@ async function claimAchievement(achievementId) {
 
     // Award coins
     await db.ref("users/" + uid + "/coins")
-      .transaction(current => (current || 0) + 50);
+      .transaction(current => (current || 0) + reward);
 
-    showToast("+50 coins! Achievement claimed!");
+    showToast("+" + reward + " coins! Achievement claimed!");
     loadUnlockedAchievements();
   } catch(e) {
     console.error("claimAchievement:", e);

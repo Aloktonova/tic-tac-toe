@@ -1,3 +1,43 @@
+const JOIN_CHANNEL_REWARD = 50;
+const COIN_UPDATE_RETRIES = 3;
+
+async function addCoinsAtomic(baseUrl, userId, amount) {
+  const coinsUrl = `${baseUrl}/users/${userId}/coins.json`;
+
+  for (let i = 0; i < COIN_UPDATE_RETRIES; i++) {
+    const coinsRes = await fetch(coinsUrl, {
+      headers: {
+        "X-Firebase-ETag": "true"
+      }
+    });
+    const currentCoinsRaw = await coinsRes.json();
+    const currentCoins =
+      Number.isFinite(Number(currentCoinsRaw))
+        ? Number(currentCoinsRaw)
+        : 0;
+    const etag = coinsRes.headers.get("etag");
+
+    const writeRes = await fetch(coinsUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": etag || "*"
+      },
+      body: JSON.stringify(currentCoins + amount)
+    });
+
+    if (writeRes.ok) {
+      return;
+    }
+
+    if (writeRes.status !== 412) {
+      throw new Error("Failed to update coins");
+    }
+  }
+
+  throw new Error("Coin update conflict");
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods",
@@ -18,6 +58,11 @@ export default async function handler(req, res) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
   const FIREBASE_DATABASE_URL =
     process.env.FIREBASE_DATABASE_URL;
+  if (!BOT_TOKEN) {
+    return res.status(500).json({
+      error: "Bot token not configured"
+    });
+  }
 
   try {
     const { userId, telegramId } = req.body;
@@ -61,24 +106,16 @@ export default async function handler(req, res) {
       );
 
       // Award 50 coins
-      const coinsRes = await fetch(
-        `${FIREBASE_DATABASE_URL}/users/${userId}/coins.json`
-      );
-      const currentCoins = await coinsRes.json() || 0;
-
-      await fetch(
-        `${FIREBASE_DATABASE_URL}/users/${userId}/coins.json`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(currentCoins + 50)
-        }
+      await addCoinsAtomic(
+        FIREBASE_DATABASE_URL,
+        userId,
+        JOIN_CHANNEL_REWARD
       );
     }
 
     return res.status(200).json({
       isMember: true,
-      coinsAwarded: 50
+      coinsAwarded: JOIN_CHANNEL_REWARD
     });
 
   } catch(e) {
