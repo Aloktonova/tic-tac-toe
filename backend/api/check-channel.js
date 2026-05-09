@@ -1,5 +1,6 @@
 const JOIN_CHANNEL_REWARD = 50;
 const COIN_UPDATE_RETRIES = 3;
+const CHANNEL_USERNAME = "@tictactoeclub";
 
 async function addCoinsAtomic(baseUrl, userId, amount) {
   const coinsUrl = `${baseUrl}/users/${userId}/coins.json`;
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
 
     // Check if user is member of channel
     const response = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@tictactoeclub&user_id=${telegramId}`
+      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${CHANNEL_USERNAME}&user_id=${telegramId}`
     );
     const data = await response.json();
 
@@ -112,12 +113,6 @@ export default async function handler(req, res) {
       });
     }
 
-    await addCoinsAtomic(
-      FIREBASE_DATABASE_URL,
-      userId,
-      JOIN_CHANNEL_REWARD
-    );
-
     const markClaimedRes = await fetch(
       `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`,
       {
@@ -125,12 +120,49 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           claimed: true,
-          claimedAt: Date.now()
+          claimedAt: Date.now(),
+          pendingReward: true
         })
       }
     );
     if (!markClaimedRes.ok) {
       throw new Error("Failed to mark achievement claimed");
+    }
+
+    try {
+      await addCoinsAtomic(
+        FIREBASE_DATABASE_URL,
+        userId,
+        JOIN_CHANNEL_REWARD
+      );
+    } catch (coinError) {
+      await fetch(
+        `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            claimed: false,
+            claimedAt: null,
+            pendingReward: false
+          })
+        }
+      );
+      throw coinError;
+    }
+
+    const finalizeClaimRes = await fetch(
+      `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pendingReward: false
+        })
+      }
+    );
+    if (!finalizeClaimRes.ok) {
+      throw new Error("Failed to finalize achievement claim");
     }
 
     return res.status(200).json({
