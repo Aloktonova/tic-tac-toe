@@ -2912,12 +2912,12 @@ function renderAchievements(userStats, claimedIds) {
   list.innerHTML = "";
 
   ACHIEVEMENTS.forEach(ach => {
+    const claimed = claimedIds.includes(ach.id);
     const completed = ach.id === "join_channel"
-      ? true
+      ? !claimed
       : ach.check
         ? ach.check(userStats)
         : false;
-    const claimed = claimedIds.includes(ach.id);
 
     const card = document.createElement("div");
     card.className = "achievement-card"
@@ -2954,7 +2954,11 @@ async function claimAchievement(achievementId) {
   const achievement = ACHIEVEMENTS.find(
     item => item.id === achievementId
   );
-  const reward = achievement?.reward || 50;
+  if (!achievement) {
+    showToast("Achievement not found.");
+    return;
+  }
+  const reward = achievement.reward;
 
   if (achievementId === "join_channel") {
     // Verify channel membership via backend

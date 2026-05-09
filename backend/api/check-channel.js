@@ -90,27 +90,47 @@ export default async function handler(req, res) {
       });
     }
 
-    // Award coins and mark achievement
-    if (FIREBASE_DATABASE_URL) {
-      // Mark achievement as claimed
-      await fetch(
-        `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            claimed: true,
-            claimedAt: Date.now()
-          })
-        }
-      );
+    if (!FIREBASE_DATABASE_URL) {
+      return res.status(500).json({
+        error: "Firebase database URL not configured"
+      });
+    }
 
-      // Award 50 coins
-      await addCoinsAtomic(
-        FIREBASE_DATABASE_URL,
-        userId,
-        JOIN_CHANNEL_REWARD
-      );
+    // Award coins and mark achievement
+    const achievementRes = await fetch(
+      `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`
+    );
+    if (!achievementRes.ok) {
+      throw new Error("Failed to read achievement state");
+    }
+    const achievementData = await achievementRes.json();
+    if (achievementData?.claimed) {
+      return res.status(200).json({
+        isMember: true,
+        coinsAwarded: 0,
+        alreadyClaimed: true
+      });
+    }
+
+    await addCoinsAtomic(
+      FIREBASE_DATABASE_URL,
+      userId,
+      JOIN_CHANNEL_REWARD
+    );
+
+    const markClaimedRes = await fetch(
+      `${FIREBASE_DATABASE_URL}/users/${userId}/achievements/join_channel.json`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          claimed: true,
+          claimedAt: Date.now()
+        })
+      }
+    );
+    if (!markClaimedRes.ok) {
+      throw new Error("Failed to mark achievement claimed");
     }
 
     return res.status(200).json({
