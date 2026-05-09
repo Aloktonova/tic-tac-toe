@@ -2,5 +2,11 @@
   "version": 2,
   "env": {
     "WEBHOOK_SECRET": "<set-in-vercel-project-env>"
-  }
+  },
+  "routes": [
+    {
+      "src": "/api/check-channel",
+      "dest": "/api/check-channel.js"
+    }
+  ]
 }

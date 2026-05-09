@@ -152,6 +152,159 @@ const WALLPAPERS = [
   }
 ];
 
+const STORE_ITEMS_COINS = [
+  {
+    id: "theme_gold",
+    name: "Gold Theme",
+    desc: "Gold colored X and O marks",
+    price: 200,
+    icon: "🌟"
+  },
+  {
+    id: "theme_fire",
+    name: "Fire Theme",
+    desc: "Flaming red X and O marks",
+    price: 200,
+    icon: "🔥"
+  },
+  {
+    id: "theme_ice",
+    name: "Ice Theme",
+    desc: "Icy blue X and O marks",
+    price: 200,
+    icon: "❄️"
+  },
+  {
+    id: "border_gold",
+    name: "Gold Profile Border",
+    desc: "Golden frame on your avatar",
+    price: 300,
+    icon: "👑"
+  },
+  {
+    id: "border_purple",
+    name: "Purple Profile Border",
+    desc: "Purple frame on your avatar",
+    price: 150,
+    icon: "💜"
+  },
+  {
+    id: "xp_boost_small",
+    name: "XP Boost 24h",
+    desc: "Double XP for 24 hours",
+    price: 100,
+    icon: "⚡"
+  }
+];
+
+const STORE_ITEMS_STARS = [
+  {
+    id: "xp_boost_week",
+    name: "XP Boost 7 Days",
+    desc: "Double XP for one week",
+    price: 25,
+    icon: "⚡"
+  },
+  {
+    id: "badge_champion",
+    name: "Champion Badge",
+    desc: "Exclusive badge on profile",
+    price: 50,
+    icon: "🏆"
+  },
+  {
+    id: "animated_marks",
+    name: "Animated X & O",
+    desc: "Animated marks on the board",
+    price: 75,
+    icon: "✨"
+  }
+];
+
+const ACHIEVEMENTS = [
+  {
+    id: "first_match",
+    icon: "⭐",
+    title: "First Match",
+    desc: "Complete your first game",
+    reward: 50,
+    check: (stats) => stats.games >= 1
+  },
+  {
+    id: "join_channel",
+    icon: "📢",
+    title: "Community Member",
+    desc: "Join @tictactoeclub channel",
+    reward: 50,
+    // IMPORTANT: Add @Tictocgame22_bot as admin
+    // to @tictactoeclub channel for membership
+    // verification to work.
+    // Steps:
+    // 1. Open t.me/tictactoeclub
+    // 2. Go to channel settings
+    // 3. Add administrators
+    // 4. Search @Tictocgame22_bot
+    // 5. Add as admin (read access is enough)
+    check: null
+  },
+  {
+    id: "daily_login",
+    icon: "📅",
+    title: "Daily Player",
+    desc: "Log in today",
+    reward: 50,
+    check: () => true
+  },
+  {
+    id: "level_5",
+    icon: "🏅",
+    title: "Rising Star",
+    desc: "Reach Level 5",
+    reward: 100,
+    check: (stats) => stats.level >= 5
+  },
+  {
+    id: "level_10",
+    icon: "🏆",
+    title: "Veteran",
+    desc: "Reach Level 10",
+    reward: 200,
+    check: (stats) => stats.level >= 10
+  },
+  {
+    id: "invite_1",
+    icon: "👥",
+    title: "Recruiter",
+    desc: "Invite 1 friend",
+    reward: 50,
+    check: (stats) => stats.referralCount >= 1
+  },
+  {
+    id: "invite_3",
+    icon: "🌟",
+    title: "Ambassador",
+    desc: "Invite 3 friends",
+    reward: 150,
+    check: (stats) => stats.referralCount >= 3
+  },
+  {
+    id: "wins_10",
+    icon: "⚔️",
+    title: "Fighter",
+    desc: "Win 10 games",
+    reward: 100,
+    check: (stats) => stats.wins >= 10
+  },
+  {
+    id: "wins_50",
+    icon: "👑",
+    title: "Champion",
+    desc: "Win 50 games",
+    reward: 300,
+    check: (stats) => stats.wins >= 50
+  }
+];
+
 /* ===== LISTENER REGISTRY ===== */
 const activeListeners = {};
 
@@ -700,6 +853,12 @@ function showScreen(name) {
   document.getElementById('screen-' + name)?.classList.remove('hidden');
 }
 
+function setBottomNavActive(screen) {
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.screen === screen);
+  });
+}
+
 /* ===== HOME UI ===== */
 function updateHomeUI() {
   const avatarEl   = document.getElementById('home-avatar');
@@ -767,9 +926,7 @@ function setupEventListeners() {
   // Profile screen back button
   document.getElementById('btn-profile-back').addEventListener('click', () => {
     showScreen('home');
-    document.querySelectorAll('.nav-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.screen === 'home');
-    });
+    setBottomNavActive('home');
   });
 
   // Game
@@ -880,12 +1037,25 @@ function setupEventListeners() {
         const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
         loadLeaderboard(activeTab);
       }
+
+      if (screen === 'store') {
+        showScreen('store');
+        renderStore();
+        setBottomNavActive('store');
+        return;
+      }
+
       showScreen(screen);
-      document.querySelectorAll('.nav-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.screen === screen);
-      });
+      setBottomNavActive(screen);
     });
   });
+
+  document.getElementById("navStoreBtn")
+    ?.addEventListener("click", () => {
+      showScreen("store");
+      renderStore();
+      setBottomNavActive("store");
+    });
 
   // Settings modal
   document.getElementById('settings-close').addEventListener('click', closeSettings);
@@ -895,9 +1065,7 @@ function setupEventListeners() {
   document.getElementById('btn-settings-home').addEventListener('click', () => {
     closeSettings();
     showScreen('home');
-    document.querySelectorAll('.nav-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.screen === 'home');
-    });
+    setBottomNavActive('home');
   });
   document.getElementById('btn-save-name').addEventListener('click', saveName);
   document.getElementById('settings-language').addEventListener('change', e => {
@@ -2657,6 +2825,18 @@ async function loadProfile() {
         }
         const coinsEl = document.getElementById('referralCoinsEarned');
         if (coinsEl) coinsEl.innerText = totalCoins;
+
+        renderAchievements(
+          {
+            wins: merged.wins || 0,
+            losses: merged.losses || 0,
+            draws: merged.draws || 0,
+            games: merged.games || 0,
+            level: Math.floor((merged.xp || 0) / 100),
+            referralCount: count
+          },
+          getClaimedAchievementIds(achievements)
+        );
       });
   } catch (e) {
     console.warn('loadProfile error:', e);
@@ -2703,92 +2883,217 @@ function renderProfileUI(data, achievements) {
   updateCoinsDisplay();
 
   // Achievements
-  renderAchievements(achievements, wins, streak);
+  renderAchievements(
+    {
+      wins,
+      losses,
+      draws,
+      games,
+      level,
+      referralCount: data.referralCount || userReferralCount || 0
+    },
+    getClaimedAchievementIds(achievements)
+  );
 }
 
-function renderAchievements(ach, wins, bestStreak) {
-  const grid = document.getElementById('achievements-grid');
-  grid.innerHTML = '';
-
-  const defs = [
-    {
-      id:      'first_win',
-      name:    'First Win',
-      desc:    'Win your first game',
-      iconCls: 'icon-star',
-      unlocked: wins >= 1
-    },
-    {
-      id:      'streak3',
-      name:    'Win Streak x3',
-      desc:    'Win 3 games in a row',
-      iconCls: 'icon-fire',
-      unlocked: bestStreak >= 3
-    },
-    {
-      id:      'invited_friend',
-      name:    'Invite a Friend',
-      desc:    'Invite a friend to play',
-      note:    'Earn coins when friend joins',
-      iconCls: 'icon-person-add',
-      unlocked: !!(ach && ach.invited_friend)
-    },
-    {
-      id:      'hard_mode_win',
-      name:    'Hard Mode Winner',
-      desc:    'Beat Hard AI difficulty',
-      iconCls: 'icon-shield',
-      unlocked: !!(ach && ach.hard_mode_win)
-    },
-    {
-      id:      'battle_win',
-      name:    'Battle Champion',
-      desc:    'Win a Battle match',
-      iconCls: 'icon-trophy',
-      unlocked: !!(ach && ach.battle_win)
-    },
-    {
-      id:      'daily_streak_7',
-      name:    'Daily Player',
-      desc:    'Play 7 days in a row',
-      iconCls: 'icon-calendar',
-      unlocked: !!(ach && ach.daily_streak_7)
-    }
-  ];
-
-  defs.forEach(def => {
-    const card = document.createElement('div');
-    card.className = 'achievement-card ' + (def.unlocked ? 'unlocked' : 'locked');
-    card.setAttribute('aria-label', def.unlocked ? def.name : 'Locked achievement');
-
-    const iconWrap = document.createElement('div');
-    iconWrap.className = 'achievement-icon';
-    const iconDiv = document.createElement('div');
-    iconDiv.style.cssText = 'width:100%;height:100%';
-    iconDiv.className = def.iconCls;
-    iconWrap.appendChild(iconDiv);
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'achievement-name';
-    nameEl.textContent = def.unlocked ? def.name : '???';
-
-    const descEl = document.createElement('div');
-    descEl.className = 'achievement-desc';
-    descEl.textContent = def.unlocked ? def.desc : '';
-
-    card.appendChild(iconWrap);
-    card.appendChild(nameEl);
-    card.appendChild(descEl);
-
-    if (def.unlocked && def.note) {
-      const noteEl = document.createElement('div');
-      noteEl.className = 'achievement-note';
-      noteEl.textContent = def.note;
-      card.appendChild(noteEl);
-    }
-
-    grid.appendChild(card);
+function getClaimedAchievementIds(achievements) {
+  if (!achievements || typeof achievements !== 'object') {
+    return [];
+  }
+  return Object.keys(achievements).filter(id => {
+    const value = achievements[id];
+    return value === true || !!(value && value.claimed);
   });
+}
+
+function renderAchievements(userStats, claimedIds) {
+  const list = document.getElementById("achievementsList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  ACHIEVEMENTS.forEach(ach => {
+    const completed = ach.id === "join_channel"
+      ? true
+      : ach.check
+        ? ach.check(userStats)
+        : false;
+    const claimed = claimedIds.includes(ach.id);
+
+    const card = document.createElement("div");
+    card.className = "achievement-card"
+      + (claimed ? " claimed" : "")
+      + (completed && !claimed ? " ready" : "");
+
+    card.innerHTML = `
+      <div class="ach-icon">${ach.icon}</div>
+      <div class="ach-info">
+        <div class="ach-title">${ach.title}</div>
+        <div class="ach-desc">${ach.desc}</div>
+        <div class="ach-reward">+${ach.reward} coins</div>
+      </div>
+      <div class="ach-action">
+        ${claimed
+          ? '<span class="ach-done">✓</span>'
+          : completed
+            ? `<button class="ach-claim-btn" onclick="claimAchievement('${ach.id}')">Claim</button>`
+            : '<span class="ach-locked">🔒</span>'
+        }
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+async function loadUnlockedAchievements() {
+  await loadProfile();
+}
+
+async function claimAchievement(achievementId) {
+  const uid = ensureNormalizedUserId();
+  if (!uid) return;
+
+  if (achievementId === "join_channel") {
+    // Verify channel membership via backend
+    const telegramId = window.Telegram?.WebApp
+      ?.initDataUnsafe?.user?.id;
+
+    if (!telegramId) {
+      showToast("Open app in Telegram to verify");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        BACKEND_URL + "/api/check-channel",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId: uid,
+            telegramId: telegramId
+          })
+        }
+      );
+      const data = await res.json();
+
+      if (!data.isMember) {
+        showToast("Join @tictactoeclub first!");
+        window.Telegram?.WebApp?.openTelegramLink(
+          "https://t.me/tictactoeclub"
+        );
+        return;
+      }
+
+      showToast("+50 coins! Achievement claimed!");
+      loadUnlockedAchievements();
+      return;
+    } catch(e) {
+      showToast("Error checking membership");
+      return;
+    }
+  }
+
+  // For other achievements - save to Firebase
+  if (!db) return;
+  try {
+    await db.ref(
+      "users/" + uid + "/achievements/"
+      + achievementId
+    ).set({ claimed: true, claimedAt: Date.now() });
+
+    // Award coins
+    await db.ref("users/" + uid + "/coins")
+      .transaction(current => (current || 0) + 50);
+
+    showToast("+50 coins! Achievement claimed!");
+    loadUnlockedAchievements();
+  } catch(e) {
+    console.error("claimAchievement:", e);
+    showToast("Failed to claim. Try again.");
+  }
+}
+
+function renderStore() {
+  const coinsGrid = document.getElementById(
+    "storeCoinsGrid"
+  );
+  const starsGrid = document.getElementById(
+    "storeStarsGrid"
+  );
+  const balanceEl = document.getElementById(
+    "storeCoinsBalance"
+  );
+  if (balanceEl) balanceEl.innerText = userCoins;
+
+  if (coinsGrid) {
+    coinsGrid.innerHTML = "";
+    STORE_ITEMS_COINS.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "store-card";
+      card.innerHTML = `
+        <div class="store-item-icon">${item.icon}</div>
+        <div class="store-item-name">${item.name}</div>
+        <div class="store-item-desc">${item.desc}</div>
+        <button class="store-buy-btn"
+          onclick="buyStoreItem('${item.id}', 'coins')">
+          ${item.price} coins
+        </button>
+      `;
+      coinsGrid.appendChild(card);
+    });
+  }
+
+  if (starsGrid) {
+    starsGrid.innerHTML = "";
+    STORE_ITEMS_STARS.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "store-card";
+      card.innerHTML = `
+        <div class="store-item-icon">${item.icon}</div>
+        <div class="store-item-name">${item.name}</div>
+        <div class="store-item-desc">${item.desc}</div>
+        <button class="store-buy-btn stars-btn"
+          onclick="buyStoreItem('${item.id}', 'stars')">
+          ${item.price} ⭐
+        </button>
+      `;
+      starsGrid.appendChild(card);
+    });
+  }
+}
+
+function switchStoreTab(tab) {
+  const coinsSection = document.getElementById(
+    "storeCoinsSection"
+  );
+  const starsSection = document.getElementById(
+    "storeStarsSection"
+  );
+  const coinsTab = document.getElementById(
+    "storeTabCoins"
+  );
+  const starsTab = document.getElementById(
+    "storeTabStars"
+  );
+
+  if (tab === "coins") {
+    coinsSection?.classList.remove("hidden");
+    starsSection?.classList.add("hidden");
+    coinsTab?.classList.add("active");
+    starsTab?.classList.remove("active");
+  } else {
+    coinsSection?.classList.add("hidden");
+    starsSection?.classList.remove("hidden");
+    starsTab?.classList.add("active");
+    coinsTab?.classList.remove("active");
+  }
+}
+
+async function buyStoreItem(itemId, currency) {
+  showToast("Store purchases coming soon!");
+  // TODO: implement purchase logic
 }
 
 /* ===== COIN SYSTEM ===== */
