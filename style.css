@@ -426,19 +426,35 @@ body {
 }
 
 .back-btn {
-  background: none;
-  border: none;
-  color: var(--accent-neon);
-  font-size: 15px;
-  font-weight: 600;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(129, 140, 248, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  color: #818cf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  transition: background 0.2s;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  touch-action: manipulation;
   flex-shrink: 0;
+  transition: background 0.2s ease,
+              transform 0.15s ease;
 }
-.back-btn:hover { background: rgba(129, 140, 248, 0.12); }
+
+.back-btn:hover {
+  background: rgba(129, 140, 248, 0.22);
+  transform: none;
+  box-shadow: none;
+}
+
+.back-btn:active {
+  transform: scale(0.92);
+  background: rgba(129, 140, 248, 0.3);
+}
 
 .game-status {
   flex: 1;
