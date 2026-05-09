@@ -36,6 +36,10 @@
           <svg class="nav-icon battle-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
           <span class="nav-label">Battle</span>
         </button>
+        <button id="navStoreBtn" class="nav-btn" data-screen="store">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2l3 7h9l-2 11H8L6 2z"/><circle cx="9" cy="22" r="1"/><circle cx="17" cy="22" r="1"/></svg>
+          <span class="nav-label">Store</span>
+        </button>
         <button class="nav-btn" data-screen="leaderboard">
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M4 9a2 2 0 0 0 0 4h2a6 6 0 0 0 12 0h2a2 2 0 0 0 0-4"/><line x1="9" y1="17" x2="9" y2="22"/><line x1="15" y1="17" x2="15" y2="22"/><line x1="7" y1="22" x2="17" y2="22"/></svg>
           <span class="nav-label">Leaderboard</span>
@@ -164,6 +168,10 @@
           <svg class="nav-icon battle-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
           <span class="nav-label">Battle</span>
         </button>
+        <button class="nav-btn" data-screen="store">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2l3 7h9l-2 11H8L6 2z"/><circle cx="9" cy="22" r="1"/><circle cx="17" cy="22" r="1"/></svg>
+          <span class="nav-label">Store</span>
+        </button>
         <button class="nav-btn active" data-screen="leaderboard">
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M4 9a2 2 0 0 0 0 4h2a6 6 0 0 0 12 0h2a2 2 0 0 0 0-4"/><line x1="9" y1="17" x2="9" y2="22"/><line x1="15" y1="17" x2="15" y2="22"/><line x1="7" y1="22" x2="17" y2="22"/></svg>
           <span class="nav-label">Leaderboard</span>
@@ -175,7 +183,55 @@
       </nav>
     </div>
 
-    <!-- ===== SCREEN 5: PROFILE ===== -->
+    <!-- ===== SCREEN 5: STORE ===== -->
+    <div id="screen-store" class="screen hidden">
+      <div class="profile-scroll store-scroll">
+        <div class="profile-section">
+          <div class="store-header">
+            <div class="profile-section-title" style="margin-bottom:0;">Store</div>
+            <div id="storeCoinsBalance" class="store-balance">0</div>
+          </div>
+          <div class="store-tabs">
+            <button id="storeTabCoins" class="store-tab active" onclick="switchStoreTab('coins')">Coins</button>
+            <button id="storeTabStars" class="store-tab" onclick="switchStoreTab('stars')">Stars</button>
+          </div>
+
+          <div id="storeCoinsSection">
+            <div class="store-section-title">Coin Items</div>
+            <div id="storeCoinsGrid" class="store-grid"></div>
+          </div>
+
+          <div id="storeStarsSection" class="hidden">
+            <div class="store-section-title">Star Items</div>
+            <div id="storeStarsGrid" class="store-grid"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn" data-screen="home">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-btn" data-screen="battle">
+          <svg class="nav-icon battle-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
+          <span class="nav-label">Battle</span>
+        </button>
+        <button class="nav-btn active" data-screen="store">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2l3 7h9l-2 11H8L6 2z"/><circle cx="9" cy="22" r="1"/><circle cx="17" cy="22" r="1"/></svg>
+          <span class="nav-label">Store</span>
+        </button>
+        <button class="nav-btn" data-screen="leaderboard">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M4 9a2 2 0 0 0 0 4h2a6 6 0 0 0 12 0h2a2 2 0 0 0 0-4"/><line x1="9" y1="17" x2="9" y2="22"/><line x1="15" y1="17" x2="15" y2="22"/><line x1="7" y1="22" x2="17" y2="22"/></svg>
+          <span class="nav-label">Leaderboard</span>
+        </button>
+        <button class="nav-btn" data-screen="settings">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ===== SCREEN 6: PROFILE ===== -->
     <div id="screen-profile" class="screen hidden">
       <div class="profile-header">
         <button id="btn-profile-back" class="back-btn" aria-label="Back to home">‹</button>
@@ -201,15 +257,15 @@
         <!-- Stats grid -->
         <div class="profile-section">
           <div class="stats-grid profile-stats-grid">
-            <div class="stat-box">
+            <div class="stat-box stat-wins">
               <div id="profile-wins" class="stat-value">0</div>
               <div class="stat-label">Wins</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box stat-losses">
               <div id="profile-losses" class="stat-value">0</div>
               <div class="stat-label">Losses</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box stat-draws">
               <div id="profile-draws" class="stat-value">0</div>
               <div class="stat-label">Draws</div>
             </div>
@@ -231,7 +287,7 @@
         <!-- Achievements -->
         <div class="profile-section">
           <div class="profile-section-title">Achievements</div>
-          <div id="achievements-grid" class="achievements-grid" aria-label="Achievements"></div>
+          <div id="achievementsList" class="achievements-list" aria-label="Achievements"></div>
         </div>
 
         <!-- Coins -->
@@ -277,7 +333,7 @@
       </div>
     </div>
 
-    <!-- ===== SCREEN 6: RULES (hidden, kept for JS compatibility) ===== -->
+    <!-- ===== SCREEN 7: RULES (hidden, kept for JS compatibility) ===== -->
     <div id="screen-rules" class="screen hidden">
       <div id="rules-content" class="rules-content"></div>
     </div>
@@ -361,15 +417,15 @@
       </div>
 
       <div class="stats-grid">
-        <div class="stat-box">
+        <div class="stat-box stat-wins">
           <div id="settings-wins" class="stat-value">0</div>
           <div class="stat-label">Wins</div>
         </div>
-        <div class="stat-box">
+        <div class="stat-box stat-losses">
           <div id="settings-losses" class="stat-value">0</div>
           <div class="stat-label">Losses</div>
         </div>
-        <div class="stat-box">
+        <div class="stat-box stat-draws">
           <div id="settings-draws" class="stat-value">0</div>
           <div class="stat-label">Draws</div>
         </div>
