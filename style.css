@@ -523,6 +523,9 @@ body {
   padding: 10px 12px;
   gap: 8px;
   flex-shrink: 0;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .player-info {
@@ -715,6 +718,8 @@ body {
   padding: 4px 12px 10px;
   flex-shrink: 0;
   max-height: 200px;
+  clear: both;
+  margin-top: 12px;
 }
 
 .chat-messages {
