@@ -18,13 +18,22 @@
           <div id="home-avatar" class="avatar-circle">P</div>
           <span id="home-username">Player</span>
         </div>
+        <button id="btn-home-settings" class="icon-btn" aria-label="Open settings">⚙️</button>
       </div>
       <div class="home-content">
-        <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
-        <h1 class="home-title">Tic Tac Toe</h1>
+        <div class="home-illustration" aria-hidden="true">
+          <div class="board-3d">
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <h1 class="home-title">TIC TAC TOE</h1>
+        <p class="home-subtitle">Premium Multiplayer</p>
         <div class="home-buttons">
-          <button id="btn-play-ai" class="btn btn-primary">Play with Computer</button>
-          <button id="btn-play-online" class="btn btn-primary">Play with Friends</button>
+          <button id="btn-play-ai" class="btn btn-primary home-action-btn" data-subtitle="Smart opponent">Play with Computer</button>
+          <button id="btn-play-battle" class="btn btn-secondary home-action-btn" data-subtitle="Ranked matchmaking">Battle Mode</button>
+          <button id="btn-play-online" class="btn btn-ghost home-action-btn" data-subtitle="Private rooms">Play with Friends</button>
         </div>
       </div>
       <nav class="bottom-nav" aria-label="Main navigation">
@@ -450,13 +459,14 @@
   <!-- ===== BATTLE SEARCHING MODAL ===== -->
   <div id="modal-battle" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Searching for opponent">
     <div class="modal-content battle-content">
+      <div class="battle-grid" aria-hidden="true"></div>
       <div class="battle-sword-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="72" height="72"><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/><line x1="5" y1="10" x2="10" y2="5"/><line x1="20.5" y1="3.5" x2="3.5" y2="20.5"/><line x1="14" y1="5" x2="19" y2="10"/></svg>
+        <span>VS</span>
       </div>
       <div class="dots-animation" aria-hidden="true">
         <span></span><span></span><span></span>
       </div>
-      <p class="battle-subtitle">Searching for opponent...</p>
+      <p class="battle-subtitle">Finding worthy opponent...</p>
       <button id="btn-cancel-battle" class="btn btn-secondary battle-cancel-btn">Cancel</button>
     </div>
   </div>
