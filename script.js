@@ -558,14 +558,6 @@ function initFirebase() {
   }
 }
 
-function triggerHaptic(style = 'light') {
-  try {
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
-  } catch (e) {
-    // no-op outside Telegram
-  }
-}
-
 /* ===== TRANSLATIONS ===== */
 function applyTranslations() {
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
@@ -858,12 +850,7 @@ function countryToFlag(code) {
 /* ===== SCREEN MANAGEMENT ===== */
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  const target = document.getElementById('screen-' + name);
-  if (!target) return;
-  target.classList.remove('hidden');
-  target.classList.remove('screen-enter');
-  void target.offsetWidth;
-  target.classList.add('screen-enter');
+  document.getElementById('screen-' + name)?.classList.remove('hidden');
 }
 
 function setBottomNavActive(screen) {
@@ -927,18 +914,10 @@ function checkUrlParams() {
 
 /* ===== EVENT LISTENERS ===== */
 function setupEventListeners() {
-  document.addEventListener('click', e => {
-    if (e.target?.closest('button, .btn, .nav-btn, [role="button"]')) {
-      triggerHaptic('light');
-    }
-  });
-
   // Home — avatar opens profile screen, not settings
   document.getElementById('user-avatar-btn').addEventListener('click', openProfile);
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
-  document.getElementById('btn-play-battle')?.addEventListener('click', startBattleSearch);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
-  document.getElementById('btn-home-settings')?.addEventListener('click', openSettings);
 
   // Developer Telegram link in about section
   const devLinkBtn = document.getElementById('dev-link-btn');
@@ -1471,7 +1450,6 @@ function handleCellClick(index) {
 function processAIGameMove(index, mark) {
   if (board[index] !== '') return;
 
-  triggerHaptic('light');
   board[index] = mark;
   const result = checkWinner(board);
 
@@ -1607,7 +1585,6 @@ function checkWinner(b) {
 async function makeOnlineMove(index) {
   if (!db || !roomId || gameOver || board[index] !== '') return;
 
-  triggerHaptic('light');
   const newBoard = [...board];
   newBoard[index] = playerMark;
   const result   = checkWinner(newBoard);
@@ -1657,13 +1634,6 @@ function showResultOverlay(outcome) {
   document.getElementById('result-xp').textContent =
     '+' + xpAmounts[outcome] + ' XP' + (boost ? ' ⚡ 2x Boost' : '');
 
-  const resultContent = document.querySelector('#result-overlay .result-content');
-  if (resultContent) {
-    resultContent.classList.remove('result-enter');
-    void resultContent.offsetWidth;
-    resultContent.classList.add('result-enter');
-  }
-  triggerHaptic('medium');
   document.getElementById('result-overlay').classList.remove('hidden');
 }
 
@@ -3025,7 +2995,6 @@ async function claimAchievement(achievementId) {
       }
 
       showToast("+" + reward + " coins! Achievement claimed!");
-      triggerHaptic('light');
       loadUnlockedAchievements();
       return;
     } catch(e) {
@@ -3047,7 +3016,6 @@ async function claimAchievement(achievementId) {
       .transaction(current => (current || 0) + reward);
 
     showToast("+" + reward + " coins! Achievement claimed!");
-    triggerHaptic('light');
     loadUnlockedAchievements();
   } catch(e) {
     console.error("claimAchievement:", e);
