@@ -433,6 +433,9 @@ let battleBotName = null;
 // Coin / referral state
 let userCoins = 0;
 let userReferralCount = 0;
+let ownedItems = new Set();
+let activeTheme = "default";
+let activeBorder = "none";
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -779,6 +782,24 @@ async function identifyUser() {
       currentUser.country        = d.country         || '';
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
+
+      // Load owned store items
+      const ownedData = d.ownedItems || {};
+      ownedItems = new Set(Object.keys(ownedData)
+        .filter(k => ownedData[k] === true));
+
+      // Restore active theme and border
+      activeTheme = d.activeTheme || "default";
+      activeBorder = d.activeBorder || "none";
+
+      // Apply saved theme and border
+      applyTheme(activeTheme);
+      applyBorder(activeBorder);
+
+      // Apply XP boost if still active
+      if (Date.now() < (d.xpBoostExpiry || 0)) {
+        applyXpBoostIndicator(d.xpBoostExpiry);
+      }
 
       // Load per-user purchased wallpapers from Firebase.
       // Backward compatible with older path `unlockedWallpapers`.
@@ -3040,14 +3061,27 @@ function renderStore() {
     STORE_ITEMS_COINS.forEach(item => {
       const card = document.createElement("div");
       card.className = "store-card";
+      const owned = ownedItems.has(item.id);
+      const isActive = (
+        item.id === activeTheme ||
+        item.id === activeBorder
+      );
+      const btnHtml = owned
+        ? (isActive
+            ? ''
+            : `<button class="store-buy-btn owned-btn"
+                onclick="buyStoreItem('${item.id}', 'coins')">
+                Use
+               </button>`)
+        : `<button class="store-buy-btn"
+            onclick="buyStoreItem('${item.id}', 'coins')">
+            ${item.price} coins
+           </button>`;
       card.innerHTML = `
         <div class="store-item-icon">${item.icon}</div>
         <div class="store-item-name">${item.name}</div>
         <div class="store-item-desc">${item.desc}</div>
-        <button class="store-buy-btn"
-          onclick="buyStoreItem('${item.id}', 'coins')">
-          ${item.price} coins
-        </button>
+        ${btnHtml}
       `;
       coinsGrid.appendChild(card);
     });
@@ -3058,14 +3092,18 @@ function renderStore() {
     STORE_ITEMS_STARS.forEach(item => {
       const card = document.createElement("div");
       card.className = "store-card";
+      const owned = ownedItems.has(item.id);
+      const btnHtml = owned
+        ? ''
+        : `<button class="store-buy-btn stars-btn"
+            onclick="buyStoreItem('${item.id}', 'stars')">
+            ${item.price} ⭐
+           </button>`;
       card.innerHTML = `
         <div class="store-item-icon">${item.icon}</div>
         <div class="store-item-name">${item.name}</div>
         <div class="store-item-desc">${item.desc}</div>
-        <button class="store-buy-btn stars-btn"
-          onclick="buyStoreItem('${item.id}', 'stars')">
-          ${item.price} ⭐
-        </button>
+        ${btnHtml}
       `;
       starsGrid.appendChild(card);
     });
@@ -3100,8 +3138,257 @@ function switchStoreTab(tab) {
 }
 
 async function buyStoreItem(itemId, currency) {
-  showToast("Store purchases coming soon!");
-  // TODO: implement purchase logic
+  const uid = ensureNormalizedUserId();
+  if (!uid || !db) {
+    showToast("Cannot verify your identity");
+    return;
+  }
+
+  if (currency === "coins") {
+    await buyWithCoins(itemId);
+  } else if (currency === "stars") {
+    await buyWithStars(itemId);
+  }
+}
+
+async function buyWithCoins(itemId) {
+  const uid = ensureNormalizedUserId();
+  const item = STORE_ITEMS_COINS.find(
+    i => i.id === itemId
+  );
+  if (!item) return;
+
+  // Check if already owned
+  if (ownedItems.has(itemId)) {
+    // Item already owned — just activate it
+    activateItem(itemId);
+    return;
+  }
+
+  // Check coins balance
+  if (userCoins < item.price) {
+    showToast(
+      "Not enough coins. Need "
+      + item.price + " coins."
+    );
+    return;
+  }
+
+  try {
+    // Deduct coins atomically
+    const result = await db
+      .ref("users/" + uid + "/coins")
+      .transaction(current => {
+        const c = current || 0;
+        if (c < item.price) return undefined;
+        return c - item.price;
+      });
+
+    if (!result.committed) {
+      showToast("Not enough coins.");
+      return;
+    }
+
+    // Mark item as owned in Firebase
+    await db.ref(
+      "users/" + uid + "/ownedItems/" + itemId
+    ).set(true);
+
+    // Update local state
+    ownedItems.add(itemId);
+    userCoins = Math.max(0, userCoins - item.price);
+
+    // Activate the item immediately
+    activateItem(itemId);
+
+    showToast(item.name + " purchased!");
+    renderStore();
+
+  } catch(e) {
+    console.error("buyWithCoins:", e);
+    showToast("Purchase failed. Try again.");
+  }
+}
+
+async function buyWithStars(itemId) {
+  const uid = ensureNormalizedUserId();
+  const item = STORE_ITEMS_STARS.find(
+    i => i.id === itemId
+  );
+  if (!item) return;
+
+  // Check if already owned
+  if (ownedItems.has(itemId)) {
+    activateItem(itemId);
+    return;
+  }
+
+  const tgApp = window.Telegram?.WebApp;
+  if (!tgApp) {
+    showToast("Purchase only available in Telegram");
+    return;
+  }
+
+  try {
+    // Get invoice from backend
+    const response = await fetch(
+      BACKEND_URL + "/api/create-invoice",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallpaperId: itemId,
+          userId: uid
+        })
+      }
+    );
+    const data = await response.json();
+
+    if (!data.invoiceLink) {
+      showToast("Failed to create invoice");
+      return;
+    }
+
+    tgApp.openInvoice(data.invoiceLink, (status) => {
+      if (status === "paid") {
+        ownedItems.add(itemId);
+        activateItem(itemId);
+        showToast(item.name + " unlocked!");
+        renderStore();
+      } else if (status === "cancelled") {
+        showToast("Purchase cancelled");
+      } else if (status === "failed") {
+        showToast("Payment failed. Try again.");
+      }
+    });
+
+  } catch(e) {
+    console.error("buyWithStars:", e);
+    showToast("Error: " + e.message);
+  }
+}
+
+function activateItem(itemId) {
+  const uid = ensureNormalizedUserId();
+
+  if (itemId.startsWith("theme_")) {
+    activeTheme = itemId;
+    applyTheme(itemId);
+    if (uid && db) {
+      db.ref("users/" + uid + "/activeTheme")
+        .set(itemId).catch(() => {});
+    }
+  }
+
+  if (itemId.startsWith("border_")) {
+    activeBorder = itemId;
+    applyBorder(itemId);
+    if (uid && db) {
+      db.ref("users/" + uid + "/activeBorder")
+        .set(itemId).catch(() => {});
+    }
+  }
+
+  if (itemId === "xp_boost_small") {
+    const expiry = Date.now() + 24 * 60 * 60 * 1000;
+    if (uid && db) {
+      db.ref("users/" + uid + "/xpBoostExpiry")
+        .set(expiry).catch(() => {});
+    }
+    applyXpBoostIndicator(expiry);
+  }
+
+  if (itemId === "xp_boost_week") {
+    const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    if (uid && db) {
+      db.ref("users/" + uid + "/xpBoostExpiry")
+        .set(expiry).catch(() => {});
+    }
+    applyXpBoostIndicator(expiry);
+  }
+
+  if (itemId === "badge_champion") {
+    if (uid && db) {
+      db.ref("users/" + uid + "/badges/champion")
+        .set(true).catch(() => {});
+    }
+    applyChampionBadge();
+  }
+
+  if (itemId === "animated_marks") {
+    if (uid && db) {
+      db.ref("users/" + uid + "/ownedItems/animated_marks")
+        .set(true).catch(() => {});
+    }
+    document.body.classList.add("animated-marks");
+  }
+}
+
+function applyTheme(themeId) {
+  // Remove all theme classes
+  document.body.classList.remove(
+    "theme-gold", "theme-fire", "theme-ice"
+  );
+
+  if (themeId === "theme_gold") {
+    document.body.classList.add("theme-gold");
+  } else if (themeId === "theme_fire") {
+    document.body.classList.add("theme-fire");
+  } else if (themeId === "theme_ice") {
+    document.body.classList.add("theme-ice");
+  }
+  // default: no class = original blue/purple colors
+}
+
+function applyBorder(borderId) {
+  document.body.classList.remove(
+    "border-gold", "border-purple"
+  );
+  if (borderId === "border_gold") {
+    document.body.classList.add("border-gold");
+  } else if (borderId === "border_purple") {
+    document.body.classList.add("border-purple");
+  }
+}
+
+function applyXpBoostIndicator(expiry) {
+  // Show boost active indicator on XP bar
+  const xpBar = document.querySelector(
+    ".xp-bar, .xp-progress-fill, #xpBar"
+  );
+  if (xpBar) {
+    xpBar.style.background =
+      "linear-gradient(90deg, #fbbf24, #f59e0b)";
+    xpBar.title = "XP Boost active!";
+  }
+  // Update any boost indicator element
+  const boostEl = document.getElementById(
+    "xpBoostIndicator"
+  );
+  if (boostEl) {
+    const remaining = Math.max(0,
+      Math.ceil((expiry - Date.now()) / 3600000)
+    );
+    boostEl.innerText = "⚡ " + remaining + "h boost";
+    boostEl.style.display = "block";
+  }
+}
+
+function applyChampionBadge() {
+  document.body.classList.add("has-champion-badge");
+  // Add badge to user info bar
+  const userInfoBar = document.getElementById(
+    "userInfoBar"
+  );
+  if (userInfoBar && !userInfoBar.querySelector(
+    ".champion-badge"
+  )) {
+    const badge = document.createElement("span");
+    badge.className = "champion-badge";
+    badge.innerText = "🏆";
+    badge.title = "Champion Badge";
+    userInfoBar.appendChild(badge);
+  }
 }
 
 /* ===== COIN SYSTEM ===== */

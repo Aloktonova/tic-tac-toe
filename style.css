@@ -2483,3 +2483,89 @@ body {
     0 -2px 0 rgba(255, 255, 255, 0.1) inset,
     0 2px 8px rgba(124, 58, 237, 0.3);
 }
+
+/* ===== STORE THEMES ===== */
+
+/* GOLD THEME */
+body.theme-gold .cell[data-mark="X"],
+body.theme-gold .cell.x-mark {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 20px rgba(251,191,36,0.8);
+}
+body.theme-gold .cell[data-mark="O"],
+body.theme-gold .cell.o-mark {
+  color: #f59e0b !important;
+  text-shadow: 0 0 20px rgba(245,158,11,0.8);
+}
+
+/* FIRE THEME */
+body.theme-fire .cell[data-mark="X"],
+body.theme-fire .cell.x-mark {
+  color: #ef4444 !important;
+  text-shadow: 0 0 20px rgba(239,68,68,0.8);
+}
+body.theme-fire .cell[data-mark="O"],
+body.theme-fire .cell.o-mark {
+  color: #f97316 !important;
+  text-shadow: 0 0 20px rgba(249,115,22,0.8);
+}
+
+/* ICE THEME */
+body.theme-ice .cell[data-mark="X"],
+body.theme-ice .cell.x-mark {
+  color: #bae6fd !important;
+  text-shadow: 0 0 20px rgba(186,230,253,0.8);
+}
+body.theme-ice .cell[data-mark="O"],
+body.theme-ice .cell.o-mark {
+  color: #e0f2fe !important;
+  text-shadow: 0 0 20px rgba(224,242,254,0.8);
+}
+
+/* ANIMATED MARKS */
+body.animated-marks .cell.x-mark,
+body.animated-marks .cell[data-mark="X"] {
+  animation: markPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+body.animated-marks .cell.o-mark,
+body.animated-marks .cell[data-mark="O"] {
+  animation: markPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes markPop {
+  0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* PROFILE BORDERS */
+body.border-gold .user-avatar {
+  border: 3px solid #fbbf24 !important;
+  box-shadow: 0 0 12px rgba(251,191,36,0.6) !important;
+}
+
+body.border-purple .user-avatar {
+  border: 3px solid #a78bfa !important;
+  box-shadow: 0 0 12px rgba(167,139,250,0.6) !important;
+}
+
+/* CHAMPION BADGE */
+.champion-badge {
+  font-size: 14px;
+  margin-left: 4px;
+  filter: drop-shadow(0 0 4px rgba(251,191,36,0.8));
+}
+
+/* STORE BUTTON STATES */
+.store-buy-btn.active-btn {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  color: #000;
+  box-shadow: 0 4px 0 rgba(20, 83, 45, 0.5);
+  cursor: default;
+}
+
+.store-buy-btn.owned-btn {
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: #fff;
+  box-shadow: 0 4px 0 rgba(49, 46, 129, 0.5);
+}
