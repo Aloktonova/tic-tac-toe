@@ -98,19 +98,50 @@ export default async function handler(req, res) {
       if (FIREBASE_DATABASE_URL
         && wallpaperId && userId) {
         try {
-          // Unlock wallpaper
-          const fbRes = await fetch(
-            `${FIREBASE_DATABASE_URL}/users/${userId}/unlockedWallpapers/${wallpaperId}.json`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: "true"
+          // Determine if this is a wallpaper or store item
+          const WALLPAPER_IDS = ["galaxy","sakura","ocean",
+            "forest","fire","aurora","samurai","moonlight",
+            "meadow","castle","neon"];
+
+          if (WALLPAPER_IDS.includes(wallpaperId)) {
+            // Unlock wallpaper
+            const fbRes = await fetch(
+              `${FIREBASE_DATABASE_URL}/users/${userId}/unlockedWallpapers/${wallpaperId}.json`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: "true"
+              }
+            );
+            console.log("Firebase unlock status:",
+              fbRes.status);
+          } else {
+            // Unlock store item
+            await fetch(
+              `${FIREBASE_DATABASE_URL}/users/${userId}/ownedItems/${wallpaperId}.json`,
+              {
+                method: "PUT",
+                body: "true",
+                headers: { "Content-Type": "application/json" }
+              }
+            );
+
+            // Handle XP boost expiry
+            if (wallpaperId === "xp_boost_week") {
+              const expiry = Date.now()
+                + 7 * 24 * 60 * 60 * 1000;
+              await fetch(
+                `${FIREBASE_DATABASE_URL}/users/${userId}/xpBoostExpiry.json`,
+                {
+                  method: "PUT",
+                  body: String(expiry),
+                  headers: { "Content-Type": "application/json" }
+                }
+              );
             }
-          );
-          console.log("Firebase unlock status:",
-            fbRes.status);
+          }
 
           // Save payment record
           await fetch(
