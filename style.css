@@ -265,14 +265,19 @@ body {
   justify-content: center;
   padding: 32px 28px calc(var(--nav-height) + 24px);
   gap: 24px;
+  --home-enter-delay: 0.12s;
+  --home-shimmer-delay: 0.9s;
+  --home-button-enter-delay: 0s;
+  --home-button-glow-delay: 0.95s;
 }
 
 .home-illustration {
+  --home-glow-base: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
+  --home-glow-peak: drop-shadow(0 0 34px rgba(129, 140, 248, 0.65)) drop-shadow(0 0 64px rgba(124, 58, 237, 0.4));
   width: min(85vw, 340px);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
-  animation: float 5.5s ease-in-out infinite, glowPulse 4.2s ease-in-out infinite;
+  filter: var(--home-glow-base);
 }
 
 @keyframes float {
@@ -281,12 +286,8 @@ body {
 }
 
 @keyframes glowPulse {
-  0%, 100% {
-    filter: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
-  }
-  50% {
-    filter: drop-shadow(0 0 34px rgba(129, 140, 248, 0.65)) drop-shadow(0 0 64px rgba(124, 58, 237, 0.4));
-  }
+  0%, 100% { filter: var(--home-glow-base); }
+  50% { filter: var(--home-glow-peak); }
 }
 
 .home-title {
@@ -298,9 +299,8 @@ body {
   background-clip: text;
   background-size: 220% 220%;
   letter-spacing: -0.5px;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: homeTitleEnter 0.7s ease-out 0.12s forwards, titleShimmer 5s linear 0.9s infinite;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .home-buttons {
@@ -321,15 +321,8 @@ body {
 
 .home-buttons > #btn-play-ai,
 .home-buttons > #btn-play-online {
-  opacity: 0;
-  transform: translateY(10px) scale(0.985);
-  animation:
-    buttonEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards,
-    borderGlow 2.8s ease-in-out 0.95s infinite;
-}
-
-.home-buttons > #btn-play-online {
-  animation-delay: 0.1s, 1.1s;
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 #playAI,
@@ -432,18 +425,37 @@ body {
 }
 
 .home-header .avatar-btn {
-  animation: avatarPop 0.35s ease-out;
+  animation: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .home-illustration,
-  .home-title,
+@media (prefers-reduced-motion: no-preference) {
+  .home-illustration {
+    animation: float 5.5s ease-in-out infinite, glowPulse 4.2s ease-in-out infinite;
+  }
+
+  .home-title {
+    opacity: 0;
+    transform: translateY(8px);
+    animation:
+      homeTitleEnter 0.7s ease-out var(--home-enter-delay) forwards,
+      titleShimmer 5s linear var(--home-shimmer-delay) infinite;
+  }
+
   .home-buttons > #btn-play-ai,
-  .home-buttons > #btn-play-online,
+  .home-buttons > #btn-play-online {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    animation:
+      buttonEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--home-button-enter-delay) forwards,
+      borderGlow 2.8s ease-in-out var(--home-button-glow-delay) infinite;
+  }
+
+  .home-buttons > #btn-play-online {
+    animation-delay: calc(var(--home-button-enter-delay) + 0.1s), calc(var(--home-button-glow-delay) + 0.15s);
+  }
+
   .home-header .avatar-btn {
-    animation: none !important;
-    transform: none !important;
-    opacity: 1 !important;
+    animation: avatarPop 0.35s ease-out;
   }
 }
 
