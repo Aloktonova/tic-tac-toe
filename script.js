@@ -1142,6 +1142,8 @@ function startAIGame() {
   setStatus('Your Turn');
   updateActiveTurn();
   showScreen('game');
+  applyTheme(activeTheme);
+  applyBorder(activeBorder);
 }
 
 /* ===== PLAY WITH FRIENDS (private room) ===== */
@@ -1315,6 +1317,8 @@ function joinRoom(rId, mark) {
   document.getElementById('chat-messages').innerHTML = '';
 
   showScreen('game');
+  applyTheme(activeTheme);
+  applyBorder(activeBorder);
   listenToRoom();
 }
 
@@ -1432,17 +1436,29 @@ function renderBoard(winCells) {
 
     if (val === 'X') {
       cell.textContent = '✕';
+      cell.dataset.mark = 'x';
       cell.classList.add('x-cell', 'taken', 'disabled');
     } else if (val === 'O') {
       cell.textContent = '○';
+      cell.dataset.mark = 'o';
       cell.classList.add('o-cell', 'taken', 'disabled');
     } else {
       cell.textContent = '';
+      cell.removeAttribute('data-mark');
       if (shouldDisable) cell.classList.add('disabled');
+    }
+
+    if (val && ownedItems.has("animated_marks")) {
+      cell.classList.add("mark-animated");
+      void cell.offsetWidth;
     }
 
     if (winCells && winCells.includes(i)) cell.classList.add('winning');
   });
+
+  if (activeTheme && activeTheme !== "default") {
+    applyTheme(activeTheme);
+  }
 }
 
 function updateActiveTurn() {
@@ -2868,9 +2884,15 @@ function renderProfileUI(data, achievements) {
   // Avatar
   const avatarEl = document.getElementById('profile-avatar');
   applyAvatarToEl(avatarEl, data.name || 'P');
+  applyBorder(activeBorder);
 
   // Name
   document.getElementById('profile-name').textContent = data.name || 'Player';
+  if (ownedItems.has("badge_champion")) {
+    applyChampionBadge();
+  } else {
+    document.querySelector(".champion-badge")?.remove();
+  }
 
   // Level & XP
   const xp       = data.xp || 0;
@@ -3062,21 +3084,27 @@ function renderStore() {
       const card = document.createElement("div");
       card.className = "store-card";
       const owned = ownedItems.has(item.id);
-      const isActive = (
-        item.id === activeTheme ||
-        item.id === activeBorder
-      );
-      const btnHtml = owned
-        ? (isActive
-            ? ''
-            : `<button class="store-buy-btn owned-btn"
-                onclick="buyStoreItem('${item.id}', 'coins')">
-                Use
-               </button>`)
-        : `<button class="store-buy-btn"
+      const isTheme = item.id.startsWith("theme_");
+      const isBorder = item.id.startsWith("border_");
+      const isActive = isTheme
+        ? activeTheme === item.id
+        : (isBorder ? activeBorder === item.id : false);
+      let btnHtml = '';
+      if (!owned) {
+        btnHtml = `<button class="store-buy-btn"
             onclick="buyStoreItem('${item.id}', 'coins')">
             ${item.price} coins
            </button>`;
+      } else if (isActive) {
+        btnHtml = `<button class="store-buy-btn active-btn" disabled>
+            Active ✓
+           </button>`;
+      } else {
+        btnHtml = `<button class="store-buy-btn owned-btn"
+            onclick="buyStoreItem('${item.id}', 'coins')">
+            Use
+           </button>`;
+      }
       card.innerHTML = `
         <div class="store-item-icon">${item.icon}</div>
         <div class="store-item-name">${item.name}</div>
@@ -3093,12 +3121,27 @@ function renderStore() {
       const card = document.createElement("div");
       card.className = "store-card";
       const owned = ownedItems.has(item.id);
-      const btnHtml = owned
-        ? ''
-        : `<button class="store-buy-btn stars-btn"
+      const isTheme = item.id.startsWith("theme_");
+      const isBorder = item.id.startsWith("border_");
+      const isActive = isTheme
+        ? activeTheme === item.id
+        : (isBorder ? activeBorder === item.id : false);
+      let btnHtml = '';
+      if (!owned) {
+        btnHtml = `<button class="store-buy-btn stars-btn"
             onclick="buyStoreItem('${item.id}', 'stars')">
             ${item.price} ⭐
            </button>`;
+      } else if (isActive) {
+        btnHtml = `<button class="store-buy-btn active-btn" disabled>
+            Active ✓
+           </button>`;
+      } else {
+        btnHtml = `<button class="store-buy-btn owned-btn"
+            onclick="buyStoreItem('${item.id}', 'stars')">
+            Use
+           </button>`;
+      }
       card.innerHTML = `
         <div class="store-item-icon">${item.icon}</div>
         <div class="store-item-name">${item.name}</div>
@@ -3375,19 +3418,19 @@ function applyXpBoostIndicator(expiry) {
 }
 
 function applyChampionBadge() {
-  document.body.classList.add("has-champion-badge");
-  // Add badge to user info bar
-  const userInfoBar = document.getElementById(
-    "userInfoBar"
-  );
-  if (userInfoBar && !userInfoBar.querySelector(
-    ".champion-badge"
-  )) {
-    const badge = document.createElement("span");
-    badge.className = "champion-badge";
-    badge.innerText = "🏆";
-    badge.title = "Champion Badge";
-    userInfoBar.appendChild(badge);
+  const bar = document.getElementById("userInfoBar")
+    || document.getElementById("profile-name")?.parentElement;
+  if (!bar) return;
+  if (bar.querySelector(".champion-badge")) return;
+  const badge = document.createElement("span");
+  badge.className = "champion-badge";
+  badge.innerText = "🏆";
+  badge.title = "Champion Badge";
+  const profileName = document.getElementById("profile-name");
+  if (profileName && profileName.parentElement === bar) {
+    profileName.insertAdjacentElement("afterend", badge);
+  } else {
+    bar.appendChild(badge);
   }
 }
 
