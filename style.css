@@ -269,6 +269,8 @@ body {
   --home-shimmer-delay: 0.9s;
   --home-button-enter-delay: 0s;
   --home-button-glow-delay: 0.95s;
+  --home-button-enter-stagger: 0.1s;
+  --home-button-glow-stagger: 0.15s;
   --home-title-bg-size: 220%;
   --home-glow-base: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
   --home-glow-peak: drop-shadow(0 0 34px rgba(129, 140, 248, 0.65)) drop-shadow(0 0 64px rgba(124, 58, 237, 0.4));
@@ -452,7 +454,9 @@ body {
   }
 
   .home-buttons > #btn-play-online {
-    animation-delay: calc(var(--home-button-enter-delay) + 0.1s), calc(var(--home-button-glow-delay) + 0.15s);
+    animation-delay:
+      calc(var(--home-button-enter-delay) + var(--home-button-enter-stagger)),
+      calc(var(--home-button-glow-delay) + var(--home-button-glow-stagger));
   }
 
   .home-header .avatar-btn {
