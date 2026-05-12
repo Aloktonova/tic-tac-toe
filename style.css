@@ -271,6 +271,7 @@ body {
   --home-button-glow-delay: 0.95s;
   --home-button-enter-stagger: 0.1s;
   --home-button-glow-stagger: 0.15s;
+  --home-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
   --home-title-bg-size: 220%;
   --home-glow-base: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
   --home-glow-peak: drop-shadow(0 0 34px rgba(129, 140, 248, 0.65)) drop-shadow(0 0 64px rgba(124, 58, 237, 0.4));
@@ -449,7 +450,7 @@ body {
     opacity: 0;
     transform: translateY(10px) scale(0.985);
     animation:
-      buttonEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--home-button-enter-delay) forwards,
+      buttonEnter 0.65s var(--home-ease-enter) var(--home-button-enter-delay) forwards,
       borderGlow 2.8s ease-in-out var(--home-button-glow-delay) infinite;
   }
 
