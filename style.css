@@ -265,19 +265,33 @@ body {
   justify-content: center;
   padding: 32px 28px calc(var(--nav-height) + 24px);
   gap: 24px;
+  --home-enter-delay: 0.12s;
+  --home-shimmer-delay: 0.9s;
+  --home-button-enter-delay: 0s;
+  --home-button-glow-delay: 0.95s;
+  --home-button-enter-stagger: 0.1s;
+  --home-button-glow-stagger: 0.15s;
+  --home-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --home-title-bg-size: 220%;
+  --home-glow-base: drop-shadow(0 0 24px rgba(129, 140, 248, 0.45)) drop-shadow(0 0 48px rgba(124, 58, 237, 0.28));
+  --home-glow-peak: drop-shadow(0 0 34px rgba(129, 140, 248, 0.65)) drop-shadow(0 0 64px rgba(124, 58, 237, 0.4));
 }
 
 .home-illustration {
   width: min(85vw, 340px);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 32px rgba(129, 140, 248, 0.6)) drop-shadow(0 0 60px rgba(124, 58, 237, 0.35));
-  animation: float 3s ease-in-out infinite;
+  filter: var(--home-glow-base);
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-12px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { filter: var(--home-glow-base); }
+  50% { filter: var(--home-glow-peak); }
 }
 
 .home-title {
@@ -287,7 +301,10 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  background-size: var(--home-title-bg-size) var(--home-title-bg-size);
   letter-spacing: -0.5px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .home-buttons {
@@ -300,12 +317,16 @@ body {
 /* Home screen button specific styles — IDs override .btn-primary without !important */
 #btn-play-ai {
   background: linear-gradient(100deg, #7c3aed 20%, #9d4edd 48%, #6d28d9 76%);
-  animation: btnPulse 2.5s ease-in-out infinite;
 }
 
 #btn-play-online {
   background: linear-gradient(100deg, #4f46e5 20%, #6366f1 48%, #4338ca 76%);
-  animation: btnPulse 2.5s ease-in-out infinite 0.6s;
+}
+
+.home-buttons > #btn-play-ai,
+.home-buttons > #btn-play-online {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 #playAI,
@@ -353,6 +374,94 @@ body {
     box-shadow:
       0 0 35px rgba(124, 58, 237, 0.65),
       0 4px 25px rgba(79, 70, 229, 0.55);
+  }
+}
+
+@keyframes homeTitleEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes titleShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+@keyframes buttonEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.008);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    box-shadow:
+      0 8px 0 rgba(0, 0, 0, 0.3),
+      0 -2px 0 rgba(255, 255, 255, 0.1) inset,
+      0 4px 15px rgba(124, 58, 237, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 8px 0 rgba(0, 0, 0, 0.3),
+      0 -2px 0 rgba(255, 255, 255, 0.1) inset,
+      0 8px 26px rgba(99, 102, 241, 0.55);
+  }
+}
+
+@keyframes avatarPop {
+  0% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.home-header .avatar-btn {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-illustration {
+    animation: float 5.5s ease-in-out infinite, glowPulse 4.2s ease-in-out infinite;
+  }
+
+  .home-title {
+    opacity: 0;
+    transform: translateY(8px);
+    animation:
+      homeTitleEnter 0.7s ease-out var(--home-enter-delay) forwards,
+      titleShimmer 5s linear var(--home-shimmer-delay) infinite;
+  }
+
+  .home-buttons > #btn-play-ai,
+  .home-buttons > #btn-play-online {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    animation:
+      buttonEnter 0.65s var(--home-ease-enter) var(--home-button-enter-delay) forwards,
+      borderGlow 2.8s ease-in-out var(--home-button-glow-delay) infinite;
+  }
+
+  .home-buttons > #btn-play-online {
+    animation-delay:
+      calc(var(--home-button-enter-delay) + var(--home-button-enter-stagger)),
+      calc(var(--home-button-glow-delay) + var(--home-button-glow-stagger));
+  }
+
+  .home-header .avatar-btn {
+    animation: avatarPop 0.35s ease-out;
   }
 }
 
