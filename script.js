@@ -368,8 +368,8 @@ function getTodayDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function getWeeklyTournamentId(ts = Date.now()) {
-  const date = new Date(ts);
+function getWeeklyTournamentId(timestamp = Date.now()) {
+  const date = new Date(timestamp);
   const utcDate = new Date(
     Date.UTC(
       date.getUTCFullYear(),
@@ -385,8 +385,8 @@ function getWeeklyTournamentId(ts = Date.now()) {
   return "weekly_" + isoYear + "_w" + String(week).padStart(2, "0");
 }
 
-function getWeeklyTournamentWindow(ts = Date.now()) {
-  const now = new Date(ts);
+function getWeeklyTournamentWindow(timestamp = Date.now()) {
+  const now = new Date(timestamp);
   const day = now.getUTCDay() || 7; // Mon=1..Sun=7
   const start = new Date(Date.UTC(
     now.getUTCFullYear(),
@@ -2596,7 +2596,7 @@ async function ensureCurrentTournament() {
         endAt: existing.endAt || fixed.endAt,
         playerCount: existing.playerCount || 0
       });
-      return { ...existing, ...fixed, ...existing };
+      return { ...fixed, ...existing };
     }
     return existing;
   }
@@ -2699,7 +2699,8 @@ function startTournamentCountdown(endAt) {
     const hrs = Math.floor((diff % 86400000) / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
-    el.textContent = days + 'd ' + String(hrs).padStart(2, '0') + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    const timePart = String(hrs).padStart(2, '0') + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    el.textContent = days > 0 ? (days + 'd ' + timePart) : timePart;
   };
   tick();
   tournamentCountdownTimer = setInterval(tick, 1000);
@@ -2725,7 +2726,12 @@ async function joinCurrentTournament() {
       };
     });
 
+    const alreadyJoined = !!result.snapshot?.val();
     if (!result.committed) {
+      if (!alreadyJoined) {
+        showToast('Could not join tournament. Please try again.');
+        return;
+      }
       hasJoinedCurrentTournament = true;
       updateTournamentJoinButton();
       return;
@@ -2875,6 +2881,8 @@ async function awardTournamentPointsForRoom(room, roomOutcome) {
 
 async function runWeeklyTournamentResetAsAdmin() {
   if (!db || !currentUser.id) return false;
+  let lockAcquired = false;
+  const lockRef = db.ref('tournaments/reset_lock');
   try {
     const adminSnap = await db.ref('users/' + currentUser.id + '/isTournamentAdmin').once('value');
     if (!adminSnap.val()) return false;
@@ -2884,11 +2892,12 @@ async function runWeeklyTournamentResetAsAdmin() {
     const current = currentSnap.val() || {};
     if ((current.endAt || 0) > Date.now()) return false;
 
-    const lockRef = db.ref('tournaments/reset_lock');
+    // Returning undefined aborts the transaction when another reset lock already exists.
     const lockTx = await lockRef.transaction(lock => lock ? undefined : { by: currentUser.id, at: Date.now() });
     if (!lockTx.committed) return false;
+    lockAcquired = true;
 
-    const archiveKey = (current.id || ('season_' + (current.season || 1))) + '_' + Date.now();
+    const archiveKey = 'season_' + (current.season || 1) + '_' + Date.now();
     await db.ref('tournaments/history/' + archiveKey).set({
       ...current,
       archivedAt: Date.now()
@@ -2901,11 +2910,14 @@ async function runWeeklyTournamentResetAsAdmin() {
       leaderboard: {}
     });
 
-    await lockRef.remove();
     return true;
   } catch (e) {
     console.warn('Tournament weekly reset error:', e);
     return false;
+  } finally {
+    if (lockAcquired) {
+      await lockRef.remove().catch(() => {});
+    }
   }
 }
 
