@@ -312,19 +312,23 @@ const ACHIEVEMENTS = [
 const activeListeners = {};
 
 function attachListener(key, ref, event, fn) {
+  // PHASE 3: Log for debugging listener leaks
   if (activeListeners[key]) {
+    console.log('[Listener] Replacing existing listener:', key);
     activeListeners[key].ref.off(
       activeListeners[key].event,
       activeListeners[key].fn
     );
     delete activeListeners[key];
   }
+  console.log('[Listener] Attaching listener:', key);
   ref.on(event, fn);
   activeListeners[key] = { ref, event, fn };
 }
 
 function detachListener(key) {
   if (!activeListeners[key]) return;
+  console.log('[Listener] Detaching listener:', key);
   activeListeners[key].ref.off(
     activeListeners[key].event,
     activeListeners[key].fn
@@ -333,9 +337,19 @@ function detachListener(key) {
 }
 
 function detachAllListeners() {
-  Object.keys(activeListeners).forEach(key => {
+  // PHASE 3: Log all detachments for debugging
+  const keys = Object.keys(activeListeners);
+  if (keys.length > 0) {
+    console.log('[Listener] Detaching all listeners:', keys);
+  }
+  keys.forEach(key => {
     detachListener(key);
   });
+}
+
+// PHASE 3: Helper to get current listeners for debugging
+function getActiveListenerKeys() {
+  return Object.keys(activeListeners);
 }
 
 /* ===== USER PROFILE CACHE ===== */
@@ -1136,19 +1150,22 @@ function setupEventListeners() {
       }
 
       if (screen === 'settings') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         openSettings();
         return;
       }
 
       if (screen === 'leaderboard') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
         loadLeaderboard(activeTab);
       }
 
       if (screen === 'store') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         showScreen('store');
         renderStore();
         setBottomNavActive('store');
@@ -1455,8 +1472,19 @@ function listenToRoom() {
 }
 
 function cleanupRoomListener() {
+  // PHASE 3: Clean up game room listeners
   detachListener('room');
   detachListener('chat');
+}
+
+// PHASE 3: Comprehensive cleanup for all game/multiplayer screens
+function cleanupAllGameListeners() {
+  console.log('[Listener] Cleaning up all game listeners');
+  detachListener('room');
+  detachListener('chat');
+  detachListener('queue');
+  cleanupTournamentBattleListeners();
+  queueRef = null;
 }
 
 function renderOnlineRoom(room) {
