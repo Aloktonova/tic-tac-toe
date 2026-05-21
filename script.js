@@ -1484,7 +1484,7 @@ function renderBoard(winCells) {
       if (shouldDisable) cell.classList.add('disabled');
     }
 
-    if (val && activeAnimatedMarks) {
+    if (val && activeAnimatedMarks && ownedItems.has("animated_marks")) {
       cell.classList.add("mark-animated");
       void cell.offsetWidth;
     }
