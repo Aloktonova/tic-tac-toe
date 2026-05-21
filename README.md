@@ -19,6 +19,7 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 - Instant play via Telegram bot
 - No login required (uses Telegram account)
 - Player stats (wins, games, XP)
+- Daily login reward claim (50 coins)
 - Daily country detection (stored once per day)
 - Responsive UI (mobile + browser)
 
@@ -62,6 +63,17 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 - Wallpaper unlock happens only after callback status is `paid`.
 - Purchases are stored in Firebase per user under:
   - `users/{telegramUserId}/ownedWallpapers/{wallpaperId}: true`
+
+## Daily Telegram Broadcast
+
+- Backend route: `GET /api/daily-broadcast`
+- Vercel cron is configured in `backend/vercel.json` to call it daily.
+- It reads Telegram IDs from Firebase `users` and sends a broadcast with Telegram Bot API `sendMessage`.
+- Required backend env vars:
+  - `BOT_TOKEN`
+  - `FIREBASE_DATABASE_URL`
+  - `DAILY_BROADCAST_SECRET` (optional when not using Vercel cron header)
+  - `DAILY_TELEGRAM_MESSAGE` (optional custom message text)
 
 ## Gameplay
 

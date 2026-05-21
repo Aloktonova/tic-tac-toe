@@ -20,6 +20,7 @@ const AI_MOVE_DELAY_MS = 420; // brief pause so AI feels more natural
 const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
+const DAILY_LOGIN_REWARD_COINS = 50;
 
 // Referral system configuration
 // IMPORTANT: Make sure your bot has a
@@ -362,6 +363,23 @@ function invalidateProfileCache() {
   cachedUserProfileUid = null;
 }
 
+function getTodayDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getWeeklyTournamentId(ts = Date.now()) {
+  const date = new Date(ts);
+  const year = date.getUTCFullYear();
+  const start = new Date(Date.UTC(year, 0, 1));
+  const dayOffset = (start.getUTCDay() + 6) % 7; // Monday-based week
+  const dayOfYear = Math.floor(
+    (Date.UTC(year, date.getUTCMonth(), date.getUTCDate()) - Date.UTC(year, 0, 1))
+    / 86400000
+  ) + 1;
+  const week = Math.floor((dayOfYear + dayOffset - 1) / 7) + 1;
+  return "weekly_" + year + "_w" + String(week).padStart(2, "0");
+}
+
 /* ===== STATE ===== */
 let db = null;
 
@@ -436,6 +454,8 @@ let userReferralCount = 0;
 let ownedItems = new Set();
 let activeTheme = "default";
 let activeBorder = "none";
+let activeAnimatedMarks = false;
+let activeBattleTournamentId = null;
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -787,6 +807,11 @@ async function identifyUser() {
       const ownedData = d.ownedItems || {};
       ownedItems = new Set(Object.keys(ownedData)
         .filter(k => ownedData[k] === true));
+      const hasAnimatedMarks = ownedItems.has("animated_marks");
+      activeAnimatedMarks = typeof d.activeAnimatedMarks === "boolean"
+        ? d.activeAnimatedMarks
+        : hasAnimatedMarks;
+      document.body.classList.toggle("animated-marks", activeAnimatedMarks && hasAnimatedMarks);
 
       // Restore active theme and border
       activeTheme = d.activeTheme || "default";
@@ -796,9 +821,14 @@ async function identifyUser() {
       applyTheme(activeTheme);
       applyBorder(activeBorder);
 
-      // Apply XP boost if still active
+      // Apply XP boost if still active, otherwise clear stale expiry
       if (Date.now() < (d.xpBoostExpiry || 0)) {
         applyXpBoostIndicator(d.xpBoostExpiry);
+      } else if ((d.xpBoostExpiry || 0) > 0) {
+        currentUser.xpBoostExpiry = 0;
+        clearXpBoostIndicator();
+        db.ref("users/" + currentUser.id + "/xpBoostExpiry")
+          .set(0).catch(() => {});
       }
 
       // Load per-user purchased wallpapers from Firebase.
@@ -826,6 +856,8 @@ async function identifyUser() {
 
     // Update / create user doc
     const updates = { name: currentUser.name, lastActive: Date.now() };
+    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (telegramUserId) updates.telegramId = String(telegramUserId);
     if (!snap.exists()) updates.createdAt = Date.now();
     await db.ref('users/' + currentUser.id).update(updates);
 
@@ -1448,7 +1480,7 @@ function renderBoard(winCells) {
       if (shouldDisable) cell.classList.add('disabled');
     }
 
-    if (val && ownedItems.has("animated_marks")) {
+    if (val && activeAnimatedMarks) {
       cell.classList.add("mark-animated");
       void cell.offsetWidth;
     }
@@ -1666,7 +1698,7 @@ function showResultOverlay(outcome) {
   textEl.textContent  = textMap[outcome];
   textEl.style.color  = colorMap[outcome];
 
-  const boost    = Date.now() < (currentUser.xpBoostExpiry || 0);
+  const boost    = getActiveXpBoostExpiry() > 0;
   const xpAmounts = { win: boost ? 20 : 10, draw: boost ? 14 : 7, lose: boost ? 10 : 5 };
   document.getElementById('result-xp').textContent =
     '+' + xpAmounts[outcome] + ' XP' + (boost ? ' ⚡ 2x Boost' : '');
@@ -1705,7 +1737,7 @@ function leaveGame() {
 
 /* ===== XP SYSTEM ===== */
 async function awardXP(outcome) {
-  const boost = Date.now() < (currentUser.xpBoostExpiry || 0);
+  const boost = getActiveXpBoostExpiry() > 0;
   const xpMap = { win: boost ? 20 : 10, draw: boost ? 14 : 7, lose: boost ? 10 : 5 };
   const xpGain = xpMap[outcome] || 0;
 
@@ -2489,6 +2521,7 @@ function renderRulesDefault() {
 /* ===== BATTLE TAB ===== */
 function startBattleSearch() {
   battleCancelled = false;
+  activeBattleTournamentId = getWeeklyTournamentId();
   document.getElementById('modal-battle').classList.remove('hidden');
   document.body.style.pointerEvents = 'none';
   document.getElementById('modal-battle').style.pointerEvents = 'auto';
@@ -2501,12 +2534,14 @@ function startBattleSearch() {
     return;
   }
 
-  // Add to Firebase queue (with future tournament fields)
+  // Add to Firebase queue for free weekly tournament
   db.ref('queue/' + currentUser.id).set({
     userId:     currentUser.id,
     timestamp:  Date.now(),
     status:     'waiting',
-    entry_paid: false // future: paid tournament entry flag
+    entry_paid: false,
+    tournament_id: activeBattleTournamentId,
+    entry_type: "weekly_free"
   }).then(() => {
     inBattleQueue = true;
     db.ref('queue/' + currentUser.id).onDisconnect().remove();
@@ -2545,6 +2580,7 @@ async function searchBattleOpponent() {
       Object.entries(entries).forEach(([uid, d]) => {
         if (uid === currentUser.id) return;
         if (!d || d.status !== 'waiting') return;
+        if ((d.tournament_id || null) !== activeBattleTournamentId) return;
         const age = now - (d.timestamp || 0);
         if (age > QUEUE_ENTRY_MAX_AGE_MS) {
           // Delete stale entry silently
@@ -2585,7 +2621,7 @@ async function searchBattleOpponent() {
           playerXWins: 0,
           playerOWins: 0,
           createdAt: Date.now(),
-          tournament_id: null, // future: weekly tournament identifier (snake_case per DB schema)
+          tournament_id: activeBattleTournamentId,
           players: {
             X: { id: opponentId, name: opUser.name || 'Player' },
             O: { id: currentUser.id, name: currentUser.name }
@@ -2595,6 +2631,7 @@ async function searchBattleOpponent() {
 
         await opRef.update({ status: 'matched', roomId: newRoomId });
 
+        activeBattleTournamentId = null;
         hideBattleModal();
         joinRoom(newRoomId, 'O');
         return;
@@ -2619,6 +2656,7 @@ function listenForBattleMatch() {
       clearTimeout(battleTimer);
       inBattleQueue = false;
       detachListener('queue');
+      activeBattleTournamentId = null;
       hideBattleModal();
       joinRoom(data.roomId, 'X');
     }
@@ -2628,6 +2666,7 @@ function listenForBattleMatch() {
 
 function cancelBattleSearch() {
   battleCancelled = true;
+  activeBattleTournamentId = null;
   clearTimeout(battleTimer);
   stopDotsAnimation();
   detachListener('queue');
@@ -2641,6 +2680,7 @@ function cancelBattleSearch() {
 }
 
 function startBotGame() {
+  activeBattleTournamentId = null;
   hideBattleModal();
 
   const botIdx      = Math.floor(Math.random() * BOT_NAMES.length);
@@ -2935,7 +2975,8 @@ function renderProfileUI(data, achievements) {
       level,
       referralCount: data.referralCount || userReferralCount || 0
     },
-    getClaimedAchievementIds(achievements)
+    getClaimedAchievementIds(achievements),
+    data
   );
 }
 
@@ -2949,18 +2990,24 @@ function getClaimedAchievementIds(achievements) {
   });
 }
 
-function renderAchievements(userStats, claimedIds) {
+function renderAchievements(userStats, claimedIds, userData = {}) {
   const list = document.getElementById("achievementsList");
   if (!list) return;
   list.innerHTML = "";
+  const todayKey = getTodayDateKey();
+  const dailyClaimed = userData.lastDailyLoginClaimDate === todayKey;
 
   ACHIEVEMENTS.forEach(ach => {
-    const claimed = claimedIds.includes(ach.id);
+    const claimed = ach.id === "daily_login"
+      ? dailyClaimed
+      : claimedIds.includes(ach.id);
     const completed = ach.id === "join_channel"
       ? !claimed
-      : ach.check
-        ? ach.check(userStats)
-        : false;
+      : ach.id === "daily_login"
+        ? !dailyClaimed
+        : ach.check
+          ? ach.check(userStats)
+          : false;
 
     const card = document.createElement("div");
     card.className = "achievement-card"
@@ -3002,6 +3049,44 @@ async function claimAchievement(achievementId) {
     return;
   }
   const reward = achievement.reward;
+
+  if (achievementId === "daily_login") {
+    if (!db) return;
+    const todayKey = getTodayDateKey();
+    try {
+      const tx = await db.ref("users/" + uid).transaction(current => {
+        const user = current || {};
+        if (user.lastDailyLoginClaimDate === todayKey) {
+          return undefined;
+        }
+        user.lastDailyLoginClaimDate = todayKey;
+        user.coins = (user.coins || 0) + DAILY_LOGIN_REWARD_COINS;
+        const achievements = user.achievements || {};
+        achievements.daily_login = {
+          claimed: true,
+          claimedAt: Date.now()
+        };
+        user.achievements = achievements;
+        return user;
+      });
+
+      if (!tx.committed) {
+        showToast("Daily coins already claimed today.");
+        return;
+      }
+
+      const updated = tx.snapshot?.val() || {};
+      userCoins = updated.coins || userCoins;
+      updateCoinsDisplay();
+      showToast("+" + DAILY_LOGIN_REWARD_COINS + " coins! Daily reward claimed!");
+      loadUnlockedAchievements();
+      return;
+    } catch (e) {
+      console.error("daily_login claim:", e);
+      showToast("Failed to claim daily reward.");
+      return;
+    }
+  }
 
   if (achievementId === "join_channel") {
     // Verify channel membership via backend
@@ -3086,14 +3171,21 @@ function renderStore() {
       const owned = ownedItems.has(item.id);
       const isTheme = item.id.startsWith("theme_");
       const isBorder = item.id.startsWith("border_");
+      const isAnimated = item.id === "animated_marks";
+      const canDeactivate = isTheme || isBorder || isAnimated;
       const isActive = isTheme
         ? activeTheme === item.id
-        : (isBorder ? activeBorder === item.id : false);
+        : (isBorder ? activeBorder === item.id : (isAnimated ? activeAnimatedMarks : false));
       let btnHtml = '';
       if (!owned) {
         btnHtml = `<button class="store-buy-btn"
             onclick="buyStoreItem('${item.id}', 'coins')">
             ${item.price} coins
+           </button>`;
+      } else if (isActive && canDeactivate) {
+        btnHtml = `<button class="store-buy-btn active-btn"
+            onclick="deactivateStoreItem('${item.id}')">
+            Deactivate
            </button>`;
       } else if (isActive) {
         btnHtml = `<button class="store-buy-btn active-btn" disabled>
@@ -3123,14 +3215,21 @@ function renderStore() {
       const owned = ownedItems.has(item.id);
       const isTheme = item.id.startsWith("theme_");
       const isBorder = item.id.startsWith("border_");
+      const isAnimated = item.id === "animated_marks";
+      const canDeactivate = isTheme || isBorder || isAnimated;
       const isActive = isTheme
         ? activeTheme === item.id
-        : (isBorder ? activeBorder === item.id : false);
+        : (isBorder ? activeBorder === item.id : (isAnimated ? activeAnimatedMarks : false));
       let btnHtml = '';
       if (!owned) {
         btnHtml = `<button class="store-buy-btn stars-btn"
             onclick="buyStoreItem('${item.id}', 'stars')">
             ${item.price} ⭐
+           </button>`;
+      } else if (isActive && canDeactivate) {
+        btnHtml = `<button class="store-buy-btn active-btn"
+            onclick="deactivateStoreItem('${item.id}')">
+            Deactivate
            </button>`;
       } else if (isActive) {
         btnHtml = `<button class="store-buy-btn active-btn" disabled>
@@ -3359,11 +3458,54 @@ function activateItem(itemId) {
   }
 
   if (itemId === "animated_marks") {
+    activeAnimatedMarks = true;
     if (uid && db) {
       db.ref("users/" + uid + "/ownedItems/animated_marks")
         .set(true).catch(() => {});
+      db.ref("users/" + uid + "/activeAnimatedMarks")
+        .set(true).catch(() => {});
     }
     document.body.classList.add("animated-marks");
+    renderBoard();
+  }
+}
+
+function deactivateStoreItem(itemId) {
+  deactivateItem(itemId);
+  renderStore();
+}
+
+function deactivateItem(itemId) {
+  const uid = ensureNormalizedUserId();
+
+  if (itemId.startsWith("theme_")) {
+    activeTheme = "default";
+    applyTheme(activeTheme);
+    if (uid && db) {
+      db.ref("users/" + uid + "/activeTheme")
+        .set("default").catch(() => {});
+    }
+    return;
+  }
+
+  if (itemId.startsWith("border_")) {
+    activeBorder = "none";
+    applyBorder(activeBorder);
+    if (uid && db) {
+      db.ref("users/" + uid + "/activeBorder")
+        .set("none").catch(() => {});
+    }
+    return;
+  }
+
+  if (itemId === "animated_marks") {
+    activeAnimatedMarks = false;
+    document.body.classList.remove("animated-marks");
+    if (uid && db) {
+      db.ref("users/" + uid + "/activeAnimatedMarks")
+        .set(false).catch(() => {});
+    }
+    renderBoard();
   }
 }
 
@@ -3415,6 +3557,35 @@ function applyXpBoostIndicator(expiry) {
     boostEl.innerText = "⚡ " + remaining + "h boost";
     boostEl.style.display = "block";
   }
+}
+
+function clearXpBoostIndicator() {
+  const xpBar = document.querySelector(
+    ".xp-bar, .xp-progress-fill, #xpBar"
+  );
+  if (xpBar) {
+    xpBar.style.background = "";
+    xpBar.title = "";
+  }
+  const boostEl = document.getElementById("xpBoostIndicator");
+  if (boostEl) {
+    boostEl.innerText = "";
+    boostEl.style.display = "none";
+  }
+}
+
+function getActiveXpBoostExpiry() {
+  const expiry = currentUser.xpBoostExpiry || 0;
+  if (!expiry) return 0;
+  if (Date.now() <= expiry) return expiry;
+  currentUser.xpBoostExpiry = 0;
+  clearXpBoostIndicator();
+  const uid = ensureNormalizedUserId();
+  if (uid && db) {
+    db.ref("users/" + uid + "/xpBoostExpiry")
+      .set(0).catch(() => {});
+  }
+  return 0;
 }
 
 function applyChampionBadge() {
