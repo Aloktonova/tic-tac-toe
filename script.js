@@ -882,10 +882,12 @@ async function identifyUser() {
     }
 
     // Real-time coins listener so UI updates instantly when coins are awarded
-    db.ref('users/' + currentUser.id + '/coins').on('value', snap => {
+    const coinsRef = db.ref('users/' + currentUser.id + '/coins');
+    const coinsListener = snap => {
       userCoins = snap.val() || 0;
       updateCoinsDisplay();
-    });
+    };
+    attachListener('userCoins', coinsRef, 'value', coinsListener);
 
     // Update / create user doc
     const updates = { name: currentUser.name, lastActive: Date.now() };
@@ -1494,7 +1496,8 @@ function renderOnlineRoom(room) {
       xpAwarded = true;
       awardXP(outcome);
       awardTournamentPointsForRoom(roomId, room, outcome);
-      setTimeout(() => detachListener('room'), 3000);
+      // Detach listener after a short delay (keeps animation smooth)
+      setTimeout(() => detachListener('room'), 1500);
     }
   } else {
     gameOver = false;
@@ -2587,7 +2590,12 @@ function switchBattleTab(tab, skipInit = false) {
   document.getElementById('battle-tab-tournament')?.classList.toggle('active', battleActiveTab === 'tournament');
   document.getElementById('battle-panel-matchmaking')?.classList.toggle('hidden', battleActiveTab !== 'matchmaking');
   document.getElementById('battle-panel-tournament')?.classList.toggle('hidden', battleActiveTab !== 'tournament');
-  if (!skipInit && battleActiveTab === 'tournament') {
+  
+  if (battleActiveTab === 'matchmaking') {
+    // Clean up tournament listeners when switching away from tournament tab
+    cleanupTournamentBattleListeners();
+  } else if (!skipInit && battleActiveTab === 'tournament') {
+    // Attach tournament listeners when switching to tournament tab
     initBattleTournamentUi();
   }
 }
@@ -2785,9 +2793,15 @@ async function joinCurrentTournament() {
 
     // Only increment playerCount if this was the first time joining
     if (lbResult.committed) {
-      await db.ref('tournaments/current').update({
-        playerCount: firebase.database.ServerValue.increment(1)
-      });
+      try {
+        await db.ref('tournaments/current').update({
+          playerCount: firebase.database.ServerValue.increment(1)
+        });
+      } catch (countErr) {
+        // playerCount increment failed but player is already registered
+        // Log it but don't fail the entire join
+        console.warn('Could not increment tournament playerCount:', countErr);
+      }
     }
     
     hasJoinedCurrentTournament = true;
@@ -2795,6 +2809,12 @@ async function joinCurrentTournament() {
     showToast('You joined the Weekly Tournament!');
   } catch (e) {
     console.warn('Join tournament error:', e);
+    const errorMsg = e?.message || 'Permission denied';
+    if (errorMsg.includes('permission')) {
+      showToast('❌ Tournament join failed: permission denied');
+    } else {
+      showToast('❌ Failed to join tournament. Please try again.');
+    }
   }
 }
 
@@ -2936,6 +2956,8 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
     }
   } catch (e) {
     console.warn('Tournament award error:', e);
+    // Silently fail tournament awards - XP was already given to player
+    // This prevents blocking gameplay if tournament system has issues
   }
 }
 

@@ -54,6 +54,39 @@
     "leaderboard": {
       ".read": true,
       ".write": false
+    },
+    "tournaments": {
+      ".read": true,
+      "current": {
+        ".read": true,
+        ".write": "auth !== null",
+        "players": {
+          "$userId": {
+            ".read": true,
+            ".write": "auth !== null",
+            "uid": { ".write": "$userId === auth.uid" },
+            "name": { ".write": "$userId === auth.uid" },
+            "wins": { ".write": false },
+            "losses": { ".write": false },
+            "draws": { ".write": false },
+            "best_streak": { ".write": false },
+            "joinedAt": { ".write": "$userId === auth.uid" }
+          }
+        },
+        "leaderboard": {
+          ".read": true,
+          ".write": "auth !== null",
+          ".indexOn": ["points", "updatedAt"],
+          "$userId": {
+            ".read": true,
+            ".write": "auth !== null"
+          }
+        }
+      },
+      "history": {
+        ".read": true,
+        ".write": "auth !== null"
+      }
     }
   }
 }
