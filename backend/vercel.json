@@ -1,7 +1,8 @@
 {
   "version": 2,
   "env": {
-    "WEBHOOK_SECRET": "<set-in-vercel-project-env>"
+    "WEBHOOK_SECRET": "<set-in-vercel-project-env>",
+    "NVIDIA_API_KEY": "<set-in-vercel-project-env>"
   },
   "crons": [
     {
@@ -29,6 +30,10 @@
     {
       "src": "/api/daily-broadcast",
       "dest": "/api/daily-broadcast.js"
+    },
+    {
+      "src": "/api/ai-generate",
+      "dest": "/api/ai-generate.js"
     }
   ]
 }
