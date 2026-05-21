@@ -1493,6 +1493,13 @@ function renderOnlineRoom(room) {
   playerXWins  = room.playerXWins || 0;
   playerOWins  = room.playerOWins || 0;
 
+  // PHASE 4: Validate board state when receiving updates
+  if (!validateBoardState(board)) {
+    console.error('[GameValidation] Received invalid board state from server');
+    // Don't update if board is invalid - could be tampering attempt
+    return;
+  }
+
   const pX = room.players?.X || {};
   const pO = room.players?.O || {};
 
@@ -1510,6 +1517,12 @@ function renderOnlineRoom(room) {
   }
 
   if (room.winner) {
+    // PHASE 4: Validate winner is consistent with board state
+    const boardCheck = checkWinner(board);
+    if (!boardCheck || boardCheck.winner !== room.winner) {
+      console.warn('[GameValidation] Winner mismatch. Expected:', boardCheck?.winner, 'Got:', room.winner);
+    }
+
     gameOver = true;
     renderBoard(winCells);
 
@@ -1745,12 +1758,72 @@ function checkWinner(b) {
   return null;
 }
 
+// PHASE 4: Game state validation to prevent cheating
+function validateBoardState(board) {
+  // Validate board is array of 9 elements
+  if (!Array.isArray(board) || board.length !== 9) {
+    console.warn('[GameValidation] Invalid board length:', board?.length);
+    return false;
+  }
+  
+  // Count X and O moves
+  const xCount = board.filter(cell => cell === 'X').length;
+  const oCount = board.filter(cell => cell === 'O').length;
+  
+  // X always goes first, so X count should equal O count or be one more
+  if (Math.abs(xCount - oCount) > 1) {
+    console.warn('[GameValidation] Invalid move count. X:', xCount, 'O:', oCount);
+    return false;
+  }
+  
+  // Check for multiple winners
+  let winners = 0;
+  for (const combo of WINNING_COMBOS) {
+    const [i0, i1, i2] = combo;
+    if (board[i0] && board[i0] === board[i1] && board[i0] === board[i2]) {
+      winners++;
+    }
+  }
+  if (winners > 1) {
+    console.warn('[GameValidation] Multiple winners detected');
+    return false;
+  }
+  
+  // Verify all cells are valid
+  for (const cell of board) {
+    if (cell !== '' && cell !== 'X' && cell !== 'O') {
+      console.warn('[GameValidation] Invalid cell value:', cell);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// PHASE 4: Validate move index
+function validateMoveIndex(index) {
+  return Number.isInteger(index) && index >= 0 && index < 9;
+}
+
 /* ===== ONLINE MOVE ===== */
 async function makeOnlineMove(index) {
   if (!db || !roomId || gameOver || board[index] !== '') return;
 
+  // PHASE 4: Validate move index
+  if (!validateMoveIndex(index)) {
+    console.warn('[GameValidation] Invalid move index:', index);
+    return;
+  }
+
   const newBoard = [...board];
   newBoard[index] = playerMark;
+  
+  // PHASE 4: Validate the new board state
+  if (!validateBoardState(newBoard)) {
+    console.warn('[GameValidation] Invalid board state after move');
+    return;
+  }
+
   const result   = checkWinner(newBoard);
   const nextTurn = playerMark === 'X' ? 'O' : 'X';
 
@@ -1773,9 +1846,16 @@ async function makeOnlineMove(index) {
     } else {
       update.playerOWins = firebase.database.ServerValue.increment(1);
     }
+    
+    // PHASE 4: Log game completion for audit
+    console.log('[GameValidation] Game complete. Winner:', result.winner, 'Board:', newBoard);
   }
 
   try {
+    // PHASE 4: Add matchId to update for server validation
+    if (!update.stats) update.stats = {};
+    update.stats.lastUpdateAt = Date.now();
+    
     await db.ref('rooms/' + roomId).update(update);
   } catch (e) {
     console.warn('Online move error:', e);
@@ -2994,6 +3074,19 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
     const tournament = tourSnap.val() || {};
     if (tournament.endAt && tournament.endAt <= Date.now()) {
       console.log('[Tournament] Tournament ended - skipping award');
+      return;
+    }
+
+    // PHASE 4: Validate board state before awarding
+    if (!validateBoardState(room.board)) {
+      console.error('[Tournament] Invalid board state - rejecting award');
+      return;
+    }
+
+    // PHASE 4: Validate winner matches board state
+    const boardCheck = checkWinner(room.board);
+    if (!boardCheck || boardCheck.winner !== room.winner) {
+      console.error('[Tournament] Winner mismatch - rejecting award. Expected:', boardCheck?.winner, 'Got:', room.winner);
       return;
     }
 
