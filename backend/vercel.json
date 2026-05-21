@@ -3,6 +3,12 @@
   "env": {
     "WEBHOOK_SECRET": "<set-in-vercel-project-env>"
   },
+  "crons": [
+    {
+      "path": "/api/daily-broadcast",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/health",
@@ -19,6 +25,10 @@
     {
       "src": "/api/check-channel",
       "dest": "/api/check-channel.js"
+    },
+    {
+      "src": "/api/daily-broadcast",
+      "dest": "/api/daily-broadcast.js"
     }
   ]
 }
