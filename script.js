@@ -1468,7 +1468,7 @@ function renderOnlineRoom(room) {
     if (!xpAwarded) {
       xpAwarded = true;
       awardXP(outcome);
-      awardTournamentPointsForRoom(room, outcome);
+      awardTournamentPointsForRoom(roomId, room, outcome);
       setTimeout(() => detachListener('room'), 3000);
     }
   } else {
@@ -2726,9 +2726,9 @@ async function joinCurrentTournament() {
       };
     });
 
-    const alreadyJoined = !!result.snapshot?.val();
+    const playerAlreadyExists = !!result.snapshot?.val();
     if (!result.committed) {
-      if (!alreadyJoined) {
+      if (!playerAlreadyExists) {
         showToast('Could not join tournament. Please try again.');
         return;
       }
@@ -2831,13 +2831,13 @@ async function updateTournamentMyRankCard(myData) {
   }
 }
 
-async function awardTournamentPointsForRoom(room, roomOutcome) {
-  if (!db || !roomId || !room || !room.players || gameMode !== 'online') return;
+async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
+  if (!db || !activeRoomId || !room || !room.players || gameMode !== 'online') return;
   const matchId = room.stats?.matchId;
   if (!matchId) return;
 
   try {
-    const guardRef = db.ref('rooms/' + roomId + '/stats/tournamentAwardedMatchId');
+    const guardRef = db.ref('rooms/' + activeRoomId + '/stats/tournamentAwardedMatchId');
     const guardResult = await guardRef.transaction(current => {
       if (current === matchId) return undefined;
       return matchId;
@@ -2892,7 +2892,7 @@ async function runWeeklyTournamentResetAsAdmin() {
     const current = currentSnap.val() || {};
     if ((current.endAt || 0) > Date.now()) return false;
 
-    // Returning undefined aborts the transaction when another reset lock already exists.
+    // Abort transaction if lock already exists by returning undefined, preventing concurrent resets.
     const lockTx = await lockRef.transaction(lock => lock ? undefined : { by: currentUser.id, at: Date.now() });
     if (!lockTx.committed) return false;
     lockAcquired = true;
