@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { validateUserId, logSecurely } from "../lib/validation-helpers.js";
 
 const SECRET_TOKEN_HEADER =
   "x-telegram-bot-api-secret-token";
