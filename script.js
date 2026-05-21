@@ -21,7 +21,6 @@ const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const DAILY_LOGIN_REWARD_COINS = 50;
-const TOURNAMENT_POINTS = { win: 3, draw: 1, lose: 0 };
 const MONTHLY_MS = 2592000000; // 30 days in ms
 const WEEKLY_MS = 604800000; // 7 days in ms
 
@@ -412,7 +411,16 @@ let currentUser = {
   draws: 0,
   games: 0,
   xpBoostExpiry: 0,
-  country: ''
+  country: '',
+  // Telegram notification preferences (backend-ready)
+  telegramId: null,
+  notificationPreferences: {
+    tournamentReminders: true,
+    rankUpdates: true,
+    seasonEnding: true,
+    rewardNotifications: true
+  },
+  lastNotificationAt: 0
 };
 
 // Game state
@@ -1096,6 +1104,20 @@ function setupEventListeners() {
     ?.addEventListener('click', (e) => {
       if (e.target.id === 'leaderboardHelpModal') {
         e.target.classList.add('hidden');
+      }
+    });
+
+  // Tournament guide modal
+  document.getElementById('closeTournamentGuideBtn')
+    ?.addEventListener('click', () => {
+      document.getElementById('tournamentGuideModal')?.classList.add('hidden');
+      localStorage.setItem('hasSeenTournamentGuide', 'true');
+    });
+  document.getElementById('tournamentGuideModal')
+    ?.addEventListener('click', (e) => {
+      if (e.target.id === 'tournamentGuideModal') {
+        e.target.classList.add('hidden');
+        localStorage.setItem('hasSeenTournamentGuide', 'true');
       }
     });
 
@@ -2572,6 +2594,11 @@ function switchBattleTab(tab, skipInit = false) {
 async function initBattleTournamentUi() {
   if (!db || !currentUser.id) return;
   try {
+    // Show tournament guide on first visit
+    if (!localStorage.getItem('hasSeenTournamentGuide')) {
+      document.getElementById('tournamentGuideModal')?.classList.remove('hidden');
+    }
+    
     activeTournamentMeta = await ensureCurrentTournament();
     renderTournamentMeta(activeTournamentMeta);
     listenToCurrentTournament();
@@ -2717,10 +2744,10 @@ async function joinCurrentTournament() {
       return {
         uid: currentUser.id,
         name: currentUser.name || 'Player',
-        points: 0,
         wins: 0,
         losses: 0,
         draws: 0,
+        best_streak: 0,
         joinedAt: Date.now()
       };
     });
@@ -2736,20 +2763,27 @@ async function joinCurrentTournament() {
       return;
     }
 
+    // Initialize leaderboard entry with calculatePoints()
+    const playerData = {
+      uid: currentUser.id,
+      name: currentUser.name || 'Player',
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      best_streak: 0,
+      points: 0,
+      updatedAt: Date.now()
+    };
+
     await db.ref('tournaments/current/leaderboard/' + currentUser.id).transaction(current => {
       if (current) return current;
-      return {
-        uid: currentUser.id,
-        name: currentUser.name || 'Player',
-        points: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        updatedAt: Date.now()
-      };
+      return playerData;
     });
 
-    await db.ref('tournaments/current/playerCount').transaction(current => (current || 0) + 1);
+    await db.ref('tournaments/current').update({
+      playerCount: firebase.database.ServerValue.increment(1)
+    });
+    
     hasJoinedCurrentTournament = true;
     updateTournamentJoinButton();
     showToast('You joined the Weekly Tournament!');
@@ -2815,7 +2849,8 @@ async function updateTournamentMyRankCard(myData) {
     return;
   }
 
-  const points = myData.points || 0;
+  // Use calculatePoints() to ensure consistency with leaderboard
+  const points = calculatePoints(myData);
   pointsEl.textContent = points + ' pts';
   recordEl.textContent = 'W' + (myData.wins || 0) + ' / L' + (myData.losses || 0);
 
@@ -2856,7 +2891,6 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
       const outcome = (room.winner === 'draw')
         ? 'draw'
         : (room.winner === player.mark ? 'win' : 'lose');
-      const pointsDelta = TOURNAMENT_POINTS[outcome] || 0;
 
       const updates = {
         name: player.data.name || 'Player',
@@ -2865,12 +2899,23 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
       if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
       if (outcome === 'lose') updates.losses = firebase.database.ServerValue.increment(1);
       if (outcome === 'draw') updates.draws = firebase.database.ServerValue.increment(1);
-      if (pointsDelta > 0) updates.points = firebase.database.ServerValue.increment(pointsDelta);
 
       await db.ref('tournaments/current/players/' + uid).update(updates);
+      
+      // Re-fetch to get latest stats for calculatePoints()
+      const updatedSnap = await db.ref('tournaments/current/players/' + uid).once('value');
+      const updatedData = updatedSnap.val() || {};
+      const newPoints = calculatePoints(updatedData);
+      
       await db.ref('tournaments/current/leaderboard/' + uid).update({
         uid,
-        ...updates
+        name: updatedData.name || 'Player',
+        wins: updatedData.wins || 0,
+        losses: updatedData.losses || 0,
+        draws: updatedData.draws || 0,
+        best_streak: updatedData.best_streak || 0,
+        points: newPoints,
+        updatedAt: Date.now()
       });
     }
   } catch (e) {
