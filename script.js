@@ -352,31 +352,43 @@ function getActiveListenerKeys() {
   return Object.keys(activeListeners);
 }
 
-/* ===== USER PROFILE CACHE ===== */
-let cachedUserProfile = null;
-let cachedUserProfileTime = 0;
-let cachedUserProfileUid = null;
+/* ===== USER PROFILE CACHE - PHASE 6: Improved caching ===== */
+// PHASE 6: Support multiple cached profiles instead of just one
+const profileCache = new Map(); // { uid: { profile, timestamp } }
+const PROFILE_CACHE_SIZE = 10; // Keep up to 10 profiles cached
 
 async function getUserProfile(uid) {
   const now = Date.now();
-  if (
-    cachedUserProfile &&
-    cachedUserProfileUid === uid &&
-    now - cachedUserProfileTime < PROFILE_CACHE_MS
-  ) {
-    return cachedUserProfile;
+  
+  // PHASE 6: Check if profile is cached and still fresh
+  if (profileCache.has(uid)) {
+    const cached = profileCache.get(uid);
+    if (now - cached.timestamp < PROFILE_CACHE_MS) {
+      return cached.profile;
+    }
   }
+  
   const snap = await db.ref('users/' + uid).once('value');
-  cachedUserProfile = snap.val() || {};
-  cachedUserProfileTime = now;
-  cachedUserProfileUid = uid;
-  return cachedUserProfile;
+  const profile = snap.val() || {};
+  
+  // PHASE 6: Store in cache with LRU eviction
+  profileCache.set(uid, { profile, timestamp: now });
+  if (profileCache.size > PROFILE_CACHE_SIZE) {
+    // Remove oldest entry (simple FIFO)
+    const firstKey = profileCache.keys().next().value;
+    profileCache.delete(firstKey);
+  }
+  
+  return profile;
 }
 
-function invalidateProfileCache() {
-  cachedUserProfile = null;
-  cachedUserProfileTime = 0;
-  cachedUserProfileUid = null;
+function invalidateProfileCache(uid = null) {
+  // PHASE 6: Invalidate specific profile or all
+  if (uid) {
+    profileCache.delete(uid);
+  } else {
+    profileCache.clear();
+  }
 }
 
 function getTodayDateKey() {
@@ -607,6 +619,38 @@ function initTelegram() {
     if (tg) {
       tg.ready();
       tg.expand();
+      
+      // PHASE 7: Add safe-area support for notch/status bar
+      document.documentElement.style.setProperty(
+        '--safe-area-top',
+        (tg.safeAreaInset?.top || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-bottom',
+        (tg.safeAreaInset?.bottom || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-left',
+        (tg.safeAreaInset?.left || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-right',
+        (tg.safeAreaInset?.right || 0) + 'px'
+      );
+      
+      // PHASE 7: Handle back button for navigation
+      if (tg.BackButton) {
+        tg.BackButton.onClick(() => {
+          const backBtn = document.querySelector('.back-btn:not(.hidden)');
+          if (backBtn) {
+            backBtn.click();
+          } else {
+            // Default: go to home screen
+            showScreen('home');
+          }
+        });
+      }
+      
       const tgUser = tg.initDataUnsafe?.user;
       if (tgUser?.photo_url) {
         tgPhotoUrl = tgUser.photo_url;
@@ -614,6 +658,28 @@ function initTelegram() {
     }
   } catch (e) {
     console.warn('Telegram init:', e);
+  }
+}
+
+/* PHASE 7: Telegram haptic feedback helper */
+function triggerHaptic(type = 'light') {
+  try {
+    const hf = window.Telegram?.WebApp?.HapticFeedback;
+    if (hf && type === 'light') {
+      hf.impactOccurred('light');
+    } else if (hf && type === 'medium') {
+      hf.impactOccurred('medium');
+    } else if (hf && type === 'heavy') {
+      hf.impactOccurred('heavy');
+    } else if (hf && type === 'success') {
+      hf.notificationOccurred('success');
+    } else if (hf && type === 'warning') {
+      hf.notificationOccurred('warning');
+    } else if (hf && type === 'error') {
+      hf.notificationOccurred('error');
+    }
+  } catch (e) {
+    // Silently fail if haptic not available
   }
 }
 
@@ -769,6 +835,9 @@ function shareGameLink(rId) {
   const text = 'Join my Tic Tac Toe game! Can you beat me? 🎮';
   const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text);
 
+  // PHASE 7: Add haptic feedback on share
+  triggerHaptic('light');
+  
   if (window.Telegram?.WebApp?.openTelegramLink) {
     window.Telegram.WebApp.openTelegramLink(shareUrl);
   } else {
@@ -779,6 +848,10 @@ function shareGameLink(rId) {
 /* ===== DEVELOPER TELEGRAM ===== */
 function openDeveloperTelegram() {
   const url = 'https://t.me/alokmaurya22';
+  
+  // PHASE 7: Add haptic feedback on link click
+  triggerHaptic('light');
+  
   if (window.Telegram?.WebApp?.openTelegramLink) {
     window.Telegram.WebApp.openTelegramLink(url);
   } else {
@@ -1614,6 +1687,9 @@ function setStatus(text) {
 function handleCellClick(index) {
   if (gameOver || board[index] !== '') return;
 
+  // PHASE 7: Add haptic feedback on move
+  triggerHaptic('light');
+
   if (gameMode === 'ai') {
     if (currentTurn !== 'X') return;
     processAIGameMove(index, 'X');
@@ -1877,6 +1953,15 @@ function showResultOverlay(outcome) {
   const xpAmounts = { win: boost ? 20 : 10, draw: boost ? 14 : 7, lose: boost ? 10 : 5 };
   document.getElementById('result-xp').textContent =
     '+' + xpAmounts[outcome] + ' XP' + (boost ? ' ⚡ 2x Boost' : '');
+
+  // PHASE 7: Add haptic feedback for game results
+  if (outcome === 'win') {
+    triggerHaptic('success');
+  } else if (outcome === 'lose') {
+    triggerHaptic('warning');
+  } else if (outcome === 'draw') {
+    triggerHaptic('light');
+  }
 
   document.getElementById('result-overlay').classList.remove('hidden');
 }
