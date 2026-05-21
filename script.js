@@ -21,6 +21,7 @@ const BATTLE_SEARCH_TIMEOUT_MS = 3000; // fall back to bot after this many ms
 const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const DAILY_LOGIN_REWARD_COINS = 50;
+const TOURNAMENT_POINTS = { win: 3, draw: 1, lose: 0 };
 
 // Referral system configuration
 // IMPORTANT: Make sure your bot has a
@@ -384,6 +385,19 @@ function getWeeklyTournamentId(ts = Date.now()) {
   return "weekly_" + isoYear + "_w" + String(week).padStart(2, "0");
 }
 
+function getWeeklyTournamentWindow(ts = Date.now()) {
+  const now = new Date(ts);
+  const day = now.getUTCDay() || 7; // Mon=1..Sun=7
+  const start = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - (day - 1),
+    0, 0, 0, 0
+  ));
+  const end = new Date(start.getTime() + WEEKLY_MS);
+  return { startAt: start.getTime(), endAt: end.getTime() };
+}
+
 /* ===== STATE ===== */
 let db = null;
 
@@ -460,6 +474,10 @@ let activeTheme = "default";
 let activeBorder = "none";
 let activeAnimatedMarks = false;
 let activeBattleTournamentId = null;
+let battleActiveTab = 'matchmaking';
+let activeTournamentMeta = null;
+let tournamentCountdownTimer = null;
+let hasJoinedCurrentTournament = false;
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -975,6 +993,10 @@ function setupEventListeners() {
   document.getElementById('user-avatar-btn').addEventListener('click', openProfile);
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
+  document.getElementById('btn-battle-start-matchmaking')?.addEventListener('click', startBattleSearch);
+  document.getElementById('battle-tab-matchmaking')?.addEventListener('click', () => switchBattleTab('matchmaking'));
+  document.getElementById('battle-tab-tournament')?.addEventListener('click', () => switchBattleTab('tournament'));
+  document.getElementById('tournamentJoinBtn')?.addEventListener('click', joinCurrentTournament);
 
   // Developer Telegram link in about section
   const devLinkBtn = document.getElementById('dev-link-btn');
@@ -1081,27 +1103,33 @@ function setupEventListeners() {
       const screen = btn.dataset.screen;
 
       if (screen === 'battle') {
-        startBattleSearch();
+        openBattleScreen();
         return;
       }
 
       if (screen === 'settings') {
+        cleanupTournamentBattleListeners();
         openSettings();
         return;
       }
 
       if (screen === 'leaderboard') {
+        cleanupTournamentBattleListeners();
         const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
         loadLeaderboard(activeTab);
       }
 
       if (screen === 'store') {
+        cleanupTournamentBattleListeners();
         showScreen('store');
         renderStore();
         setBottomNavActive('store');
         return;
       }
 
+      if (screen !== 'battle') {
+        cleanupTournamentBattleListeners();
+      }
       showScreen(screen);
       setBottomNavActive(screen);
     });
@@ -1440,6 +1468,7 @@ function renderOnlineRoom(room) {
     if (!xpAwarded) {
       xpAwarded = true;
       awardXP(outcome);
+      awardTournamentPointsForRoom(room, outcome);
       setTimeout(() => detachListener('room'), 3000);
     }
   } else {
@@ -2522,10 +2551,369 @@ function renderRulesDefault() {
   });
 }
 
+/* ===== WEEKLY TOURNAMENT (BATTLE) ===== */
+function openBattleScreen(tab = 'matchmaking') {
+  showScreen('battle');
+  setBottomNavActive('battle');
+  switchBattleTab(tab, true);
+  initBattleTournamentUi();
+}
+
+function switchBattleTab(tab, skipInit = false) {
+  battleActiveTab = (tab === 'tournament') ? 'tournament' : 'matchmaking';
+  document.getElementById('battle-tab-matchmaking')?.classList.toggle('active', battleActiveTab === 'matchmaking');
+  document.getElementById('battle-tab-tournament')?.classList.toggle('active', battleActiveTab === 'tournament');
+  document.getElementById('battle-panel-matchmaking')?.classList.toggle('hidden', battleActiveTab !== 'matchmaking');
+  document.getElementById('battle-panel-tournament')?.classList.toggle('hidden', battleActiveTab !== 'tournament');
+  if (!skipInit && battleActiveTab === 'tournament') {
+    initBattleTournamentUi();
+  }
+}
+
+async function initBattleTournamentUi() {
+  if (!db || !currentUser.id) return;
+  try {
+    activeTournamentMeta = await ensureCurrentTournament();
+    renderTournamentMeta(activeTournamentMeta);
+    listenToCurrentTournament();
+  } catch (e) {
+    console.warn('Tournament init error:', e);
+  }
+}
+
+async function ensureCurrentTournament() {
+  if (!db) return null;
+  const currentRef = db.ref('tournaments/current');
+  const existingSnap = await currentRef.once('value');
+  if (existingSnap.exists()) {
+    const existing = existingSnap.val() || {};
+    if (!existing.id || !existing.endAt || !existing.season) {
+      const fixed = buildFreshTournamentMeta(existing.season || 1);
+      await currentRef.update({
+        id: existing.id || fixed.id,
+        season: existing.season || fixed.season,
+        startAt: existing.startAt || fixed.startAt,
+        endAt: existing.endAt || fixed.endAt,
+        playerCount: existing.playerCount || 0
+      });
+      return { ...existing, ...fixed, ...existing };
+    }
+    return existing;
+  }
+  const fresh = buildFreshTournamentMeta(1);
+  await currentRef.set({
+    ...fresh,
+    players: {},
+    leaderboard: {}
+  });
+  return fresh;
+}
+
+function buildFreshTournamentMeta(season) {
+  const now = Date.now();
+  const windowRange = getWeeklyTournamentWindow(now);
+  return {
+    id: getWeeklyTournamentId(now),
+    season: season || 1,
+    startAt: windowRange.startAt,
+    endAt: windowRange.endAt,
+    playerCount: 0,
+    status: 'active',
+    resetMode: 'server_or_admin'
+  };
+}
+
+function listenToCurrentTournament() {
+  if (!db) return;
+  const currentRef = db.ref('tournaments/current');
+  attachListener('tournamentCurrent', currentRef, 'value', snap => {
+    const tournament = snap.val() || null;
+    activeTournamentMeta = tournament;
+    renderTournamentMeta(tournament);
+  });
+
+  const topRef = db.ref('tournaments/current/leaderboard').orderByChild('points').limitToLast(10);
+  attachListener('tournamentTop10', topRef, 'value', snap => {
+    const rows = [];
+    snap.forEach(child => {
+      rows.push({ uid: child.key, ...(child.val() || {}) });
+    });
+    rows.sort((a, b) => (b.points || 0) - (a.points || 0));
+    renderTournamentTop10(rows);
+  });
+
+  const myRef = db.ref('tournaments/current/leaderboard/' + currentUser.id);
+  attachListener('tournamentMyRow', myRef, 'value', snap => {
+    const myData = snap.exists() ? snap.val() : null;
+    hasJoinedCurrentTournament = !!myData;
+    updateTournamentJoinButton();
+    updateTournamentMyRankCard(myData);
+  });
+}
+
+function cleanupTournamentBattleListeners() {
+  detachListener('tournamentCurrent');
+  detachListener('tournamentTop10');
+  detachListener('tournamentMyRow');
+  if (tournamentCountdownTimer) {
+    clearInterval(tournamentCountdownTimer);
+    tournamentCountdownTimer = null;
+  }
+}
+
+function renderTournamentMeta(meta) {
+  const seasonEl = document.getElementById('tournamentSeason');
+  const countEl = document.getElementById('tournamentPlayersJoined');
+  if (!seasonEl) return;
+  seasonEl.textContent = 'Season #' + (meta?.season || 1);
+  countEl.textContent = String(meta?.playerCount || 0);
+  updateTournamentJoinButton();
+  startTournamentCountdown(meta?.endAt || null);
+}
+
+function updateTournamentJoinButton() {
+  const btn = document.getElementById('tournamentJoinBtn');
+  if (!btn) return;
+  btn.textContent = hasJoinedCurrentTournament ? 'Joined ✓' : 'Join Tournament';
+  btn.disabled = hasJoinedCurrentTournament;
+}
+
+function startTournamentCountdown(endAt) {
+  if (tournamentCountdownTimer) {
+    clearInterval(tournamentCountdownTimer);
+    tournamentCountdownTimer = null;
+  }
+  const tick = () => {
+    const el = document.getElementById('tournamentCountdown');
+    if (!el) return;
+    if (!endAt) {
+      el.textContent = '--:--:--';
+      return;
+    }
+    const diff = endAt - Date.now();
+    if (diff <= 0) {
+      el.textContent = 'Reset pending';
+      return;
+    }
+    const days = Math.floor(diff / 86400000);
+    const hrs = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    el.textContent = days + 'd ' + String(hrs).padStart(2, '0') + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  };
+  tick();
+  tournamentCountdownTimer = setInterval(tick, 1000);
+}
+
+async function joinCurrentTournament() {
+  if (!db || !currentUser.id) return;
+  try {
+    const meta = activeTournamentMeta || await ensureCurrentTournament();
+    if (!meta?.id) return;
+
+    const playerRef = db.ref('tournaments/current/players/' + currentUser.id);
+    const result = await playerRef.transaction(current => {
+      if (current) return undefined;
+      return {
+        uid: currentUser.id,
+        name: currentUser.name || 'Player',
+        points: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        joinedAt: Date.now()
+      };
+    });
+
+    if (!result.committed) {
+      hasJoinedCurrentTournament = true;
+      updateTournamentJoinButton();
+      return;
+    }
+
+    await db.ref('tournaments/current/leaderboard/' + currentUser.id).transaction(current => {
+      if (current) return current;
+      return {
+        uid: currentUser.id,
+        name: currentUser.name || 'Player',
+        points: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        updatedAt: Date.now()
+      };
+    });
+
+    await db.ref('tournaments/current/playerCount').transaction(current => (current || 0) + 1);
+    hasJoinedCurrentTournament = true;
+    updateTournamentJoinButton();
+    showToast('You joined the Weekly Tournament!');
+  } catch (e) {
+    console.warn('Join tournament error:', e);
+  }
+}
+
+function renderTournamentTop10(rows) {
+  const list = document.getElementById('tournamentTopList');
+  if (!list) return;
+  if (!rows.length) {
+    list.innerHTML = '<div class="loading-text">No participants yet. Join now!</div>';
+    return;
+  }
+  list.innerHTML = '';
+  rows.forEach((row, idx) => {
+    const name = row.name || 'Player';
+    const letter = name.trim().charAt(0).toUpperCase() || 'P';
+    const item = document.createElement('div');
+    item.className = 'tournament-top-row' + (row.uid === currentUser.id ? ' me' : '');
+
+    const rank = document.createElement('div');
+    rank.className = 'tournament-top-rank';
+    rank.textContent = String(idx + 1);
+
+    const avatar = document.createElement('div');
+    avatar.className = 'tournament-top-avatar';
+    avatar.style.background = getLetterAvatarBg(name);
+    avatar.textContent = letter;
+
+    const playerName = document.createElement('div');
+    playerName.className = 'tournament-top-name';
+    playerName.textContent = name;
+
+    const points = document.createElement('div');
+    points.className = 'tournament-top-points';
+    points.textContent = String(row.points || 0) + ' pts';
+
+    const record = document.createElement('div');
+    record.className = 'tournament-top-record';
+    record.textContent = 'W' + (row.wins || 0) + '/L' + (row.losses || 0);
+
+    item.appendChild(rank);
+    item.appendChild(avatar);
+    item.appendChild(playerName);
+    item.appendChild(points);
+    item.appendChild(record);
+    list.appendChild(item);
+  });
+}
+
+async function updateTournamentMyRankCard(myData) {
+  const rankEl = document.getElementById('tournamentMyRank');
+  const pointsEl = document.getElementById('tournamentMyPoints');
+  const recordEl = document.getElementById('tournamentMyRecord');
+  if (!rankEl || !pointsEl || !recordEl) return;
+
+  if (!myData) {
+    rankEl.textContent = '#–';
+    pointsEl.textContent = '0 pts';
+    recordEl.textContent = 'W0 / L0';
+    return;
+  }
+
+  const points = myData.points || 0;
+  pointsEl.textContent = points + ' pts';
+  recordEl.textContent = 'W' + (myData.wins || 0) + ' / L' + (myData.losses || 0);
+
+  try {
+    const higherSnap = await db.ref('tournaments/current/leaderboard')
+      .orderByChild('points')
+      .startAt(points + 1)
+      .once('value');
+    rankEl.textContent = '#' + (higherSnap.numChildren() + 1);
+  } catch {
+    rankEl.textContent = '#–';
+  }
+}
+
+async function awardTournamentPointsForRoom(room, roomOutcome) {
+  if (!db || !roomId || !room || !room.players || gameMode !== 'online') return;
+  const matchId = room.stats?.matchId;
+  if (!matchId) return;
+
+  try {
+    const guardRef = db.ref('rooms/' + roomId + '/stats/tournamentAwardedMatchId');
+    const guardResult = await guardRef.transaction(current => {
+      if (current === matchId) return undefined;
+      return matchId;
+    });
+    if (!guardResult.committed) return;
+
+    const players = [
+      { mark: 'X', data: room.players.X },
+      { mark: 'O', data: room.players.O }
+    ].filter(p => p?.data?.id);
+
+    for (const player of players) {
+      const uid = player.data.id;
+      const playerSnap = await db.ref('tournaments/current/players/' + uid).once('value');
+      if (!playerSnap.exists()) continue;
+
+      const outcome = (room.winner === 'draw')
+        ? 'draw'
+        : (room.winner === player.mark ? 'win' : 'lose');
+      const pointsDelta = TOURNAMENT_POINTS[outcome] || 0;
+
+      const updates = {
+        name: player.data.name || 'Player',
+        updatedAt: Date.now()
+      };
+      if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
+      if (outcome === 'lose') updates.losses = firebase.database.ServerValue.increment(1);
+      if (outcome === 'draw') updates.draws = firebase.database.ServerValue.increment(1);
+      if (pointsDelta > 0) updates.points = firebase.database.ServerValue.increment(pointsDelta);
+
+      await db.ref('tournaments/current/players/' + uid).update(updates);
+      await db.ref('tournaments/current/leaderboard/' + uid).update({
+        uid,
+        ...updates
+      });
+    }
+  } catch (e) {
+    console.warn('Tournament award error:', e);
+  }
+}
+
+async function runWeeklyTournamentResetAsAdmin() {
+  if (!db || !currentUser.id) return false;
+  try {
+    const adminSnap = await db.ref('users/' + currentUser.id + '/isTournamentAdmin').once('value');
+    if (!adminSnap.val()) return false;
+
+    const currentSnap = await db.ref('tournaments/current').once('value');
+    if (!currentSnap.exists()) return false;
+    const current = currentSnap.val() || {};
+    if ((current.endAt || 0) > Date.now()) return false;
+
+    const lockRef = db.ref('tournaments/reset_lock');
+    const lockTx = await lockRef.transaction(lock => lock ? undefined : { by: currentUser.id, at: Date.now() });
+    if (!lockTx.committed) return false;
+
+    const archiveKey = (current.id || ('season_' + (current.season || 1))) + '_' + Date.now();
+    await db.ref('tournaments/history/' + archiveKey).set({
+      ...current,
+      archivedAt: Date.now()
+    });
+
+    const next = buildFreshTournamentMeta((current.season || 1) + 1);
+    await db.ref('tournaments/current').set({
+      ...next,
+      players: {},
+      leaderboard: {}
+    });
+
+    await lockRef.remove();
+    return true;
+  } catch (e) {
+    console.warn('Tournament weekly reset error:', e);
+    return false;
+  }
+}
+
 /* ===== BATTLE TAB ===== */
 function startBattleSearch() {
+  cleanupTournamentBattleListeners();
   battleCancelled = false;
-  activeBattleTournamentId = getWeeklyTournamentId();
+  activeBattleTournamentId = activeTournamentMeta?.id || getWeeklyTournamentId();
   document.getElementById('modal-battle').classList.remove('hidden');
   document.body.style.pointerEvents = 'none';
   document.getElementById('modal-battle').style.pointerEvents = 'auto';
