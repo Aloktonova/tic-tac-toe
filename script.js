@@ -413,13 +413,7 @@ let currentUser = {
   xpBoostExpiry: 0,
   country: '',
   // Telegram notification preferences (backend-ready)
-  // These fields are populated on login and persisted to Firebase.
-  // The backend daily-broadcast.js can use these to send:
-  // - Tournament reminders (before season end)
-  // - Rank update notifications (when rank changes)
-  // - Season ending alerts (2 hours before reset)
-  // - Reward notifications (when prizes are awarded)
-  // Migration: Existing users without these fields will get defaults on next login.
+  // Fields populate on login and persist to Firebase. Backend can send tournament/rank/reward notifications.
   telegramId: null,
   notificationPreferences: {
     tournamentReminders: true,
@@ -2754,7 +2748,7 @@ async function joinCurrentTournament() {
         wins: 0,
         losses: 0,
         draws: 0,
-        best_streak: 0,
+        best_streak: 0, // One-time bonus applied in calculatePoints() for this tournament season
         joinedAt: Date.now()
       };
     });
@@ -2916,10 +2910,10 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
 
       await db.ref('tournaments/current/players/' + uid).update(updates);
       
-      // Calculate new points locally without extra DB read
-      const newWins = (outcome === 'win') ? (playerData.wins || 0) + 1 : (playerData.wins || 0);
-      const newLosses = (outcome === 'lose') ? (playerData.losses || 0) + 1 : (playerData.losses || 0);
-      const newDraws = (outcome === 'draw') ? (playerData.draws || 0) + 1 : (playerData.draws || 0);
+      // Calculate new stats locally without extra DB read
+      const newWins = (playerData.wins || 0) + (outcome === 'win' ? 1 : 0);
+      const newLosses = (playerData.losses || 0) + (outcome === 'lose' ? 1 : 0);
+      const newDraws = (playerData.draws || 0) + (outcome === 'draw' ? 1 : 0);
       const bestStreak = playerData.best_streak || 0;
       
       const newPoints = calculatePoints({
