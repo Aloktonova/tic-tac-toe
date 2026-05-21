@@ -413,6 +413,13 @@ let currentUser = {
   xpBoostExpiry: 0,
   country: '',
   // Telegram notification preferences (backend-ready)
+  // These fields are populated on login and persisted to Firebase.
+  // The backend daily-broadcast.js can use these to send:
+  // - Tournament reminders (before season end)
+  // - Rank update notifications (when rank changes)
+  // - Season ending alerts (2 hours before reset)
+  // - Reward notifications (when prizes are awarded)
+  // Migration: Existing users without these fields will get defaults on next login.
   telegramId: null,
   notificationPreferences: {
     tournamentReminders: true,
@@ -2775,14 +2782,19 @@ async function joinCurrentTournament() {
       updatedAt: Date.now()
     };
 
-    await db.ref('tournaments/current/leaderboard/' + currentUser.id).transaction(current => {
-      if (current) return current;
+    // Atomic transaction: increment playerCount only if leaderboard entry is new
+    const lbRef = db.ref('tournaments/current/leaderboard/' + currentUser.id);
+    const lbResult = await lbRef.transaction(current => {
+      if (current) return undefined; // Player already in tournament
       return playerData;
     });
 
-    await db.ref('tournaments/current').update({
-      playerCount: firebase.database.ServerValue.increment(1)
-    });
+    // Only increment playerCount if this was the first time joining
+    if (lbResult.committed) {
+      await db.ref('tournaments/current').update({
+        playerCount: firebase.database.ServerValue.increment(1)
+      });
+    }
     
     hasJoinedCurrentTournament = true;
     updateTournamentJoinButton();
@@ -2888,10 +2900,12 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
       const playerSnap = await db.ref('tournaments/current/players/' + uid).once('value');
       if (!playerSnap.exists()) continue;
 
+      const playerData = playerSnap.val() || {};
       const outcome = (room.winner === 'draw')
         ? 'draw'
         : (room.winner === player.mark ? 'win' : 'lose');
 
+      // Update stats incrementally
       const updates = {
         name: player.data.name || 'Player',
         updatedAt: Date.now()
@@ -2902,18 +2916,26 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
 
       await db.ref('tournaments/current/players/' + uid).update(updates);
       
-      // Re-fetch to get latest stats for calculatePoints()
-      const updatedSnap = await db.ref('tournaments/current/players/' + uid).once('value');
-      const updatedData = updatedSnap.val() || {};
-      const newPoints = calculatePoints(updatedData);
+      // Calculate new points locally without extra DB read
+      const newWins = (outcome === 'win') ? (playerData.wins || 0) + 1 : (playerData.wins || 0);
+      const newLosses = (outcome === 'lose') ? (playerData.losses || 0) + 1 : (playerData.losses || 0);
+      const newDraws = (outcome === 'draw') ? (playerData.draws || 0) + 1 : (playerData.draws || 0);
+      const bestStreak = playerData.best_streak || 0;
+      
+      const newPoints = calculatePoints({
+        wins: newWins,
+        losses: newLosses,
+        draws: newDraws,
+        best_streak: bestStreak
+      });
       
       await db.ref('tournaments/current/leaderboard/' + uid).update({
         uid,
-        name: updatedData.name || 'Player',
-        wins: updatedData.wins || 0,
-        losses: updatedData.losses || 0,
-        draws: updatedData.draws || 0,
-        best_streak: updatedData.best_streak || 0,
+        name: playerData.name || 'Player',
+        wins: newWins,
+        losses: newLosses,
+        draws: newDraws,
+        best_streak: bestStreak,
         points: newPoints,
         updatedAt: Date.now()
       });

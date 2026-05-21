@@ -1474,6 +1474,15 @@ body {
 .tournament-stat-card strong {
   font-size: 14px;
   color: #f8fafc;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tournament-rewards {
+  display: flex;
+  gap: 4px;
+}
 }
 
 .tournament-join-btn {
