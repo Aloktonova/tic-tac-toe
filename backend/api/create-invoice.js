@@ -22,9 +22,13 @@ const requestLog = new Map();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const RATE_LIMIT_MAX = 5; // max 5 invoices per minute
 
-// PHASE 5: Clean up old entries from request log
-setInterval(() => {
+// PHASE 5: Lazy cleanup of old entries from request log (prevent memory leak in serverless)
+let lastCleanupTime = 0;
+function cleanupOldEntries() {
   const now = Date.now();
+  // Only cleanup if last cleanup was more than 30 seconds ago
+  if (now - lastCleanupTime < 30000) return;
+  
   for (const [key, times] of requestLog.entries()) {
     const recent = times.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
     if (recent.length === 0) {
@@ -33,11 +37,15 @@ setInterval(() => {
       requestLog.set(key, recent);
     }
   }
-}, 60000); // Cleanup every minute
+  lastCleanupTime = now;
+}
 
 export default async function handler(req, res) {
   // PHASE 5: Use safer CORS headers instead of wildcard
   setSafeCorsHeaders(req, res);
+  
+  // PHASE 5: Run cleanup inline (avoid setInterval memory leak)
+  cleanupOldEntries();
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();

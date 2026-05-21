@@ -12,10 +12,11 @@ const ALLOWED_ORIGINS = [
 function setSafeCorsHeaders(req, res, allowedOrigins = ALLOWED_ORIGINS) {
   const origin = req.headers.origin || '';
   
-  // Allow requests from specific origins only
-  if (allowedOrigins.includes(origin) || origin === '') {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  // Only set CORS headers if origin is in whitelist
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
   }
+  // If origin is not in whitelist or empty, don't set CORS header at all
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

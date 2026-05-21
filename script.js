@@ -354,6 +354,8 @@ function getActiveListenerKeys() {
 
 /* ===== USER PROFILE CACHE - PHASE 6: Improved caching ===== */
 // PHASE 6: Support multiple cached profiles instead of just one
+// Uses FIFO eviction: when cache reaches size limit, oldest entry is removed
+// For true LRU behavior, would need to update timestamp on access
 const profileCache = new Map(); // { uid: { profile, timestamp } }
 const PROFILE_CACHE_SIZE = 10; // Keep up to 10 profiles cached
 
@@ -371,7 +373,7 @@ async function getUserProfile(uid) {
   const snap = await db.ref('users/' + uid).once('value');
   const profile = snap.val() || {};
   
-  // PHASE 6: Store in cache with LRU eviction
+  // PHASE 6: Store in cache with FIFO eviction (remove oldest when full)
   profileCache.set(uid, { profile, timestamp: now });
   if (profileCache.size > PROFILE_CACHE_SIZE) {
     // Remove oldest entry (simple FIFO)
@@ -2884,9 +2886,10 @@ function listenToCurrentTournament() {
       const rows = [];
       snap.forEach(child => {
         const val = child.val() || {};
-        // PHASE 2: Validate leaderboard row data
-        if (val.uid && typeof val.points === 'number') {
-          rows.push({ uid: child.key, ...val });
+        const uid = child.key;
+        // PHASE 2: Validate leaderboard row data - uid from key, points from value
+        if (uid && typeof val.points === 'number') {
+          rows.push({ uid, ...val });
         }
       });
       rows.sort((a, b) => (b.points || 0) - (a.points || 0));
