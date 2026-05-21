@@ -1,6 +1,6 @@
 const TELEGRAM_API_URL = "https://api.telegram.org";
 const MAX_MESSAGES_PER_SECOND = 30;
-const SAFE_BATCH_SIZE = 25;
+const SAFE_BATCH_SIZE = 29;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const idSet = new Set();
     Object.entries(users).forEach(([uid, user]) => {
       const telegramId = user?.telegramId;
-      if (isNumericId(String(telegramId || ""))) {
+      if (telegramId && isNumericId(String(telegramId))) {
         idSet.add(String(telegramId));
       } else if (isNumericId(uid)) {
         idSet.add(uid);

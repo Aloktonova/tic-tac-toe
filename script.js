@@ -369,15 +369,19 @@ function getTodayDateKey() {
 
 function getWeeklyTournamentId(ts = Date.now()) {
   const date = new Date(ts);
-  const year = date.getUTCFullYear();
-  const start = new Date(Date.UTC(year, 0, 1));
-  const dayOffset = (start.getUTCDay() + 6) % 7; // Monday-based week
-  const dayOfYear = Math.floor(
-    (Date.UTC(year, date.getUTCMonth(), date.getUTCDate()) - Date.UTC(year, 0, 1))
-    / 86400000
-  ) + 1;
-  const week = Math.floor((dayOfYear + dayOffset - 1) / 7) + 1;
-  return "weekly_" + year + "_w" + String(week).padStart(2, "0");
+  const utcDate = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate()
+    )
+  );
+  const isoDay = utcDate.getUTCDay() || 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - isoDay);
+  const isoYear = utcDate.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const week = Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
+  return "weekly_" + isoYear + "_w" + String(week).padStart(2, "0");
 }
 
 /* ===== STATE ===== */

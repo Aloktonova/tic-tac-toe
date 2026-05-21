@@ -67,7 +67,7 @@ It is available as a Telegram Mini App via bot, so users can launch and play dir
 ## Daily Telegram Broadcast
 
 - Backend route: `GET /api/daily-broadcast`
-- Vercel cron is configured in `backend/vercel.json` to call it daily.
+- Vercel cron is configured in `backend/vercel.json` to call it daily at `09:00 UTC`.
 - It reads Telegram IDs from Firebase `users` and sends a broadcast with Telegram Bot API `sendMessage`.
 - Required backend env vars:
   - `BOT_TOKEN`
