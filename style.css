@@ -1404,6 +1404,12 @@ body {
   gap: 12px;
   border-color: rgba(34, 211, 238, 0.35);
   box-shadow: 0 0 26px rgba(34, 211, 238, 0.2), 0 12px 30px rgba(3, 7, 18, 0.5);
+  animation: hero-pulse 3s ease-in-out infinite;
+}
+
+@keyframes hero-pulse {
+  0%, 100% { box-shadow: 0 0 26px rgba(34, 211, 238, 0.2), 0 12px 30px rgba(3, 7, 18, 0.5); }
+  50% { box-shadow: 0 0 38px rgba(34, 211, 238, 0.35), 0 12px 40px rgba(3, 7, 18, 0.6); }
 }
 
 .tournament-trophy-glow {
@@ -1478,6 +1484,19 @@ body {
 .tournament-board-card {
   margin-top: 10px;
   padding: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tournament-rank-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 100%);
+  pointer-events: none;
 }
 
 .tournament-rank-card .title,
@@ -1486,6 +1505,8 @@ body {
   color: #a5b4fc;
   font-weight: 700;
   margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .tournament-rank-card .row {
@@ -1494,6 +1515,8 @@ body {
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
+  position: relative;
+  z-index: 1;
 }
 
 .tournament-top-list {
@@ -1557,6 +1580,24 @@ body {
 @keyframes trophy-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(250, 204, 21, 0.35); }
   50% { transform: scale(1.06); box-shadow: 0 0 32px rgba(250, 204, 21, 0.6); }
+}
+
+@keyframes rank-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(34, 211, 238, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.4); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tournament-top-row {
+  animation: slide-up 0.3s ease-out;
+}
+
+.tournament-top-row.me {
+  animation: rank-glow 2s ease-in-out infinite;
 }
 
 @keyframes battle-gradient-shift {
