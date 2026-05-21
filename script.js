@@ -22,6 +22,8 @@ const QUEUE_ENTRY_MAX_AGE_MS = 30000; // queue entries older than 30s are stale
 const PROFILE_CACHE_MS = 60000; // cache user profile for 1 minute
 const DAILY_LOGIN_REWARD_COINS = 50;
 const TOURNAMENT_POINTS = { win: 3, draw: 1, lose: 0 };
+const MONTHLY_MS = 2592000000; // 30 days in ms
+const WEEKLY_MS = 604800000; // 7 days in ms
 
 // Referral system configuration
 // IMPORTANT: Make sure your bot has a
@@ -1861,9 +1863,6 @@ function getAvatarColor(name) {
 }
 
 /* ===== LEADERBOARD ===== */
-
-const MONTHLY_MS = 2592000000; // 30 days in ms
-const WEEKLY_MS  =  604800000; // 7 days in ms
 
 function calculatePoints(userData) {
   const wins   = userData.wins        || 0;
