@@ -61,12 +61,10 @@ export default async function handler(req, res) {
     const users = await usersRes.json() || {};
 
     const idSet = new Set();
-    Object.entries(users).forEach(([uid, user]) => {
+    Object.values(users).forEach(user => {
       const telegramId = user?.telegramId;
       if (telegramId && isNumericId(String(telegramId))) {
         idSet.add(String(telegramId));
-      } else if (isNumericId(uid)) {
-        idSet.add(uid);
       }
     });
 

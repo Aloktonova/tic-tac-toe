@@ -814,7 +814,7 @@ async function identifyUser() {
       const hasAnimatedMarks = ownedItems.has("animated_marks");
       activeAnimatedMarks = typeof d.activeAnimatedMarks === "boolean"
         ? d.activeAnimatedMarks
-        : hasAnimatedMarks;
+        : false;
       document.body.classList.toggle("animated-marks", activeAnimatedMarks && hasAnimatedMarks);
 
       // Restore active theme and border
@@ -3581,7 +3581,7 @@ function clearXpBoostIndicator() {
 function getActiveXpBoostExpiry() {
   const expiry = currentUser.xpBoostExpiry || 0;
   if (!expiry) return 0;
-  if (Date.now() <= expiry) return expiry;
+  if (Date.now() < expiry) return expiry;
   currentUser.xpBoostExpiry = 0;
   clearXpBoostIndicator();
   const uid = ensureNormalizedUserId();
