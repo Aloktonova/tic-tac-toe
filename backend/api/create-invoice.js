@@ -1,3 +1,5 @@
+import { setSafeCorsHeaders, validateUserId, validateProductId, logSecurely } from "../lib/validation-helpers.js";
+
 const PRODUCTS = {
   // Wallpapers (existing)
   galaxy:    { name: "Galaxy",      price: 35 },
@@ -20,12 +22,30 @@ const requestLog = new Map();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const RATE_LIMIT_MAX = 5; // max 5 invoices per minute
 
+// PHASE 5: Lazy cleanup of old entries from request log (prevent memory leak in serverless)
+let lastCleanupTime = 0;
+function cleanupOldEntries() {
+  const now = Date.now();
+  // Only cleanup if last cleanup was more than 30 seconds ago
+  if (now - lastCleanupTime < 30000) return;
+  
+  for (const [key, times] of requestLog.entries()) {
+    const recent = times.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+    if (recent.length === 0) {
+      requestLog.delete(key);
+    } else {
+      requestLog.set(key, recent);
+    }
+  }
+  lastCleanupTime = now;
+}
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods",
-    "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers",
-    "Content-Type");
+  // PHASE 5: Use safer CORS headers instead of wildcard
+  setSafeCorsHeaders(req, res);
+  
+  // PHASE 5: Run cleanup inline (avoid setInterval memory leak)
+  cleanupOldEntries();
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -39,6 +59,7 @@ export default async function handler(req, res) {
 
   const BOT_TOKEN = process.env.BOT_TOKEN;
   if (!BOT_TOKEN) {
+    logSecurely('create-invoice-error', { reason: 'Bot token not configured' });
     return res.status(500).json({
       error: "Bot token not configured"
     });
@@ -46,29 +67,51 @@ export default async function handler(req, res) {
 
   try {
     const { wallpaperId, userId } = req.body;
-    const product = PRODUCTS[wallpaperId];
-    if (!product) {
+    
+    // PHASE 5: Validate input parameters
+    if (!validateProductId(wallpaperId, PRODUCTS)) {
       return res.status(400).json({
-        error: "Invalid product"
+        error: "Invalid product ID"
       });
     }
+    
+    if (!validateUserId(userId)) {
+      return res.status(400).json({
+        error: "Invalid user ID"
+      });
+    }
+
+    const product = PRODUCTS[wallpaperId];
+    
     const clientIp = req.headers["x-forwarded-for"]
       || req.socket?.remoteAddress || "unknown";
     const now = Date.now();
-    const userKey = (userId || "anon") + "_" + clientIp;
+    const userKey = userId + "_" + clientIp;
     const userLog = requestLog.get(userKey) || [];
     const recentRequests = userLog.filter(
       t => now - t < RATE_LIMIT_WINDOW_MS
     );
+    
+    // PHASE 5: Check rate limit
     if (recentRequests.length >= RATE_LIMIT_MAX) {
+      logSecurely('create-invoice-rate-limited', { productId: wallpaperId });
       return res.status(429).json({
         error: "Too many requests. Try again later."
       });
     }
+    
     recentRequests.push(now);
     requestLog.set(userKey, recentRequests);
     const wallpaperName = product.name;
     const price = product.price;
+
+    // PHASE 5: Validate price is reasonable (prevent injection attacks)
+    if (!Number.isInteger(price) || price <= 0 || price > 10000) {
+      logSecurely('create-invoice-error', { reason: 'Invalid price', productId: wallpaperId });
+      return res.status(500).json({
+        error: "Invalid product price"
+      });
+    }
 
     const telegramRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
@@ -81,6 +124,7 @@ export default async function handler(req, res) {
           title: wallpaperName + " Wallpaper",
           description: "Unlock " + wallpaperName
             + " wallpaper permanently in Tic Tac Toe",
+          // PHASE 5: Safe payload construction with validation
           payload: wallpaperId + "_" + userId,
           provider_token: "",
           currency: "XTR",
@@ -93,9 +137,10 @@ export default async function handler(req, res) {
     );
 
     const data = await telegramRes.json();
-    console.log("Telegram createInvoiceLink:", data);
+    logSecurely('create-invoice-response', { ok: data.ok });
 
     if (!data.ok) {
+      logSecurely('create-invoice-error', { reason: 'Telegram API error', description: data.description });
       return res.status(500).json({
         error: data.description || "Telegram API error"
       });
@@ -106,9 +151,9 @@ export default async function handler(req, res) {
     });
 
   } catch(e) {
-    console.error("create-invoice error:", e);
+    logSecurely('create-invoice-error', { reason: e?.message || 'Unknown error' });
     return res.status(500).json({
-      error: e.message || "Internal server error"
+      error: "Failed to create invoice"
     });
   }
 }

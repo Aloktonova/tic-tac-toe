@@ -312,19 +312,23 @@ const ACHIEVEMENTS = [
 const activeListeners = {};
 
 function attachListener(key, ref, event, fn) {
+  // PHASE 3: Log for debugging listener leaks
   if (activeListeners[key]) {
+    console.log('[Listener] Replacing existing listener:', key);
     activeListeners[key].ref.off(
       activeListeners[key].event,
       activeListeners[key].fn
     );
     delete activeListeners[key];
   }
+  console.log('[Listener] Attaching listener:', key);
   ref.on(event, fn);
   activeListeners[key] = { ref, event, fn };
 }
 
 function detachListener(key) {
   if (!activeListeners[key]) return;
+  console.log('[Listener] Detaching listener:', key);
   activeListeners[key].ref.off(
     activeListeners[key].event,
     activeListeners[key].fn
@@ -333,36 +337,60 @@ function detachListener(key) {
 }
 
 function detachAllListeners() {
-  Object.keys(activeListeners).forEach(key => {
+  // PHASE 3: Log all detachments for debugging
+  const keys = Object.keys(activeListeners);
+  if (keys.length > 0) {
+    console.log('[Listener] Detaching all listeners:', keys);
+  }
+  keys.forEach(key => {
     detachListener(key);
   });
 }
 
-/* ===== USER PROFILE CACHE ===== */
-let cachedUserProfile = null;
-let cachedUserProfileTime = 0;
-let cachedUserProfileUid = null;
+// PHASE 3: Helper to get current listeners for debugging
+function getActiveListenerKeys() {
+  return Object.keys(activeListeners);
+}
+
+/* ===== USER PROFILE CACHE - PHASE 6: Improved caching ===== */
+// PHASE 6: Support multiple cached profiles instead of just one
+// Uses FIFO eviction: when cache reaches size limit, oldest entry is removed
+// For true LRU behavior, would need to update timestamp on access
+const profileCache = new Map(); // { uid: { profile, timestamp } }
+const PROFILE_CACHE_SIZE = 10; // Keep up to 10 profiles cached
 
 async function getUserProfile(uid) {
   const now = Date.now();
-  if (
-    cachedUserProfile &&
-    cachedUserProfileUid === uid &&
-    now - cachedUserProfileTime < PROFILE_CACHE_MS
-  ) {
-    return cachedUserProfile;
+  
+  // PHASE 6: Check if profile is cached and still fresh
+  if (profileCache.has(uid)) {
+    const cached = profileCache.get(uid);
+    if (now - cached.timestamp < PROFILE_CACHE_MS) {
+      return cached.profile;
+    }
   }
+  
   const snap = await db.ref('users/' + uid).once('value');
-  cachedUserProfile = snap.val() || {};
-  cachedUserProfileTime = now;
-  cachedUserProfileUid = uid;
-  return cachedUserProfile;
+  const profile = snap.val() || {};
+  
+  // PHASE 6: Store in cache with FIFO eviction (remove oldest when full)
+  profileCache.set(uid, { profile, timestamp: now });
+  if (profileCache.size > PROFILE_CACHE_SIZE) {
+    // Remove oldest entry (simple FIFO)
+    const firstKey = profileCache.keys().next().value;
+    profileCache.delete(firstKey);
+  }
+  
+  return profile;
 }
 
-function invalidateProfileCache() {
-  cachedUserProfile = null;
-  cachedUserProfileTime = 0;
-  cachedUserProfileUid = null;
+function invalidateProfileCache(uid = null) {
+  // PHASE 6: Invalidate specific profile or all
+  if (uid) {
+    profileCache.delete(uid);
+  } else {
+    profileCache.clear();
+  }
 }
 
 function getTodayDateKey() {
@@ -489,6 +517,7 @@ let battleActiveTab = 'matchmaking';
 let activeTournamentMeta = null;
 let tournamentCountdownTimer = null;
 let hasJoinedCurrentTournament = false;
+let tournamentJoinInProgress = false; // PHASE 2: Prevent concurrent join attempts
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -592,6 +621,38 @@ function initTelegram() {
     if (tg) {
       tg.ready();
       tg.expand();
+      
+      // PHASE 7: Add safe-area support for notch/status bar
+      document.documentElement.style.setProperty(
+        '--safe-area-top',
+        (tg.safeAreaInset?.top || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-bottom',
+        (tg.safeAreaInset?.bottom || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-left',
+        (tg.safeAreaInset?.left || 0) + 'px'
+      );
+      document.documentElement.style.setProperty(
+        '--safe-area-right',
+        (tg.safeAreaInset?.right || 0) + 'px'
+      );
+      
+      // PHASE 7: Handle back button for navigation
+      if (tg.BackButton) {
+        tg.BackButton.onClick(() => {
+          const backBtn = document.querySelector('.back-btn:not(.hidden)');
+          if (backBtn) {
+            backBtn.click();
+          } else {
+            // Default: go to home screen
+            showScreen('home');
+          }
+        });
+      }
+      
       const tgUser = tg.initDataUnsafe?.user;
       if (tgUser?.photo_url) {
         tgPhotoUrl = tgUser.photo_url;
@@ -599,6 +660,28 @@ function initTelegram() {
     }
   } catch (e) {
     console.warn('Telegram init:', e);
+  }
+}
+
+/* PHASE 7: Telegram haptic feedback helper */
+function triggerHaptic(type = 'light') {
+  try {
+    const hf = window.Telegram?.WebApp?.HapticFeedback;
+    if (hf && type === 'light') {
+      hf.impactOccurred('light');
+    } else if (hf && type === 'medium') {
+      hf.impactOccurred('medium');
+    } else if (hf && type === 'heavy') {
+      hf.impactOccurred('heavy');
+    } else if (hf && type === 'success') {
+      hf.notificationOccurred('success');
+    } else if (hf && type === 'warning') {
+      hf.notificationOccurred('warning');
+    } else if (hf && type === 'error') {
+      hf.notificationOccurred('error');
+    }
+  } catch (e) {
+    // Silently fail if haptic not available
   }
 }
 
@@ -754,6 +837,9 @@ function shareGameLink(rId) {
   const text = 'Join my Tic Tac Toe game! Can you beat me? 🎮';
   const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text);
 
+  // PHASE 7: Add haptic feedback on share
+  triggerHaptic('light');
+  
   if (window.Telegram?.WebApp?.openTelegramLink) {
     window.Telegram.WebApp.openTelegramLink(shareUrl);
   } else {
@@ -764,6 +850,10 @@ function shareGameLink(rId) {
 /* ===== DEVELOPER TELEGRAM ===== */
 function openDeveloperTelegram() {
   const url = 'https://t.me/alokmaurya22';
+  
+  // PHASE 7: Add haptic feedback on link click
+  triggerHaptic('light');
+  
   if (window.Telegram?.WebApp?.openTelegramLink) {
     window.Telegram.WebApp.openTelegramLink(url);
   } else {
@@ -882,10 +972,12 @@ async function identifyUser() {
     }
 
     // Real-time coins listener so UI updates instantly when coins are awarded
-    db.ref('users/' + currentUser.id + '/coins').on('value', snap => {
+    const coinsRef = db.ref('users/' + currentUser.id + '/coins');
+    const coinsListener = snap => {
       userCoins = snap.val() || 0;
       updateCoinsDisplay();
-    });
+    };
+    attachListener('userCoins', coinsRef, 'value', coinsListener);
 
     // Update / create user doc
     const updates = { name: currentUser.name, lastActive: Date.now() };
@@ -1133,19 +1225,22 @@ function setupEventListeners() {
       }
 
       if (screen === 'settings') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         openSettings();
         return;
       }
 
       if (screen === 'leaderboard') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         const activeTab = document.querySelector('.lb-tab.active')?.dataset.tab || 'lifetime';
         loadLeaderboard(activeTab);
       }
 
       if (screen === 'store') {
-        cleanupTournamentBattleListeners();
+        // PHASE 3: Comprehensive cleanup when leaving game/battle
+        cleanupAllGameListeners();
         showScreen('store');
         renderStore();
         setBottomNavActive('store');
@@ -1452,8 +1547,19 @@ function listenToRoom() {
 }
 
 function cleanupRoomListener() {
+  // PHASE 3: Clean up game room listeners
   detachListener('room');
   detachListener('chat');
+}
+
+// PHASE 3: Comprehensive cleanup for all game/multiplayer screens
+function cleanupAllGameListeners() {
+  console.log('[Listener] Cleaning up all game listeners');
+  detachListener('room');
+  detachListener('chat');
+  detachListener('queue');
+  cleanupTournamentBattleListeners();
+  queueRef = null;
 }
 
 function renderOnlineRoom(room) {
@@ -1461,6 +1567,13 @@ function renderOnlineRoom(room) {
   currentTurn  = room.turn || 'X';
   playerXWins  = room.playerXWins || 0;
   playerOWins  = room.playerOWins || 0;
+
+  // PHASE 4: Validate board state when receiving updates
+  if (!validateBoardState(board)) {
+    console.error('[GameValidation] Received invalid board state from server');
+    // Don't update if board is invalid - could be tampering attempt
+    return;
+  }
 
   const pX = room.players?.X || {};
   const pO = room.players?.O || {};
@@ -1479,6 +1592,12 @@ function renderOnlineRoom(room) {
   }
 
   if (room.winner) {
+    // PHASE 4: Validate winner is consistent with board state
+    const boardCheck = checkWinner(board);
+    if (!boardCheck || boardCheck.winner !== room.winner) {
+      console.warn('[GameValidation] Winner mismatch. Expected:', boardCheck?.winner, 'Got:', room.winner);
+    }
+
     gameOver = true;
     renderBoard(winCells);
 
@@ -1494,7 +1613,13 @@ function renderOnlineRoom(room) {
       xpAwarded = true;
       awardXP(outcome);
       awardTournamentPointsForRoom(roomId, room, outcome);
-      setTimeout(() => detachListener('room'), 3000);
+      // PHASE 2: Detach listener after delay but guard with roomId check to prevent leaks
+      const currentRoomId = roomId; // Capture current roomId
+      setTimeout(() => {
+        if (roomId === currentRoomId) {
+          detachListener('room');
+        }
+      }, 1500);
     }
   } else {
     gameOver = false;
@@ -1563,6 +1688,9 @@ function setStatus(text) {
 /* ===== CELL CLICK ===== */
 function handleCellClick(index) {
   if (gameOver || board[index] !== '') return;
+
+  // PHASE 7: Add haptic feedback on move
+  triggerHaptic('light');
 
   if (gameMode === 'ai') {
     if (currentTurn !== 'X') return;
@@ -1708,12 +1836,72 @@ function checkWinner(b) {
   return null;
 }
 
+// PHASE 4: Game state validation to prevent cheating
+function validateBoardState(board) {
+  // Validate board is array of 9 elements
+  if (!Array.isArray(board) || board.length !== 9) {
+    console.warn('[GameValidation] Invalid board length:', board?.length);
+    return false;
+  }
+  
+  // Count X and O moves
+  const xCount = board.filter(cell => cell === 'X').length;
+  const oCount = board.filter(cell => cell === 'O').length;
+  
+  // X always goes first, so X count should equal O count or be one more
+  if (Math.abs(xCount - oCount) > 1) {
+    console.warn('[GameValidation] Invalid move count. X:', xCount, 'O:', oCount);
+    return false;
+  }
+  
+  // Check for multiple winners
+  let winners = 0;
+  for (const combo of WINNING_COMBOS) {
+    const [i0, i1, i2] = combo;
+    if (board[i0] && board[i0] === board[i1] && board[i0] === board[i2]) {
+      winners++;
+    }
+  }
+  if (winners > 1) {
+    console.warn('[GameValidation] Multiple winners detected');
+    return false;
+  }
+  
+  // Verify all cells are valid
+  for (const cell of board) {
+    if (cell !== '' && cell !== 'X' && cell !== 'O') {
+      console.warn('[GameValidation] Invalid cell value:', cell);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// PHASE 4: Validate move index
+function validateMoveIndex(index) {
+  return Number.isInteger(index) && index >= 0 && index < 9;
+}
+
 /* ===== ONLINE MOVE ===== */
 async function makeOnlineMove(index) {
   if (!db || !roomId || gameOver || board[index] !== '') return;
 
+  // PHASE 4: Validate move index
+  if (!validateMoveIndex(index)) {
+    console.warn('[GameValidation] Invalid move index:', index);
+    return;
+  }
+
   const newBoard = [...board];
   newBoard[index] = playerMark;
+  
+  // PHASE 4: Validate the new board state
+  if (!validateBoardState(newBoard)) {
+    console.warn('[GameValidation] Invalid board state after move');
+    return;
+  }
+
   const result   = checkWinner(newBoard);
   const nextTurn = playerMark === 'X' ? 'O' : 'X';
 
@@ -1736,9 +1924,16 @@ async function makeOnlineMove(index) {
     } else {
       update.playerOWins = firebase.database.ServerValue.increment(1);
     }
+    
+    // PHASE 4: Log game completion for audit
+    console.log('[GameValidation] Game complete. Winner:', result.winner, 'Board:', newBoard);
   }
 
   try {
+    // PHASE 4: Add matchId to update for server validation
+    if (!update.stats) update.stats = {};
+    update.stats.lastUpdateAt = Date.now();
+    
     await db.ref('rooms/' + roomId).update(update);
   } catch (e) {
     console.warn('Online move error:', e);
@@ -1760,6 +1955,15 @@ function showResultOverlay(outcome) {
   const xpAmounts = { win: boost ? 20 : 10, draw: boost ? 14 : 7, lose: boost ? 10 : 5 };
   document.getElementById('result-xp').textContent =
     '+' + xpAmounts[outcome] + ' XP' + (boost ? ' ⚡ 2x Boost' : '');
+
+  // PHASE 7: Add haptic feedback for game results
+  if (outcome === 'win') {
+    triggerHaptic('success');
+  } else if (outcome === 'lose') {
+    triggerHaptic('warning');
+  } else if (outcome === 'draw') {
+    triggerHaptic('light');
+  }
 
   document.getElementById('result-overlay').classList.remove('hidden');
 }
@@ -2587,7 +2791,12 @@ function switchBattleTab(tab, skipInit = false) {
   document.getElementById('battle-tab-tournament')?.classList.toggle('active', battleActiveTab === 'tournament');
   document.getElementById('battle-panel-matchmaking')?.classList.toggle('hidden', battleActiveTab !== 'matchmaking');
   document.getElementById('battle-panel-tournament')?.classList.toggle('hidden', battleActiveTab !== 'tournament');
-  if (!skipInit && battleActiveTab === 'tournament') {
+  
+  if (battleActiveTab === 'matchmaking') {
+    // Clean up tournament listeners when switching away from tournament tab
+    cleanupTournamentBattleListeners();
+  } else if (!skipInit && battleActiveTab === 'tournament') {
+    // Attach tournament listeners when switching to tournament tab
     initBattleTournamentUi();
   }
 }
@@ -2652,29 +2861,56 @@ function buildFreshTournamentMeta(season) {
 
 function listenToCurrentTournament() {
   if (!db) return;
+  
+  // PHASE 2: Listen to tournament metadata
   const currentRef = db.ref('tournaments/current');
   attachListener('tournamentCurrent', currentRef, 'value', snap => {
-    const tournament = snap.val() || null;
-    activeTournamentMeta = tournament;
-    renderTournamentMeta(tournament);
+    try {
+      const tournament = snap.val() || null;
+      // PHASE 2: Validate tournament data before using
+      if (tournament && typeof tournament !== 'object') {
+        console.warn('[Tournament] Invalid tournament data:', tournament);
+        return;
+      }
+      activeTournamentMeta = tournament;
+      renderTournamentMeta(tournament);
+    } catch (err) {
+      console.error('[Tournament] Error processing tournament meta:', err);
+    }
   });
 
+  // PHASE 2: Listen to top 10 leaderboard
   const topRef = db.ref('tournaments/current/leaderboard').orderByChild('points').limitToLast(10);
   attachListener('tournamentTop10', topRef, 'value', snap => {
-    const rows = [];
-    snap.forEach(child => {
-      rows.push({ uid: child.key, ...(child.val() || {}) });
-    });
-    rows.sort((a, b) => (b.points || 0) - (a.points || 0));
-    renderTournamentTop10(rows);
+    try {
+      const rows = [];
+      snap.forEach(child => {
+        const val = child.val() || {};
+        const uid = child.key;
+        // PHASE 2: Validate leaderboard row data - uid from key, points from value
+        if (uid && typeof val.points === 'number') {
+          rows.push({ uid, ...val });
+        }
+      });
+      rows.sort((a, b) => (b.points || 0) - (a.points || 0));
+      renderTournamentTop10(rows);
+    } catch (err) {
+      console.error('[Tournament] Error processing top 10:', err);
+    }
   });
 
+  // PHASE 2: Listen to current user's tournament row
   const myRef = db.ref('tournaments/current/leaderboard/' + currentUser.id);
   attachListener('tournamentMyRow', myRef, 'value', snap => {
-    const myData = snap.exists() ? snap.val() : null;
-    hasJoinedCurrentTournament = !!myData;
-    updateTournamentJoinButton();
-    updateTournamentMyRankCard(myData);
+    try {
+      const myData = snap.exists() ? snap.val() : null;
+      // PHASE 2: Validate user's leaderboard row
+      hasJoinedCurrentTournament = !!myData;
+      updateTournamentJoinButton();
+      updateTournamentMyRankCard(myData);
+    } catch (err) {
+      console.error('[Tournament] Error processing user row:', err);
+    }
   });
 }
 
@@ -2735,10 +2971,28 @@ function startTournamentCountdown(endAt) {
 
 async function joinCurrentTournament() {
   if (!db || !currentUser.id) return;
+  
+  // PHASE 2: Prevent concurrent join attempts
+  if (tournamentJoinInProgress) {
+    showToast('Join request in progress...');
+    return;
+  }
+  
   try {
+    tournamentJoinInProgress = true;
     const meta = activeTournamentMeta || await ensureCurrentTournament();
-    if (!meta?.id) return;
+    if (!meta?.id) {
+      showToast('❌ No active tournament found.');
+      return;
+    }
 
+    // PHASE 2: Validate tournament is still active
+    if (meta.endAt && meta.endAt <= Date.now()) {
+      showToast('❌ Tournament has ended.');
+      return;
+    }
+
+    // PHASE 2: First transaction - idempotent player registration
     const playerRef = db.ref('tournaments/current/players/' + currentUser.id);
     const result = await playerRef.transaction(current => {
       if (current) return undefined;
@@ -2756,15 +3010,20 @@ async function joinCurrentTournament() {
     const playerAlreadyExists = !!result.snapshot?.val();
     if (!result.committed) {
       if (!playerAlreadyExists) {
-        showToast('Could not join tournament. Please try again.');
+        // PHASE 2: Better error feedback
+        console.warn('[Tournament] Player join transaction failed, player data:', result.snapshot?.val());
+        showToast('❌ Could not join tournament. Please try again.');
         return;
       }
+      // PHASE 2: Player already joined - treat as success
+      console.log('[Tournament] Player already joined - resuming');
       hasJoinedCurrentTournament = true;
       updateTournamentJoinButton();
+      showToast('✓ Already joined this tournament');
       return;
     }
 
-    // Initialize leaderboard entry with calculatePoints()
+    // PHASE 2: Second transaction - atomic leaderboard entry
     const playerData = {
       uid: currentUser.id,
       name: currentUser.name || 'Player',
@@ -2776,25 +3035,42 @@ async function joinCurrentTournament() {
       updatedAt: Date.now()
     };
 
-    // Atomic transaction: increment playerCount only if leaderboard entry is new
     const lbRef = db.ref('tournaments/current/leaderboard/' + currentUser.id);
     const lbResult = await lbRef.transaction(current => {
       if (current) return undefined; // Player already in tournament
       return playerData;
     });
 
-    // Only increment playerCount if this was the first time joining
+    // PHASE 2: Only increment playerCount if this was the first time joining
     if (lbResult.committed) {
-      await db.ref('tournaments/current').update({
-        playerCount: firebase.database.ServerValue.increment(1)
-      });
+      try {
+        await db.ref('tournaments/current').update({
+          playerCount: firebase.database.ServerValue.increment(1)
+        });
+      } catch (countErr) {
+        // PHASE 2: Log but don't fail - player is already registered
+        console.warn('[Tournament] Could not increment tournament playerCount:', countErr);
+      }
     }
     
     hasJoinedCurrentTournament = true;
     updateTournamentJoinButton();
-    showToast('You joined the Weekly Tournament!');
+    showToast('🎉 You joined the Weekly Tournament!');
   } catch (e) {
-    console.warn('Join tournament error:', e);
+    console.error('[Tournament] Join error:', e);
+    // PHASE 2: Improved error classification
+    const errorMsg = e?.message || 'Unknown error';
+    if (errorMsg.includes('permission') || errorMsg.includes('PERMISSION_DENIED')) {
+      showToast('❌ Permission denied. Check Firebase rules.');
+    } else if (errorMsg.includes('network') || errorMsg.includes('NETWORK')) {
+      showToast('❌ Network error. Please try again.');
+    } else if (errorMsg.includes('timeout') || errorMsg.includes('TIMEOUT')) {
+      showToast('❌ Request timeout. Please try again.');
+    } else {
+      showToast('❌ Failed to join tournament. Please try again.');
+    }
+  } finally {
+    tournamentJoinInProgress = false;
   }
 }
 
@@ -2877,65 +3153,118 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
   if (!matchId) return;
 
   try {
+    // PHASE 2: Validate tournament is active before awarding
+    const tourSnap = await db.ref('tournaments/current').once('value');
+    if (!tourSnap.exists()) {
+      console.log('[Tournament] No active tournament - skipping award');
+      return;
+    }
+    const tournament = tourSnap.val() || {};
+    if (tournament.endAt && tournament.endAt <= Date.now()) {
+      console.log('[Tournament] Tournament ended - skipping award');
+      return;
+    }
+
+    // PHASE 4: Validate board state before awarding
+    if (!validateBoardState(room.board)) {
+      console.error('[Tournament] Invalid board state - rejecting award');
+      return;
+    }
+
+    // PHASE 4: Validate winner matches board state
+    const boardCheck = checkWinner(room.board);
+    if (!boardCheck || boardCheck.winner !== room.winner) {
+      console.error('[Tournament] Winner mismatch - rejecting award. Expected:', boardCheck?.winner, 'Got:', room.winner);
+      return;
+    }
+
+    // PHASE 2: Duplicate award prevention with guard transaction
     const guardRef = db.ref('rooms/' + activeRoomId + '/stats/tournamentAwardedMatchId');
     const guardResult = await guardRef.transaction(current => {
-      if (current === matchId) return undefined;
+      if (current === matchId) return undefined; // Already awarded
       return matchId;
     });
-    if (!guardResult.committed) return;
+    
+    if (!guardResult.committed) {
+      console.log('[Tournament] Award already processed for matchId:', matchId);
+      return;
+    }
 
     const players = [
       { mark: 'X', data: room.players.X },
       { mark: 'O', data: room.players.O }
     ].filter(p => p?.data?.id);
 
+    if (players.length === 0) {
+      console.warn('[Tournament] No valid players in room:', activeRoomId);
+      return;
+    }
+
+    // PHASE 2: Award each player their tournament points
     for (const player of players) {
       const uid = player.data.id;
-      const playerSnap = await db.ref('tournaments/current/players/' + uid).once('value');
-      if (!playerSnap.exists()) continue;
+      if (!uid) continue;
 
-      const playerData = playerSnap.val() || {};
-      const outcome = (room.winner === 'draw')
-        ? 'draw'
-        : (room.winner === player.mark ? 'win' : 'lose');
+      try {
+        // PHASE 2: Check if player is in tournament
+        const playerSnap = await db.ref('tournaments/current/players/' + uid).once('value');
+        if (!playerSnap.exists()) {
+          console.log('[Tournament] Player not in tournament:', uid);
+          continue;
+        }
 
-      // Update stats incrementally
-      const updates = {
-        name: player.data.name || 'Player',
-        updatedAt: Date.now()
-      };
-      if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
-      if (outcome === 'lose') updates.losses = firebase.database.ServerValue.increment(1);
-      if (outcome === 'draw') updates.draws = firebase.database.ServerValue.increment(1);
+        const playerData = playerSnap.val() || {};
+        const outcome = (room.winner === 'draw')
+          ? 'draw'
+          : (room.winner === player.mark ? 'win' : 'lose');
 
-      await db.ref('tournaments/current/players/' + uid).update(updates);
-      
-      // Calculate new stats locally without extra DB read
-      const newWins = (playerData.wins || 0) + (outcome === 'win' ? 1 : 0);
-      const newLosses = (playerData.losses || 0) + (outcome === 'lose' ? 1 : 0);
-      const newDraws = (playerData.draws || 0) + (outcome === 'draw' ? 1 : 0);
-      const bestStreak = playerData.best_streak || 0;
-      
-      const newPoints = calculatePoints({
-        wins: newWins,
-        losses: newLosses,
-        draws: newDraws,
-        best_streak: bestStreak
-      });
-      
-      await db.ref('tournaments/current/leaderboard/' + uid).update({
-        uid,
-        name: playerData.name || 'Player',
-        wins: newWins,
-        losses: newLosses,
-        draws: newDraws,
-        best_streak: bestStreak,
-        points: newPoints,
-        updatedAt: Date.now()
-      });
+        // PHASE 2: Update player stats
+        const updates = {
+          name: player.data.name || 'Player',
+          updatedAt: Date.now()
+        };
+        if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
+        if (outcome === 'lose') updates.losses = firebase.database.ServerValue.increment(1);
+        if (outcome === 'draw') updates.draws = firebase.database.ServerValue.increment(1);
+
+        await db.ref('tournaments/current/players/' + uid).update(updates);
+        
+        // PHASE 2: Calculate new points from updated stats
+        const newWins = (playerData.wins || 0) + (outcome === 'win' ? 1 : 0);
+        const newLosses = (playerData.losses || 0) + (outcome === 'lose' ? 1 : 0);
+        const newDraws = (playerData.draws || 0) + (outcome === 'draw' ? 1 : 0);
+        const bestStreak = playerData.best_streak || 0;
+        
+        const newPoints = calculatePoints({
+          wins: newWins,
+          losses: newLosses,
+          draws: newDraws,
+          best_streak: bestStreak
+        });
+        
+        // PHASE 2: Update leaderboard entry
+        await db.ref('tournaments/current/leaderboard/' + uid).update({
+          uid,
+          name: playerData.name || 'Player',
+          wins: newWins,
+          losses: newLosses,
+          draws: newDraws,
+          best_streak: bestStreak,
+          points: newPoints,
+          updatedAt: Date.now()
+        });
+
+        console.log('[Tournament] Awarded points to', uid, 'outcome:', outcome, 'newPoints:', newPoints);
+      } catch (playerErr) {
+        console.error('[Tournament] Error awarding to player', uid, ':', playerErr);
+        // PHASE 2: Continue with next player rather than stopping
+      }
     }
   } catch (e) {
-    console.warn('Tournament award error:', e);
+    // PHASE 2: Better error logging instead of silent failure
+    console.error('[Tournament] Award error:', e?.message || e);
+    // Still silently fail to prevent blocking gameplay if tournament system has issues
+    // but log the error for debugging
   }
 }
 

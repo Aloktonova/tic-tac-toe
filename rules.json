@@ -4,56 +4,156 @@
       "$userId": {
         ".read": "$userId === auth.uid || auth !== null",
         ".write": false,
+        ".description": "User profiles: name and language can be edited by owner, stats are server-write-only",
         "name": {
-          ".write": "$userId === auth.uid"
+          ".write": "$userId === auth.uid",
+          ".description": "User can update their own name"
         },
         "language": {
-          ".write": "$userId === auth.uid"
+          ".write": "$userId === auth.uid",
+          ".description": "User can update their preferred language"
         },
         "lastActive": {
-          ".write": "$userId === auth.uid"
+          ".write": "$userId === auth.uid",
+          ".description": "User can update their last active timestamp"
         },
         "unlockedWallpapers": {
           ".read": "$userId === auth.uid",
-          ".write": false
+          ".write": false,
+          ".description": "Unlocked wallpapers are server-managed only"
         },
         "coins": {
           ".read": "$userId === auth.uid",
-          ".write": false
+          ".write": false,
+          ".description": "Coins are server-managed, protected from client writes"
         },
         "wins": {
           ".read": true,
-          ".write": false
+          ".write": false,
+          ".description": "Win count visible publicly, server-managed only"
         },
         "losses": {
           ".read": "$userId === auth.uid",
-          ".write": false
+          ".write": false,
+          ".description": "Loss count private, server-managed only"
         },
         "xp": {
           ".read": "$userId === auth.uid",
-          ".write": false
+          ".write": false,
+          ".description": "XP is server-managed, protected from manipulation"
         }
       }
     },
     "rooms": {
+      ".description": "Game rooms with real-time board state and chat",
       "$roomId": {
         ".read": true,
-        ".write": "auth !== null"
+        ".write": "auth !== null",
+        ".description": "Authenticated users can join/update rooms"
       }
     },
     "queue": {
+      ".description": "Battle matchmaking queue entries",
       "$userId": {
         ".read": true,
-        ".write": "$userId === auth.uid"
+        ".write": "$userId === auth.uid",
+        ".description": "Users can only add/remove themselves from queue"
       }
     },
     "payments": {
       ".read": false,
-      ".write": false
+      ".write": false,
+      ".description": "Payment records are server-only, never exposed to clients"
     },
     "leaderboard": {
       ".read": true,
-      ".write": false
+      ".write": false,
+      ".description": "Main leaderboard is read-only for clients",
+      ".indexOn": ["wins", "createdAt"],
+      "$userId": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "tournaments": {
+      ".read": true,
+      ".description": "Tournament system with current tournament and history",
+      ".indexOn": ["season", "endAt"],
+      "current": {
+        ".read": true,
+        ".write": false,
+        ".description": "Current tournament metadata is read-only. Writes via transactions only for atomicity.",
+        ".indexOn": ["season"],
+        "playerCount": {
+          ".write": false,
+          ".description": "Player count is server-managed via ServerValue.increment()"
+        },
+        "players": {
+          ".read": true,
+          ".write": false,
+          ".description": "Tournament player list with individual stats, prevent unauthorized overwrites",
+          ".indexOn": ["uid", "joinedAt"],
+          "$userId": {
+            ".read": true,
+            ".write": "auth !== null",
+            ".validate": "$userId === auth.uid",
+            ".description": "Each user can only join themselves (enforced in code via transaction pattern)",
+            "uid": { 
+              ".write": "$userId === auth.uid",
+              ".validate": "newData.val() === $userId",
+              ".description": "User can only set their own uid to match path"
+            },
+            "name": { 
+              ".write": "$userId === auth.uid",
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50",
+              ".description": "User can update name with validation"
+            },
+            "wins": { 
+              ".write": false,
+              ".description": "Tournament wins are server-calculated only"
+            },
+            "losses": { 
+              ".write": false,
+              ".description": "Tournament losses are server-calculated only"
+            },
+            "draws": { 
+              ".write": false,
+              ".description": "Tournament draws are server-calculated only"
+            },
+            "best_streak": { 
+              ".write": false,
+              ".description": "Best streak is server-calculated only"
+            },
+            "joinedAt": { 
+              ".write": "$userId === auth.uid",
+              ".validate": "newData.isNumber() && newData.val() > 0",
+              ".description": "User sets join time once (immutable thereafter)"
+            }
+          }
+        },
+        "leaderboard": {
+          ".read": true,
+          ".write": false,
+          ".description": "Tournament leaderboard is read-only. Points calculated server-side only, indexed for fast queries",
+          ".indexOn": ["points", "wins", "updatedAt"],
+          "$userId": {
+            ".read": true,
+            ".write": false,
+            ".validate": "$userId === newData.child('uid').val()",
+            ".description": "Leaderboard entries cannot be directly written by clients. Updated via server-side transactions."
+          }
+        }
+      },
+      "history": {
+        ".read": true,
+        ".write": false,
+        ".description": "Tournament history is archived and read-only",
+        ".indexOn": ["season", "archivedAt"],
+        "$historyId": {
+          ".read": true,
+          ".write": false
+        }
+      }
     }
   }
 }
