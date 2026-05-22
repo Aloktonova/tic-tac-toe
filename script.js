@@ -3328,7 +3328,7 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
 
         // PHASE 2: Update player stats
         const updates = {
-          name: player.data.name || 'Player',
+          name: player?.data?.name || 'Player',
           updatedAt: Date.now()
         };
         if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
@@ -3362,7 +3362,7 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
         // PHASE 2: Update leaderboard entry (use name from player stats or fall back to room data)
         const leaderboardUpdate = {
           uid,
-          name: playerData.name || player.data.name || 'Player',
+          name: playerData.name || player?.data?.name || 'Player',
           wins: newWins,
           losses: newLosses,
           draws: newDraws,
@@ -3388,8 +3388,18 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
           } else if (outcome === 'draw') {
             message = `🤝 +${newPoints} tournament points!`;
           } else {
-            // For losses, show the point deduction from the base formula (-10 per loss)
-            message = `📉 -10 tournament points`;
+            // For losses, calculate the actual point change from this loss
+            const oldWins = newWins - 0;
+            const oldLosses = newLosses - 1;
+            const oldDraws = newDraws;
+            const oldPoints = calculatePoints({
+              wins: oldWins,
+              losses: oldLosses,
+              draws: oldDraws,
+              best_streak: bestStreak
+            });
+            const pointDelta = newPoints - oldPoints;
+            message = `📉 ${pointDelta < 0 ? '-' : '+'}${Math.abs(pointDelta)} tournament points`;
           }
           showToast(message);
           console.log('[Tournament] Toast shown for current user:', currentUser.id, 'outcome:', outcome, 'newPoints:', newPoints);
