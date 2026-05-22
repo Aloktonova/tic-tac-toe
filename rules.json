@@ -122,16 +122,16 @@
               ".description": "User can update name with validation"
             },
             "wins": { 
-              ".write": "auth !== null",
-              ".description": "Tournament wins can be updated via transaction increments"
+              ".write": false,
+              ".description": "Tournament wins updated via parent-level transaction increments"
             },
             "losses": { 
-              ".write": "auth !== null",
-              ".description": "Tournament losses can be updated via transaction increments"
+              ".write": false,
+              ".description": "Tournament losses updated via parent-level transaction increments"
             },
             "draws": { 
-              ".write": "auth !== null",
-              ".description": "Tournament draws can be updated via transaction increments"
+              ".write": false,
+              ".description": "Tournament draws updated via parent-level transaction increments"
             },
             "best_streak": { 
               ".write": false,
@@ -151,7 +151,7 @@
           ".indexOn": ["points", "wins", "updatedAt"],
           "$userId": {
             ".read": true,
-            ".write": "auth !== null",
+            ".write": "$userId === auth.uid",
             ".validate": "$userId === newData.child('uid').val()",
             ".description": "Authenticated users can update their own leaderboard entry to sync points from tournament stats"
           }

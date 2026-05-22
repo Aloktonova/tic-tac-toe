@@ -3359,10 +3359,10 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
         
         console.log('[Tournament] Calculated new points:', { uid, newWins, newLosses, newDraws, bestStreak, newPoints });
 
-        // PHASE 2: Update leaderboard entry (use consistent name from player.data)
+        // PHASE 2: Update leaderboard entry (use name from player stats or fall back to room data)
         const leaderboardUpdate = {
           uid,
-          name: player.data.name || 'Player',
+          name: playerData.name || player.data.name || 'Player',
           wins: newWins,
           losses: newLosses,
           draws: newDraws,
