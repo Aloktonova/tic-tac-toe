@@ -112,6 +112,107 @@ async function updateLastNotificationTimestamp(firebaseDbUrl, userId) {
   }
 }
 
+/**
+ * Log notification send to Firebase
+ * @param {string} firebaseDbUrl - Firebase database URL
+ * @param {string} backendUrl - Backend URL for logging
+ * @param {string} userId - User ID
+ * @param {string} telegramId - Telegram ID
+ * @param {string} message - Message sent
+ * @param {string} templateUsed - Template name used
+ * @param {string} timezone - User's timezone
+ * @param {boolean} success - Whether send succeeded
+ * @param {string} errorMessage - Error message if failed
+ */
+async function logNotificationSend(firebaseDbUrl, backendUrl, userId, telegramId, message, templateUsed, timezone, success, errorMessage) {
+  try {
+    // Try to log via backend endpoint if available
+    if (backendUrl) {
+      const response = await fetch(`${backendUrl}/api/notifications-log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: userId,
+          telegramId,
+          message,
+          templateUsed,
+          timezone,
+          sentAt: Date.now(),
+          success,
+          errorMessage: errorMessage || ''
+        })
+      });
+      if (!response.ok) {
+        console.error('[DailyBroadcast] Backend logging failed, trying direct Firebase write');
+      } else {
+        return;
+      }
+    }
+
+    // Fallback to direct Firebase write
+    const now = new Date();
+    const dateKey = now.toISOString().split('T')[0];
+    const logPath = `notifications/logs/${dateKey}/${userId}`;
+
+    await fetch(
+      `${firebaseDbUrl}/${logPath}.json`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: userId,
+          telegramId,
+          message,
+          templateUsed,
+          timezone,
+          sentAt: Date.now(),
+          success,
+          errorMessage: errorMessage || ''
+        })
+      }
+    );
+  } catch (e) {
+    console.error('[DailyBroadcast] Error logging notification for', userId, ':', e.message);
+  }
+}
+
+/**
+ * Load notification template from Firebase
+ * @param {string} firebaseDbUrl - Firebase database URL
+ * @param {string} templateName - Template name (e.g., 'dailyReminder')
+ * @returns {Promise<string|null>} Template message text or null
+ */
+async function loadTemplate(firebaseDbUrl, templateName) {
+  try {
+    const response = await fetch(
+      `${firebaseDbUrl}/notifications/templates/${templateName}.json`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      console.warn('[DailyBroadcast] Template not found:', templateName);
+      return null;
+    }
+
+    const template = await response.json();
+    if (!template.enabled) {
+      console.warn('[DailyBroadcast] Template disabled:', templateName);
+      return null;
+    }
+
+    // Build message from template fields
+    let message = '';
+    if (template.title) message += `<b>${template.title}</b>\n\n`;
+    if (template.message) message += template.message;
+    if (template.buttonText) message += `\n\n🔘 ${template.buttonText}`;
+
+    return message || null;
+  } catch (e) {
+    console.error('[DailyBroadcast] Error loading template:', templateName, e.message);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -130,9 +231,13 @@ export default async function handler(req, res) {
 
   const botToken = process.env.BOT_TOKEN;
   const firebaseDbUrl = process.env.FIREBASE_DATABASE_URL;
+  const backendUrl = process.env.BACKEND_URL;
   
-  // Allow customization of message, with fallback to default
-  const messageText = process.env.DAILY_TELEGRAM_MESSAGE
+  // Template name to use (will be loaded from Firebase)
+  const templateName = process.env.DAILY_TEMPLATE_NAME || 'dailyReminder';
+  
+  // Fallback message if template loading fails
+  const fallbackMessage = process.env.DAILY_TELEGRAM_MESSAGE
     || "🎮 <b>Your Tic Tac Toe Tournament Awaits!</b>\n\n⚔️ Jump back into battle and earn more points to climb the leaderboard!\n\n🏆 Challenge friends and prove your skills: https://t.me/Tictocgame22_bot/app";
 
   if (!botToken || !firebaseDbUrl) {
@@ -143,6 +248,15 @@ export default async function handler(req, res) {
 
   try {
     console.log('[DailyBroadcast] Starting broadcast at', new Date().toISOString());
+    
+    // Load template from Firebase
+    let messageText = await loadTemplate(firebaseDbUrl, templateName);
+    if (!messageText) {
+      console.log('[DailyBroadcast] Using fallback message');
+      messageText = fallbackMessage;
+    } else {
+      console.log('[DailyBroadcast] Loaded template:', templateName);
+    }
     
     const usersRes = await fetch(`${firebaseDbUrl}/users.json`);
     if (!usersRes.ok) {
@@ -210,15 +324,56 @@ export default async function handler(req, res) {
       const results = await Promise.all(
         batch.map(async (user) => {
           try {
+            console.log('[Notification] Sending to user:', user.userId);
             const ok = await sendTelegramMessage(botToken, user.telegramId, messageText);
             if (ok) {
+              // Log successful send
+              await logNotificationSend(
+                firebaseDbUrl,
+                backendUrl,
+                user.userId,
+                user.telegramId,
+                messageText,
+                templateName,
+                users[user.userId]?.timezone || 'UTC',
+                true,
+                ''
+              );
               // Update timestamp on success
               await updateLastNotificationTimestamp(firebaseDbUrl, user.userId);
+              console.log('[Notification] Success for user:', user.userId);
               return true;
+            } else {
+              // Log failed send
+              await logNotificationSend(
+                firebaseDbUrl,
+                backendUrl,
+                user.userId,
+                user.telegramId,
+                messageText,
+                templateName,
+                users[user.userId]?.timezone || 'UTC',
+                false,
+                'Telegram API returned non-ok response'
+              );
+              console.log('[Notification] Failed for user:', user.userId);
+              return false;
             }
-            return false;
           } catch (e) {
             console.error('[DailyBroadcast] Error sending to user', user.userId, ':', e.message);
+            // Log error send
+            await logNotificationSend(
+              firebaseDbUrl,
+              backendUrl,
+              user.userId,
+              user.telegramId,
+              messageText,
+              templateName,
+              users[user.userId]?.timezone || 'UTC',
+              false,
+              e.message
+            );
+            console.log('[Notification] Failed with error for user:', user.userId);
             return false;
           }
         })

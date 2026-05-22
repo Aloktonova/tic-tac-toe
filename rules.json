@@ -165,6 +165,45 @@
           ".write": false
         }
       }
+    },
+    "notifications": {
+      ".description": "Telegram notification system: templates, logs, and settings",
+      "templates": {
+        ".read": true,
+        ".write": false,
+        ".description": "Notification templates are read-only for clients, server-managed only",
+        "dailyReminder": {
+          ".read": true,
+          ".write": false
+        },
+        "tournamentReminder": {
+          ".read": true,
+          ".write": false
+        },
+        "comebackReminder": {
+          ".read": true,
+          ".write": false
+        }
+      },
+      "logs": {
+        ".read": false,
+        ".write": false,
+        ".description": "Notification logs are server-only, never exposed to clients except through admin API",
+        ".indexOn": ["sentAt", "uid"],
+        "$date": {
+          ".read": false,
+          ".write": false,
+          "$uid": {
+            ".read": false,
+            ".write": false
+          }
+        }
+      },
+      "settings": {
+        ".read": false,
+        ".write": false,
+        ".description": "Admin notification settings, server-managed only"
+      }
     }
   }
 }
