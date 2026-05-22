@@ -3382,7 +3382,6 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
 
         // Show toast for current player only
         if (uid === currentUser.id) {
-          const pointSymbol = outcome === 'win' ? '🏆' : (outcome === 'draw' ? '🤝' : '📉');
           const message = outcome === 'win' 
             ? `🏆 +${newPoints} tournament points!` 
             : outcome === 'draw'

@@ -103,12 +103,12 @@
         },
         "players": {
           ".read": true,
-          ".write": true,
-          ".description": "Tournament player list with individual stats, allow authenticated writes for transaction updates",
+          ".write": false,
+          ".description": "Tournament player list with individual stats, only users can write to their own entry",
           ".indexOn": ["uid", "joinedAt"],
           "$userId": {
             ".read": true,
-            ".write": "auth !== null",
+            ".write": "auth !== null && $userId === auth.uid",
             ".validate": "$userId === auth.uid",
             ".description": "Each user can update their own tournament stats (enforced in code via transaction pattern)",
             "uid": { 
