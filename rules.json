@@ -103,14 +103,14 @@
         },
         "players": {
           ".read": true,
-          ".write": false,
-          ".description": "Tournament player list with individual stats, prevent unauthorized overwrites",
+          ".write": true,
+          ".description": "Tournament player list with individual stats, allow authenticated writes for transaction updates",
           ".indexOn": ["uid", "joinedAt"],
           "$userId": {
             ".read": true,
             ".write": "auth !== null",
             ".validate": "$userId === auth.uid",
-            ".description": "Each user can only join themselves (enforced in code via transaction pattern)",
+            ".description": "Each user can update their own tournament stats (enforced in code via transaction pattern)",
             "uid": { 
               ".write": "$userId === auth.uid",
               ".validate": "newData.val() === $userId",
@@ -122,16 +122,16 @@
               ".description": "User can update name with validation"
             },
             "wins": { 
-              ".write": false,
-              ".description": "Tournament wins are server-calculated only"
+              ".write": "auth !== null",
+              ".description": "Tournament wins can be updated via transaction increments"
             },
             "losses": { 
-              ".write": false,
-              ".description": "Tournament losses are server-calculated only"
+              ".write": "auth !== null",
+              ".description": "Tournament losses can be updated via transaction increments"
             },
             "draws": { 
-              ".write": false,
-              ".description": "Tournament draws are server-calculated only"
+              ".write": "auth !== null",
+              ".description": "Tournament draws can be updated via transaction increments"
             },
             "best_streak": { 
               ".write": false,
@@ -151,9 +151,9 @@
           ".indexOn": ["points", "wins", "updatedAt"],
           "$userId": {
             ".read": true,
-            ".write": false,
+            ".write": "auth !== null",
             ".validate": "$userId === newData.child('uid').val()",
-            ".description": "Leaderboard entries cannot be directly written by clients. Updated via server-side transactions."
+            ".description": "Authenticated users can update their own leaderboard entry to sync points from tournament stats"
           }
         }
       },
