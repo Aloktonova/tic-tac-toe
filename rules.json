@@ -13,6 +13,19 @@
           ".write": "$userId === auth.uid",
           ".description": "User can update their preferred language"
         },
+        "timezone": {
+          ".write": "$userId === auth.uid",
+          ".description": "User's timezone for scheduled notifications (e.g., America/New_York)",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
+        "notificationsEnabled": {
+          ".write": "$userId === auth.uid",
+          ".description": "Whether user wants to receive scheduled notifications"
+        },
+        "lastNotificationTimestamp": {
+          ".write": false,
+          ".description": "Server-tracked last notification send time to prevent duplicates"
+        },
         "lastActive": {
           ".write": "$userId === auth.uid",
           ".description": "User can update their last active timestamp"

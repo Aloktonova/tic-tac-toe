@@ -538,6 +538,39 @@
         </select>
       </div>
 
+      <!-- Timezone -->
+      <div class="settings-section">
+        <label class="settings-label" for="settings-timezone">Timezone (for notifications)</label>
+        <select id="settings-timezone" class="settings-select">
+          <option value="UTC">UTC</option>
+          <option value="America/New_York">America/New_York (EST)</option>
+          <option value="America/Chicago">America/Chicago (CST)</option>
+          <option value="America/Denver">America/Denver (MST)</option>
+          <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+          <option value="Europe/London">Europe/London (GMT)</option>
+          <option value="Europe/Paris">Europe/Paris (CET)</option>
+          <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
+          <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+          <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+          <option value="Asia/Bangkok">Asia/Bangkok (ICT)</option>
+          <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
+          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+          <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+          <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+          <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
+        </select>
+        <div style="font-size: 0.8em; color: #999; margin-top: 4px;">🔔 Used for daily notification timing (10 AM in your timezone)</div>
+      </div>
+
+      <!-- Notifications Toggle -->
+      <div class="settings-section">
+        <label class="settings-label" for="settings-notifications-enabled">Enable Daily Notifications</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="settings-notifications-enabled" class="settings-checkbox" checked>
+          <span id="settings-notifications-status">Enabled</span>
+        </div>
+      </div>
+
       <!-- Stats -->
       <div class="settings-section">
         <div class="xp-label">
