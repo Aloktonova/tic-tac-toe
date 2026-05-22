@@ -3206,9 +3206,10 @@ async function updateTournamentMyRankCard(myData) {
 
   console.log('[Tournament] Updating my rank card:', myData);
 
-  // Use calculatePoints() to ensure consistency with leaderboard
-  const points = calculatePoints(myData);
-  console.log('[Tournament] Calculated my points:', points, 'from:', { wins: myData.wins, losses: myData.losses, draws: myData.draws, best_streak: myData.best_streak });
+  // Use stored points value from leaderboard entry
+  // (which should be pre-calculated by awardTournamentPointsForRoom)
+  const points = myData.points || calculatePoints(myData);
+  console.log('[Tournament] My points from leaderboard:', myData.points, 'calculated:', calculatePoints(myData), 'using:', points);
   
   pointsEl.textContent = points + ' pts';
   recordEl.textContent = 'W' + (myData.wins || 0) + ' / L' + (myData.losses || 0);
@@ -3220,8 +3221,9 @@ async function updateTournamentMyRankCard(myData) {
       .once('value');
     const myRank = higherSnap.numChildren() + 1;
     rankEl.textContent = '#' + myRank;
-    console.log('[Tournament] My rank is:', myRank);
-  } catch {
+    console.log('[Tournament] My rank is:', myRank, '(', higherSnap.numChildren(), 'players with higher points)');
+  } catch (e) {
+    console.error('[Tournament] Error calculating rank:', e);
     rankEl.textContent = '#–';
   }
 }
