@@ -1627,7 +1627,9 @@ function renderOnlineRoom(room) {
 
     if (!xpAwarded) {
       xpAwarded = true;
+      console.log('[GameFlow] Award phase starting - outcome:', outcome, 'gameMode:', gameMode, 'hasJoinedTournament:', hasJoinedCurrentTournament);
       awardXP(outcome);
+      console.log('[GameFlow] Calling awardTournamentPointsForRoom:', { roomId, gameMode, hasJoinedTournament: hasJoinedCurrentTournament });
       awardTournamentPointsForRoom(roomId, room, outcome);
       // PHASE 2: Detach listener after delay but guard with roomId check to prevent leaks
       const currentRoomId = roomId; // Capture current roomId
@@ -3230,9 +3232,15 @@ async function updateTournamentMyRankCard(myData) {
 
 async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
   if (!db || !activeRoomId || !room || !room.players || gameMode !== 'online') {
-    console.log('[Tournament] Skipping award - db:', !!db, 'roomId:', activeRoomId, 'room:', !!room, 'gameMode:', gameMode);
+    console.log('[Tournament] Skipping award - db:', !!db, 'roomId:', activeRoomId, 'room:', !!room, 'gameMode:', gameMode, 'hasJoined:', hasJoinedCurrentTournament);
     return;
   }
+  
+  if (!hasJoinedCurrentTournament) {
+    console.log('[Tournament] User not in tournament - skipping award');
+    return;
+  }
+  
   const matchId = room.stats?.matchId;
   if (!matchId) {
     console.warn('[Tournament] No matchId found in room.stats:', room.stats);
@@ -3320,7 +3328,7 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
 
         // PHASE 2: Update player stats
         const updates = {
-          name: player.data.name || 'Player',
+          name: player?.data?.name || 'Player',
           updatedAt: Date.now()
         };
         if (outcome === 'win') updates.wins = firebase.database.ServerValue.increment(1);
@@ -3328,7 +3336,13 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
         if (outcome === 'draw') updates.draws = firebase.database.ServerValue.increment(1);
 
         console.log('[Tournament] Updating player stats:', { uid, updates });
-        await db.ref('tournaments/current/players/' + uid).update(updates);
+        try {
+          await db.ref('tournaments/current/players/' + uid).update(updates);
+          console.log('[Tournament] Player stats updated successfully:', uid);
+        } catch (updateErr) {
+          console.error('[Tournament] Failed to update player stats for', uid, ':', updateErr?.message || updateErr);
+          throw updateErr;
+        }
         
         // PHASE 2: Calculate new points from updated stats
         const newWins = (playerData.wins || 0) + (outcome === 'win' ? 1 : 0);
@@ -3345,10 +3359,10 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
         
         console.log('[Tournament] Calculated new points:', { uid, newWins, newLosses, newDraws, bestStreak, newPoints });
 
-        // PHASE 2: Update leaderboard entry
+        // PHASE 2: Update leaderboard entry (use name from player stats or fall back to room data)
         const leaderboardUpdate = {
           uid,
-          name: playerData.name || 'Player',
+          name: playerData.name || player?.data?.name || 'Player',
           wins: newWins,
           losses: newLosses,
           draws: newDraws,
@@ -3358,12 +3372,36 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
         };
         
         console.log('[Tournament] Updating leaderboard:', leaderboardUpdate);
-        await db.ref('tournaments/current/leaderboard/' + uid).update(leaderboardUpdate);
+        try {
+          await db.ref('tournaments/current/leaderboard/' + uid).update(leaderboardUpdate);
+          console.log('[Tournament] Leaderboard updated successfully:', { uid, points: newPoints });
+        } catch (lbErr) {
+          console.error('[Tournament] Failed to update leaderboard for', uid, ':', lbErr?.message || lbErr);
+          throw lbErr;
+        }
 
         // Show toast for current player only
         if (uid === currentUser.id) {
-          const pointSymbol = outcome === 'win' ? '🏆' : (outcome === 'draw' ? '🤝' : '');
-          showToast(`${pointSymbol} +${newPoints} tournament points!`);
+          let message = '';
+          if (outcome === 'win') {
+            message = `🏆 +${newPoints} tournament points!`;
+          } else if (outcome === 'draw') {
+            message = `🤝 +${newPoints} tournament points!`;
+          } else {
+            // For losses, calculate the actual point change from this loss
+            const oldLosses = newLosses - 1;
+            const oldPoints = calculatePoints({
+              wins: newWins,
+              losses: oldLosses,
+              draws: newDraws,
+              best_streak: bestStreak
+            });
+            const pointDelta = newPoints - oldPoints;
+            // For losses, pointDelta should be negative; show absolute value with minus sign
+            message = `📉 ${pointDelta > 0 ? '+' : ''}${pointDelta} tournament points`;
+          }
+          showToast(message);
+          console.log('[Tournament] Toast shown for current user:', currentUser.id, 'outcome:', outcome, 'newPoints:', newPoints);
         }
 
         console.log('[Tournament] Successfully awarded to', uid, 'outcome:', outcome, 'newPoints:', newPoints);

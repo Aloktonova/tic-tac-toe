@@ -103,14 +103,13 @@
         },
         "players": {
           ".read": true,
-          ".write": false,
-          ".description": "Tournament player list with individual stats, prevent unauthorized overwrites",
+          ".description": "Tournament player list with individual stats, only users can write to their own entry",
           ".indexOn": ["uid", "joinedAt"],
           "$userId": {
             ".read": true,
-            ".write": "auth !== null",
+            ".write": "auth !== null && $userId === auth.uid",
             ".validate": "$userId === auth.uid",
-            ".description": "Each user can only join themselves (enforced in code via transaction pattern)",
+            ".description": "Each user can update their own tournament stats (enforced in code via transaction pattern)",
             "uid": { 
               ".write": "$userId === auth.uid",
               ".validate": "newData.val() === $userId",
@@ -123,15 +122,15 @@
             },
             "wins": { 
               ".write": false,
-              ".description": "Tournament wins are server-calculated only"
+              ".description": "Tournament wins updated via server-side increment operations"
             },
             "losses": { 
               ".write": false,
-              ".description": "Tournament losses are server-calculated only"
+              ".description": "Tournament losses updated via server-side increment operations"
             },
             "draws": { 
               ".write": false,
-              ".description": "Tournament draws are server-calculated only"
+              ".description": "Tournament draws updated via server-side increment operations"
             },
             "best_streak": { 
               ".write": false,
@@ -146,14 +145,13 @@
         },
         "leaderboard": {
           ".read": true,
-          ".write": false,
-          ".description": "Tournament leaderboard is read-only. Points calculated server-side only, indexed for fast queries",
+          ".description": "Tournament leaderboard is read-only for parent level. Points calculated via transactions only, indexed for fast queries",
           ".indexOn": ["points", "wins", "updatedAt"],
           "$userId": {
             ".read": true,
-            ".write": false,
+            ".write": "$userId === auth.uid",
             ".validate": "$userId === newData.child('uid').val()",
-            ".description": "Leaderboard entries cannot be directly written by clients. Updated via server-side transactions."
+            ".description": "Authenticated users can update their own leaderboard entry to sync points from tournament stats"
           }
         }
       },
