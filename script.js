@@ -440,6 +440,8 @@ let currentUser = {
   games: 0,
   xpBoostExpiry: 0,
   country: '',
+  timezone: 'UTC', // Default to UTC, will be set from device/server
+  notificationsEnabled: true, // Default to enabled
   // Telegram notification preferences (backend-ready)
   // Fields populate on login and persist to Firebase. Backend can send tournament/rank/reward notifications.
   telegramId: null,
@@ -923,6 +925,8 @@ async function identifyUser() {
       currentUser.games          = d.games           || 0;
       currentUser.xpBoostExpiry  = d.xpBoostExpiry   || 0;
       currentUser.country        = d.country         || '';
+      currentUser.timezone       = d.timezone        || getDeviceTimezone();
+      currentUser.notificationsEnabled = d.notificationsEnabled !== false; // Default to true
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
 
@@ -1276,6 +1280,18 @@ function setupEventListeners() {
   document.getElementById('settings-language').addEventListener('change', e => {
     setLanguage(e.target.value, true);
   });
+
+  // Timezone selector
+  const tzSelect = document.getElementById('settings-timezone');
+  if (tzSelect) {
+    tzSelect.addEventListener('change', saveTimezone);
+  }
+
+  // Notifications toggle
+  const notifCheckbox = document.getElementById('settings-notifications-enabled');
+  if (notifCheckbox) {
+    notifCheckbox.addEventListener('change', saveNotificationsPreference);
+  }
 
   // Wallpaper preview modal
   document.getElementById('closeWpPreviewBtn')
@@ -2131,6 +2147,20 @@ function makeLetterAvatar(name, size) {
   div.style.flexShrink      = '0';
   div.innerText = letter;
   return div;
+}
+
+/**
+ * Get the device's timezone from the browser
+ * @returns {string} Timezone string (e.g., 'America/New_York')
+ */
+function getDeviceTimezone() {
+  try {
+    // Try to get timezone from Intl API
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch (e) {
+    console.warn('[User] Error detecting timezone:', e.message);
+    return 'UTC';
+  }
 }
 
 function getLetterAvatarBg(name) {
@@ -3622,6 +3652,17 @@ function openSettings() {
   const langSelect = document.getElementById('settings-language');
   if (langSelect) langSelect.value = lang;
 
+  // Set timezone selector
+  const tzSelect = document.getElementById('settings-timezone');
+  if (tzSelect) tzSelect.value = currentUser.timezone || 'UTC';
+
+  // Set notifications toggle
+  const notifCheckbox = document.getElementById('settings-notifications-enabled');
+  if (notifCheckbox) {
+    notifCheckbox.checked = currentUser.notificationsEnabled !== false;
+    updateNotificationStatus();
+  }
+
   populateSettingsStats();
 
   if (db) {
@@ -3633,6 +3674,19 @@ function openSettings() {
       currentUser.losses = d.losses || currentUser.losses;
       currentUser.draws  = d.draws  || currentUser.draws;
       currentUser.games  = d.games  || currentUser.games;
+      currentUser.timezone = d.timezone || getDeviceTimezone();
+      currentUser.notificationsEnabled = d.notificationsEnabled !== false;
+      
+      // Update selectors with loaded data
+      const tzSelect = document.getElementById('settings-timezone');
+      if (tzSelect) tzSelect.value = currentUser.timezone;
+      
+      const notifCheckbox = document.getElementById('settings-notifications-enabled');
+      if (notifCheckbox) {
+        notifCheckbox.checked = currentUser.notificationsEnabled;
+        updateNotificationStatus();
+      }
+      
       populateSettingsStats();
     }).catch(e => console.warn('Settings stats error:', e));
   }
@@ -3690,6 +3744,53 @@ async function saveName() {
     }
   } else {
     showToast('Name saved!');
+  }
+}
+
+function updateNotificationStatus() {
+  const checkbox = document.getElementById('settings-notifications-enabled');
+  const status = document.getElementById('settings-notifications-status');
+  if (checkbox && status) {
+    status.textContent = checkbox.checked ? 'Enabled' : 'Disabled';
+  }
+}
+
+async function saveTimezone() {
+  const tzSelect = document.getElementById('settings-timezone');
+  if (!tzSelect) return;
+  
+  const newTimezone = tzSelect.value || 'UTC';
+  currentUser.timezone = newTimezone;
+
+  if (db) {
+    try {
+      await db.ref('users/' + currentUser.id).update({ timezone: newTimezone });
+      console.log('[Settings] Timezone saved:', newTimezone);
+      showToast('Timezone saved! 🕐');
+    } catch (e) {
+      console.warn('Save timezone error:', e);
+      showToast('Timezone updated locally.');
+    }
+  }
+}
+
+async function saveNotificationsPreference() {
+  const checkbox = document.getElementById('settings-notifications-enabled');
+  if (!checkbox) return;
+  
+  const enabled = checkbox.checked;
+  currentUser.notificationsEnabled = enabled;
+  updateNotificationStatus();
+
+  if (db) {
+    try {
+      await db.ref('users/' + currentUser.id).update({ notificationsEnabled: enabled });
+      console.log('[Settings] Notifications preference saved:', enabled ? 'enabled' : 'disabled');
+      showToast(enabled ? '🔔 Notifications enabled' : '🔕 Notifications disabled');
+    } catch (e) {
+      console.warn('Save notifications error:', e);
+      showToast('Preference updated locally.');
+    }
   }
 }
 
