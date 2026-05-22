@@ -3389,17 +3389,16 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
             message = `🤝 +${newPoints} tournament points!`;
           } else {
             // For losses, calculate the actual point change from this loss
-            const oldWins = newWins - 0;
             const oldLosses = newLosses - 1;
-            const oldDraws = newDraws;
             const oldPoints = calculatePoints({
-              wins: oldWins,
+              wins: newWins,
               losses: oldLosses,
-              draws: oldDraws,
+              draws: newDraws,
               best_streak: bestStreak
             });
             const pointDelta = newPoints - oldPoints;
-            message = `📉 ${pointDelta < 0 ? '-' : '+'}${Math.abs(pointDelta)} tournament points`;
+            // For losses, pointDelta should be negative; show absolute value with minus sign
+            message = `📉 ${pointDelta > 0 ? '+' : ''}${pointDelta} tournament points`;
           }
           showToast(message);
           console.log('[Tournament] Toast shown for current user:', currentUser.id, 'outcome:', outcome, 'newPoints:', newPoints);

@@ -122,15 +122,15 @@
             },
             "wins": { 
               ".write": false,
-              ".description": "Tournament wins updated via parent-level transaction increments"
+              ".description": "Tournament wins updated via server-side increment operations"
             },
             "losses": { 
               ".write": false,
-              ".description": "Tournament losses updated via parent-level transaction increments"
+              ".description": "Tournament losses updated via server-side increment operations"
             },
             "draws": { 
               ".write": false,
-              ".description": "Tournament draws updated via parent-level transaction increments"
+              ".description": "Tournament draws updated via server-side increment operations"
             },
             "best_streak": { 
               ".write": false,
