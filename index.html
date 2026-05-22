@@ -425,6 +425,80 @@
       <div id="rules-content" class="rules-content"></div>
     </div>
 
+    <!-- ===== SCREEN 8: ADMIN PANEL (hidden, admin-only) ===== -->
+    <div id="screen-admin" class="screen hidden">
+      <div class="admin-screen-header">
+        <h2>🔧 Admin Panel - Notifications</h2>
+        <button id="btn-admin-back" class="back-btn" aria-label="Back">← Back</button>
+      </div>
+      
+      <div class="admin-content">
+        <!-- Stats Section -->
+        <div class="admin-section">
+          <h3>📊 Today's Statistics</h3>
+          <div class="admin-stats-grid">
+            <div class="admin-stat-box">
+              <div class="stat-label">Sent</div>
+              <div class="stat-value" id="admin-stat-sent">0</div>
+            </div>
+            <div class="admin-stat-box">
+              <div class="stat-label">Failed</div>
+              <div class="stat-value" id="admin-stat-failed">0</div>
+            </div>
+            <div class="admin-stat-box">
+              <div class="stat-label">Success Rate</div>
+              <div class="stat-value" id="admin-stat-rate">0%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="admin-section">
+          <h3>🎯 Quick Actions</h3>
+          <div class="admin-buttons">
+            <button id="btn-admin-send-test" class="btn btn-small">📨 Send Test</button>
+            <button id="btn-admin-refresh-stats" class="btn btn-small">🔄 Refresh Stats</button>
+            <button id="btn-admin-retry-failed" class="btn btn-small">🔁 Retry Failed</button>
+          </div>
+        </div>
+
+        <!-- Last Sent Message -->
+        <div class="admin-section">
+          <h3>📬 Last Sent Message</h3>
+          <div id="admin-last-message" class="admin-message-box">
+            <p style="color: #999; font-size: 0.9em;">No messages sent today</p>
+          </div>
+        </div>
+
+        <!-- Recent Logs -->
+        <div class="admin-section">
+          <h3>📋 Recent Logs (Last 20)</h3>
+          <div id="admin-logs-list" class="admin-logs-list">
+            <p style="color: #999; font-size: 0.9em;">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Debug Info -->
+        <div class="admin-section">
+          <h3>ℹ️ Debug Info</h3>
+          <div class="admin-debug-info">
+            <div class="debug-row">
+              <span class="debug-label">Templates:</span>
+              <span id="admin-template-count">Loading...</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-label">Last Refresh:</span>
+              <span id="admin-last-refresh">Never</span>
+            </div>
+            <div class="debug-row">
+              <span class="debug-label">Queue Size:</span>
+              <span id="admin-queue-size">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /#app -->
 
   <!-- ===== LEADERBOARD HELP MODAL ===== -->

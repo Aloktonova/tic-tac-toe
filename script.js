@@ -927,6 +927,14 @@ async function identifyUser() {
       currentUser.country        = d.country         || '';
       currentUser.timezone       = d.timezone        || getDeviceTimezone();
       currentUser.notificationsEnabled = d.notificationsEnabled !== false; // Default to true
+      
+      // If timezone not in Firebase, save the detected timezone
+      if (!d.timezone) {
+        console.log('[Notification] Timezone detected:', currentUser.timezone);
+        db.ref("users/" + currentUser.id + "/timezone")
+          .set(currentUser.timezone)
+          .catch(err => console.error('[User] Error saving timezone:', err.message));
+      }
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
 
@@ -1291,6 +1299,27 @@ function setupEventListeners() {
   const notifCheckbox = document.getElementById('settings-notifications-enabled');
   if (notifCheckbox) {
     notifCheckbox.addEventListener('change', saveNotificationsPreference);
+  }
+
+  // Admin Panel buttons
+  const btnAdminBack = document.getElementById('btn-admin-back');
+  if (btnAdminBack) {
+    btnAdminBack.addEventListener('click', closeAdminPanel);
+  }
+  
+  const btnAdminSendTest = document.getElementById('btn-admin-send-test');
+  if (btnAdminSendTest) {
+    btnAdminSendTest.addEventListener('click', sendAdminTestNotification);
+  }
+  
+  const btnAdminRefresh = document.getElementById('btn-admin-refresh-stats');
+  if (btnAdminRefresh) {
+    btnAdminRefresh.addEventListener('click', loadAdminStats);
+  }
+  
+  const btnAdminRetry = document.getElementById('btn-admin-retry-failed');
+  if (btnAdminRetry) {
+    btnAdminRetry.addEventListener('click', retryAdminFailedSends);
   }
 
   // Wallpaper preview modal
@@ -3834,6 +3863,114 @@ async function saveNotificationsPreference() {
   }
 }
 
+/* ===== ADMIN PANEL ===== */
+function openAdminPanel() {
+  const adminScreen = document.getElementById('screen-admin');
+  if (!adminScreen) return;
+  
+  // Hide all screens
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  adminScreen.classList.remove('hidden');
+  
+  // Load stats
+  loadAdminStats();
+}
+
+function closeAdminPanel() {
+  const adminScreen = document.getElementById('screen-admin');
+  if (adminScreen) adminScreen.classList.add('hidden');
+  setBottomNavActive('home');
+  showScreen('home');
+}
+
+async function loadAdminStats() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/admin-stats`);
+    if (!response.ok) {
+      console.error('[Admin] Failed to fetch stats');
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.ok && data.stats) {
+      const stats = data.stats;
+      
+      // Update stat boxes
+      document.getElementById('admin-stat-sent').textContent = stats.sent || 0;
+      document.getElementById('admin-stat-failed').textContent = stats.failed || 0;
+      document.getElementById('admin-stat-rate').textContent = (stats.successRate || 0) + '%';
+      
+      // Update last sent message
+      if (stats.lastSent) {
+        const lastMsg = stats.lastSent;
+        document.getElementById('admin-last-message').innerHTML = `
+          <div style="font-size: 0.85em; line-height: 1.4;">
+            <strong>User:</strong> ${lastMsg.uid || 'Unknown'}<br>
+            <strong>Sent at:</strong> ${new Date(lastMsg.sentAt || 0).toLocaleString()}<br>
+            <strong>Status:</strong> <span style="color: ${lastMsg.success ? '#4ade80' : '#f87171'};">${lastMsg.success ? '✓ Success' : '✗ Failed'}</span><br>
+            <strong>Message:</strong><br>
+            <span style="color: #999; white-space: pre-wrap; word-break: break-word;">${lastMsg.message || 'No message'}</span>
+          </div>
+        `;
+      }
+      
+      // Update recent logs
+      const logsList = document.getElementById('admin-logs-list');
+      if (stats.recentLogs && stats.recentLogs.length > 0) {
+        logsList.innerHTML = stats.recentLogs.map(log => `
+          <div class="admin-log-entry">
+            <div class="log-user">${log.uid || 'Unknown'}</div>
+            <div class="log-status ${log.success ? '' : 'failed'}">
+              ${log.success ? '✓' : '✗'} ${log.templateUsed || 'unknown'} @ ${new Date(log.sentAt || 0).toLocaleTimeString()}
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      // Update debug info
+      document.getElementById('admin-template-count').textContent = stats.templateCount || 0;
+      document.getElementById('admin-last-refresh').textContent = new Date().toLocaleTimeString();
+      
+      console.log('[Admin] Stats loaded:', stats);
+    }
+  } catch (e) {
+    console.error('[Admin] Error loading stats:', e.message);
+    showToast('Failed to load admin stats');
+  }
+}
+
+async function sendAdminTestNotification() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/admin-send-test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        message: '🧪 Test Notification from Admin Panel\n\nIf you see this, notifications are working!',
+        templateName: 'test'
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[Admin] Test sent:', data);
+      showToast('✓ Test notification sent!');
+      loadAdminStats(); // Refresh stats
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed to send test: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error sending test:', e.message);
+    showToast('Error sending test notification');
+  }
+}
+
+async function retryAdminFailedSends() {
+  showToast('Retry logic to be implemented');
+  // TODO: Implement retry failed sends
+}
+
 /* ===== HELPERS ===== */
 function normalizeBoard(raw) {
   const arr = Array(9).fill('');
@@ -4741,6 +4878,27 @@ async function handleReferralOnStart() {
 
   await awardCoins(referrerId, coinsToAward, 'Friend joined via your link!');
 }
+
+/* ===== ADMIN PANEL DEBUG ACCESS ===== */
+// Press Ctrl+Shift+A to toggle admin panel
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+    e.preventDefault();
+    const adminScreen = document.getElementById('screen-admin');
+    if (adminScreen && !adminScreen.classList.contains('hidden')) {
+      closeAdminPanel();
+    } else {
+      openAdminPanel();
+    }
+    console.log('[Debug] Admin panel toggled');
+  }
+});
+
+// Make openAdminPanel globally accessible for debugging
+window.openAdminDebug = () => {
+  openAdminPanel();
+  console.log('Admin panel opened. Run loadAdminStats() to refresh.');
+};
 
 /* ===== PAGE UNLOAD CLEANUP ===== */
 window.addEventListener('beforeunload', () => {
