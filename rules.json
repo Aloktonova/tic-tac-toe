@@ -103,7 +103,6 @@
         },
         "players": {
           ".read": true,
-          ".write": false,
           ".description": "Tournament player list with individual stats, only users can write to their own entry",
           ".indexOn": ["uid", "joinedAt"],
           "$userId": {
@@ -146,8 +145,7 @@
         },
         "leaderboard": {
           ".read": true,
-          ".write": false,
-          ".description": "Tournament leaderboard is read-only. Points calculated server-side only, indexed for fast queries",
+          ".description": "Tournament leaderboard is read-only for parent level. Points calculated via transactions only, indexed for fast queries",
           ".indexOn": ["points", "wins", "updatedAt"],
           "$userId": {
             ".read": true,
