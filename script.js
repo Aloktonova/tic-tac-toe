@@ -3931,12 +3931,133 @@ async function loadAdminStats() {
       document.getElementById('admin-template-count').textContent = stats.templateCount || 0;
       document.getElementById('admin-last-refresh').textContent = new Date().toLocaleTimeString();
       
+      // Load templates
+      await loadAdminTemplates();
+      
       console.log('[Admin] Stats loaded:', stats);
     }
   } catch (e) {
     console.error('[Admin] Error loading stats:', e.message);
     showToast('Failed to load admin stats');
   }
+}
+
+async function loadAdminTemplates() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notification-templates`);
+    if (!response.ok) {
+      console.error('[Admin] Failed to fetch templates');
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.templates) return;
+    
+    const templates = data.templates;
+    const container = document.getElementById('admin-templates-list');
+    
+    container.innerHTML = Object.entries(templates).map(([name, template]) => `
+      <div class="admin-template-item" data-template-name="${name}">
+        <div class="admin-template-header">
+          <span class="admin-template-name">${name}</span>
+          <div class="admin-template-toggle ${template.enabled ? 'enabled' : ''}" 
+               onclick="toggleAdminTemplate('${name}')" title="Toggle enabled"></div>
+        </div>
+        
+        <div class="admin-template-field">
+          <label class="admin-template-label">Title</label>
+          <input type="text" class="admin-template-input" 
+                 value="${(template.title || '').replace(/"/g, '&quot;')}"
+                 onchange="updateAdminTemplateField('${name}', 'title', this.value)">
+        </div>
+        
+        <div class="admin-template-field">
+          <label class="admin-template-label">Message</label>
+          <textarea class="admin-template-textarea"
+                    onchange="updateAdminTemplateField('${name}', 'message', this.value)"
+                    >${(template.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+        </div>
+        
+        <div class="admin-template-field">
+          <label class="admin-template-label">Button Text</label>
+          <input type="text" class="admin-template-input"
+                 value="${(template.buttonText || '').replace(/"/g, '&quot;')}"
+                 onchange="updateAdminTemplateField('${name}', 'buttonText', this.value)">
+        </div>
+        
+        <div class="admin-template-buttons">
+          <button class="btn btn-small" onclick="saveAdminTemplate('${name}')">💾 Save</button>
+          <button class="btn btn-small" onclick="previewAdminTemplate('${name}')">👁️ Preview</button>
+        </div>
+      </div>
+    `).join('');
+    
+    console.log('[Admin] Templates loaded:', templates);
+  } catch (e) {
+    console.error('[Admin] Error loading templates:', e.message);
+  }
+}
+
+function updateAdminTemplateField(templateName, field, value) {
+  if (!window.adminTemplateEdits) window.adminTemplateEdits = {};
+  if (!window.adminTemplateEdits[templateName]) {
+    window.adminTemplateEdits[templateName] = {};
+  }
+  window.adminTemplateEdits[templateName][field] = value;
+  console.log('[Admin] Template field updated:', templateName, field);
+}
+
+function toggleAdminTemplate(templateName) {
+  if (!window.adminTemplateEdits) window.adminTemplateEdits = {};
+  if (!window.adminTemplateEdits[templateName]) {
+    window.adminTemplateEdits[templateName] = {};
+  }
+  const toggle = document.querySelector(`[data-template-name="${templateName}"] .admin-template-toggle`);
+  const isEnabled = toggle.classList.toggle('enabled');
+  window.adminTemplateEdits[templateName].enabled = isEnabled;
+  console.log('[Admin] Template enabled:', templateName, isEnabled);
+}
+
+async function saveAdminTemplate(templateName) {
+  const edits = window.adminTemplateEdits?.[templateName] || {};
+  if (Object.keys(edits).length === 0) {
+    showToast('No changes to save');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        templateName,
+        template: edits
+      })
+    });
+    
+    if (response.ok) {
+      showToast(`✓ Template "${templateName}" saved!`);
+      delete window.adminTemplateEdits[templateName];
+      await loadAdminTemplates(); // Reload templates
+    } else {
+      showToast('Failed to save template');
+    }
+  } catch (e) {
+    console.error('[Admin] Error saving template:', e.message);
+    showToast('Error saving template');
+  }
+}
+
+function previewAdminTemplate(templateName) {
+  const edits = window.adminTemplateEdits?.[templateName] || {};
+  const item = document.querySelector(`[data-template-name="${templateName}"]`);
+  
+  const title = edits.title || item.querySelector('[data-field="title"]')?.value || '';
+  const message = edits.message || item.querySelector('[data-field="message"]')?.value || '';
+  const buttonText = edits.buttonText || item.querySelector('[data-field="buttonText"]')?.value || '';
+  
+  const preview = `<b>${title}</b>\n\n${message}\n\n🔘 ${buttonText}`;
+  showToast(`Preview: ${preview.substring(0, 50)}...`);
 }
 
 async function sendAdminTestNotification() {

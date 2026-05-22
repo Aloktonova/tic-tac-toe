@@ -3171,3 +3171,111 @@ body.border-purple [class*="avatar"] {
   font-weight: bold;
 }
 
+.admin-templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-template-item {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(100, 150, 255, 0.15);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.85em;
+}
+
+.admin-template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.admin-template-name {
+  color: #60a5fa;
+  font-weight: bold;
+}
+
+.admin-template-toggle {
+  width: 30px;
+  height: 16px;
+  background: rgba(100, 100, 100, 0.5);
+  border: 1px solid rgba(100, 150, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.admin-template-toggle.enabled {
+  background: rgba(74, 222, 128, 0.3);
+}
+
+.admin-template-toggle::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #999;
+  border-radius: 6px;
+  top: 2px;
+  left: 2px;
+  transition: left 0.2s;
+}
+
+.admin-template-toggle.enabled::after {
+  left: 16px;
+  background: #4ade80;
+}
+
+.admin-template-field {
+  margin-bottom: 8px;
+}
+
+.admin-template-label {
+  display: block;
+  font-size: 0.75em;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.admin-template-input,
+.admin-template-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(100, 150, 255, 0.15);
+  border-radius: 4px;
+  color: #d1d5db;
+  padding: 5px;
+  font-size: 0.85em;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.admin-template-textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.admin-template-input:focus,
+.admin-template-textarea:focus {
+  outline: none;
+  border-color: rgba(100, 150, 255, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.admin-template-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.admin-template-buttons .btn {
+  flex: 1;
+  font-size: 0.8em;
+  padding: 5px;
+}
+

@@ -46,6 +46,10 @@
     {
       "src": "/api/admin-send-test",
       "dest": "/api/admin-send-test.js"
+    },
+    {
+      "src": "/api/notification-templates",
+      "dest": "/api/notification-templates.js"
     }
   ]
 }
