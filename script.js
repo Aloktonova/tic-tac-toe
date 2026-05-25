@@ -3970,21 +3970,21 @@ async function loadAdminTemplates() {
         
         <div class="admin-template-field">
           <label class="admin-template-label">Title</label>
-          <input type="text" class="admin-template-input" 
+          <input type="text" class="admin-template-input" data-field="title"
                  value="${(template.title || '').replace(/"/g, '&quot;')}"
                  onchange="updateAdminTemplateField('${name}', 'title', this.value)">
         </div>
         
         <div class="admin-template-field">
           <label class="admin-template-label">Message</label>
-          <textarea class="admin-template-textarea"
+          <textarea class="admin-template-textarea" data-field="message"
                     onchange="updateAdminTemplateField('${name}', 'message', this.value)"
                     >${(template.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
         
         <div class="admin-template-field">
           <label class="admin-template-label">Button Text</label>
-          <input type="text" class="admin-template-input"
+          <input type="text" class="admin-template-input" data-field="buttonText"
                  value="${(template.buttonText || '').replace(/"/g, '&quot;')}"
                  onchange="updateAdminTemplateField('${name}', 'buttonText', this.value)">
         </div>
@@ -4061,10 +4061,10 @@ function previewAdminTemplate(templateName) {
   const item = document.querySelector(`[data-template-name="${templateName}"]`);
   if (!item) return;
   
-  // Get values from edits or from the DOM elements
-  const title = edits.title || item.querySelector('.admin-template-field:nth-of-type(1) .admin-template-input')?.value || '';
-  const message = edits.message || item.querySelector('.admin-template-textarea')?.value || '';
-  const buttonText = edits.buttonText || item.querySelector('.admin-template-field:nth-of-type(3) .admin-template-input')?.value || '';
+  // Get values from edits or from the DOM elements using data attributes
+  const title = edits.title || item.querySelector('[data-field="title"]')?.value || '';
+  const message = edits.message || item.querySelector('[data-field="message"]')?.value || '';
+  const buttonText = edits.buttonText || item.querySelector('[data-field="buttonText"]')?.value || '';
   
   const preview = `<b>${title}</b>\n\n${message}\n\n🔘 ${buttonText}`;
   showToast(`Preview: ${preview.substring(0, 50)}...`);
@@ -4106,7 +4106,11 @@ async function retryAdminFailedSends() {
     showToast('🔄 Retrying failed sends...');
     
     // Fetch recent logs to find failed sends from the last 24 hours
-    const response = await fetch(`${BACKEND_URL}/api/admin-stats`);
+    const response = await fetch(`${BACKEND_URL}/api/admin-stats`, {
+      headers: {
+        'x-user-id': currentUser.id
+      }
+    });
     if (!response.ok) {
       showToast('Failed to fetch recent logs');
       return;
@@ -4130,9 +4134,13 @@ async function retryAdminFailedSends() {
         // Attempt to resend to failed users
         const response = await fetch(`${BACKEND_URL}/api/admin-send-test`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': currentUser.id
+          },
           body: JSON.stringify({
             userId: log.uid,
+            adminUserId: currentUser.id,
             message: log.message || 'Retry notification',
             templateName: log.templateUsed || 'dailyReminder'
           })
