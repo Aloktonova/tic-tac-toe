@@ -3885,7 +3885,11 @@ function closeAdminPanel() {
 
 async function loadAdminStats() {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/admin-stats`);
+    const response = await fetch(`${BACKEND_URL}/api/admin-stats`, {
+      headers: {
+        'x-user-id': currentUser.id
+      }
+    });
     if (!response.ok) {
       console.error('[Admin] Failed to fetch stats');
       return;
@@ -4028,10 +4032,14 @@ async function saveAdminTemplate(templateName) {
   try {
     const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser.id
+      },
       body: JSON.stringify({
         templateName,
-        template: edits
+        template: edits,
+        adminUserId: currentUser.id
       })
     });
     
@@ -4051,10 +4059,12 @@ async function saveAdminTemplate(templateName) {
 function previewAdminTemplate(templateName) {
   const edits = window.adminTemplateEdits?.[templateName] || {};
   const item = document.querySelector(`[data-template-name="${templateName}"]`);
+  if (!item) return;
   
-  const title = edits.title || item.querySelector('[data-field="title"]')?.value || '';
-  const message = edits.message || item.querySelector('[data-field="message"]')?.value || '';
-  const buttonText = edits.buttonText || item.querySelector('[data-field="buttonText"]')?.value || '';
+  // Get values from edits or from the DOM elements
+  const title = edits.title || item.querySelector('.admin-template-field:nth-of-type(1) .admin-template-input')?.value || '';
+  const message = edits.message || item.querySelector('.admin-template-textarea')?.value || '';
+  const buttonText = edits.buttonText || item.querySelector('.admin-template-field:nth-of-type(3) .admin-template-input')?.value || '';
   
   const preview = `<b>${title}</b>\n\n${message}\n\n🔘 ${buttonText}`;
   showToast(`Preview: ${preview.substring(0, 50)}...`);
@@ -4064,9 +4074,13 @@ async function sendAdminTestNotification() {
   try {
     const response = await fetch(`${BACKEND_URL}/api/admin-send-test`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser.id
+      },
       body: JSON.stringify({
         userId: currentUser.id,
+        adminUserId: currentUser.id,
         message: '🧪 Test Notification from Admin Panel\n\nIf you see this, notifications are working!',
         templateName: 'test'
       })
@@ -4088,8 +4102,56 @@ async function sendAdminTestNotification() {
 }
 
 async function retryAdminFailedSends() {
-  showToast('Retry logic to be implemented');
-  // TODO: Implement retry failed sends
+  try {
+    showToast('🔄 Retrying failed sends...');
+    
+    // Fetch recent logs to find failed sends from the last 24 hours
+    const response = await fetch(`${BACKEND_URL}/api/admin-stats`);
+    if (!response.ok) {
+      showToast('Failed to fetch recent logs');
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.stats || !data.stats.recentLogs) {
+      showToast('No recent logs found');
+      return;
+    }
+    
+    const failedLogs = data.stats.recentLogs.filter(log => !log.success);
+    if (failedLogs.length === 0) {
+      showToast('✓ No failed sends to retry');
+      return;
+    }
+    
+    let retryCount = 0;
+    for (const log of failedLogs) {
+      try {
+        // Attempt to resend to failed users
+        const response = await fetch(`${BACKEND_URL}/api/admin-send-test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: log.uid,
+            message: log.message || 'Retry notification',
+            templateName: log.templateUsed || 'dailyReminder'
+          })
+        });
+        
+        if (response.ok) {
+          retryCount++;
+        }
+      } catch (e) {
+        console.error('[Admin] Error retrying failed send:', e.message);
+      }
+    }
+    
+    showToast(`✓ Retried ${retryCount}/${failedLogs.length} failed sends`);
+    loadAdminStats(); // Refresh stats
+  } catch (e) {
+    console.error('[Admin] Error retrying failed sends:', e.message);
+    showToast('Error retrying failed sends');
+  }
 }
 
 /* ===== HELPERS ===== */

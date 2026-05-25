@@ -4,9 +4,16 @@
  */
 
 function isAdminUser(userId) {
-  // For now, accept any authenticated user with admin in headers
-  // In production, check Firebase custom claims
-  return true; // TODO: Implement proper admin check via Firebase custom claims
+  // Check against environment variable list of admin user IDs
+  // Format: "ADMIN_USER_IDS=user1,user2,user3"
+  const adminIds = process.env.ADMIN_USER_IDS || '';
+  if (!adminIds) {
+    console.warn('[AdminStats] WARNING: ADMIN_USER_IDS not configured. No users can access admin stats.');
+    return false;
+  }
+  const admins = adminIds.split(',').map(id => id.trim());
+  return admins.includes(userId);
+  // TODO: In production, use Firebase custom claims for more robust admin checking
 }
 
 async function getNotificationStatsForDate(firebaseDbUrl, dateKey) {
@@ -55,8 +62,9 @@ async function getRecentLogs(firebaseDbUrl, daysBack = 7, limit = 50) {
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
 
+      // Use limit parameter to reduce data transfer
       const response = await fetch(
-        `${firebaseDbUrl}/notifications/logs/${dateKey}.json?limitToFirst=1000`,
+        `${firebaseDbUrl}/notifications/logs/${dateKey}.json?limitToFirst=${Math.min(limit, 100)}`,
         { method: "GET" }
       );
 
@@ -97,6 +105,12 @@ export default async function handler(req, res) {
 
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Extract user ID from authorization header or query param
+  const userId = req.headers['x-user-id'] || req.query.userId;
+  if (!userId || !isAdminUser(userId)) {
+    return res.status(403).json({ error: "Admin access required" });
   }
 
   const firebaseDbUrl = process.env.FIREBASE_DATABASE_URL;

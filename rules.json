@@ -189,7 +189,7 @@
         ".read": false,
         ".write": false,
         ".description": "Notification logs are server-only, never exposed to clients except through admin API",
-        ".indexOn": ["sentAt", "uid"],
+        ".indexOn": ["sentAt"],
         "$date": {
           ".read": false,
           ".write": false,
