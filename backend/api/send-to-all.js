@@ -26,6 +26,9 @@ async function sendTelegramMessage(botToken, chatId, text) {
   return response.ok;
 }
 
+// Fetches all players with Telegram IDs (max 1000 users)
+// TODO: Implement pagination to support more than 1000 users
+// Currently limited to Firebase REST API query constraints
 async function getAllPlayerTelegramIds(firebaseDbUrl) {
   try {
     const response = await fetch(
@@ -90,7 +93,7 @@ async function logBroadcastNotification(firebaseDbUrl, uid, telegramId, message,
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-telegram-id");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();

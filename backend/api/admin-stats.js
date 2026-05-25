@@ -108,7 +108,7 @@ async function getRecentLogs(firebaseDbUrl, daysBack = 7, limit = 50) {
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-telegram-id");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -118,8 +118,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Extract Telegram ID from authorization header or request body
-  const adminTelegramId = req.headers['x-telegram-id'] || req.query.telegramId;
+  // Extract Telegram ID from authorization header only
+  const adminTelegramId = req.headers['x-telegram-id'];
   if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
     return res.status(403).json({ error: "Admin access required" });
   }
