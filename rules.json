@@ -26,6 +26,10 @@
           ".write": false,
           ".description": "Server-tracked last notification send time to prevent duplicates"
         },
+        "telegramUsername": {
+          ".write": "$userId === auth.uid",
+          ".description": "Player's Telegram username (e.g., @username), stored for admin notifications"
+        },
         "lastActive": {
           ".write": "$userId === auth.uid",
           ".description": "User can update their last active timestamp"

@@ -993,8 +993,14 @@ async function identifyUser() {
 
     // Update / create user doc
     const updates = { name: currentUser.name, lastActive: Date.now() };
-    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (telegramUserId) updates.telegramId = String(telegramUserId);
+    const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (telegramUser) {
+     updates.telegramId = String(telegramUser.id);
+     // Store Telegram username if available
+     if (telegramUser.username) {
+       updates.telegramUsername = telegramUser.username;
+     }
+    }
     if (!snap.exists()) updates.createdAt = Date.now();
     await db.ref('users/' + currentUser.id).update(updates);
 
@@ -1310,6 +1316,11 @@ function setupEventListeners() {
   const btnAdminSendTest = document.getElementById('btn-admin-send-test');
   if (btnAdminSendTest) {
     btnAdminSendTest.addEventListener('click', sendAdminTestNotification);
+  }
+  
+  const btnAdminSendToAll = document.getElementById('btn-admin-send-to-all');
+  if (btnAdminSendToAll) {
+    btnAdminSendToAll.addEventListener('click', sendAdminBroadcast);
   }
   
   const btnAdminRefresh = document.getElementById('btn-admin-refresh-stats');
@@ -3868,6 +3879,16 @@ function openAdminPanel() {
   const adminScreen = document.getElementById('screen-admin');
   if (!adminScreen) return;
   
+  // Check if user has admin Telegram ID
+  const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const adminTelegramId = '1529689011';
+  
+  if (String(telegramId) !== adminTelegramId) {
+    showToast('Admin access denied');
+    console.warn('[Admin] Unauthorized access attempt from Telegram ID:', telegramId);
+    return;
+  }
+  
   // Hide all screens
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   adminScreen.classList.remove('hidden');
@@ -3885,9 +3906,14 @@ function closeAdminPanel() {
 
 async function loadAdminStats() {
   try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      console.error('[Admin] No Telegram ID available');
+      return;
+    }
     const response = await fetch(`${BACKEND_URL}/api/admin-stats`, {
       headers: {
-        'x-user-id': currentUser.id
+        'x-telegram-id': String(telegramId)
       }
     });
     if (!response.ok) {
@@ -4030,16 +4056,22 @@ async function saveAdminTemplate(templateName) {
   }
   
   try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
     const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-id': currentUser.id
+        'x-telegram-id': String(telegramId)
       },
       body: JSON.stringify({
         templateName,
         template: edits,
-        adminUserId: currentUser.id
+        adminTelegramId: String(telegramId)
       })
     });
     
@@ -4072,15 +4104,21 @@ function previewAdminTemplate(templateName) {
 
 async function sendAdminTestNotification() {
   try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
     const response = await fetch(`${BACKEND_URL}/api/admin-send-test`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-id': currentUser.id
+        'x-telegram-id': String(telegramId)
       },
       body: JSON.stringify({
         userId: currentUser.id,
-        adminUserId: currentUser.id,
+        adminTelegramId: String(telegramId),
         message: '🧪 Test Notification from Admin Panel\n\nIf you see this, notifications are working!',
         templateName: 'test'
       })
@@ -4103,12 +4141,18 @@ async function sendAdminTestNotification() {
 
 async function retryAdminFailedSends() {
   try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
     showToast('🔄 Retrying failed sends...');
     
     // Fetch recent logs to find failed sends from the last 24 hours
     const response = await fetch(`${BACKEND_URL}/api/admin-stats`, {
       headers: {
-        'x-user-id': currentUser.id
+        'x-telegram-id': String(telegramId)
       }
     });
     if (!response.ok) {
@@ -4129,6 +4173,7 @@ async function retryAdminFailedSends() {
     }
     
     let retryCount = 0;
+    
     for (const log of failedLogs) {
       try {
         // Attempt to resend to failed users
@@ -4136,11 +4181,11 @@ async function retryAdminFailedSends() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': currentUser.id
+            'x-telegram-id': String(telegramId)
           },
           body: JSON.stringify({
             userId: log.uid,
-            adminUserId: currentUser.id,
+            adminTelegramId: String(telegramId),
             message: log.message || 'Retry notification',
             templateName: log.templateUsed || 'dailyReminder'
           })
@@ -4159,6 +4204,48 @@ async function retryAdminFailedSends() {
   } catch (e) {
     console.error('[Admin] Error retrying failed sends:', e.message);
     showToast('Error retrying failed sends');
+  }
+}
+
+async function sendAdminBroadcast() {
+  try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    const message = prompt('Enter message to send to all players:');
+    if (!message || message.trim() === '') {
+      return;
+    }
+    
+    showToast('📢 Broadcasting to all players...');
+    
+    const response = await fetch(`${BACKEND_URL}/api/send-to-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        adminTelegramId: String(telegramId),
+        message: message.trim()
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[Admin] Broadcast sent:', data);
+      showToast(`✓ Broadcast sent to ${data.sent} players (${data.failed} failed)`);
+      loadAdminStats(); // Refresh stats
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed to send broadcast: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error sending broadcast:', e.message);
+    showToast('Error sending broadcast');
   }
 }
 

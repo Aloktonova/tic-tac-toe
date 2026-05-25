@@ -3,17 +3,10 @@
  * Initialize default templates or update existing ones
  */
 
-function isAdminUser(userId) {
-  // Check against environment variable list of admin user IDs
-  // Format: "ADMIN_USER_IDS=user1,user2,user3"
-  const adminIds = process.env.ADMIN_USER_IDS || '';
-  if (!adminIds) {
-    console.warn('[Templates] WARNING: ADMIN_USER_IDS not configured. No users can access admin endpoints.');
-    return false;
-  }
-  const admins = adminIds.split(',').map(id => id.trim());
-  return admins.includes(userId);
-  // TODO: In production, use Firebase custom claims for more robust admin checking
+function isAdminUser(telegramId) {
+  // Check if the Telegram ID matches the admin ID
+  const adminTelegramId = '1529689011';
+  return String(telegramId) === adminTelegramId;
 }
 
 function isValidTemplateName(name) {
@@ -95,8 +88,8 @@ export default async function handler(req, res) {
       });
     } else if (req.method === "PUT") {
       // Require admin privileges to update templates
-      const adminUserId = req.headers['x-user-id'] || req.body?.adminUserId;
-      if (!adminUserId || !isAdminUser(adminUserId)) {
+      const adminTelegramId = req.headers['x-telegram-id'] || req.body?.adminTelegramId;
+      if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
         return res.status(403).json({ error: "Admin access required to update templates" });
       }
 

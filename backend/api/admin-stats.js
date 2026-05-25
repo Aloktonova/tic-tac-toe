@@ -3,17 +3,10 @@
  * Shows: total sent today, failed sends, success rate, recent logs, etc.
  */
 
-function isAdminUser(userId) {
-  // Check against environment variable list of admin user IDs
-  // Format: "ADMIN_USER_IDS=user1,user2,user3"
-  const adminIds = process.env.ADMIN_USER_IDS || '';
-  if (!adminIds) {
-    console.warn('[AdminStats] WARNING: ADMIN_USER_IDS not configured. No users can access admin stats.');
-    return false;
-  }
-  const admins = adminIds.split(',').map(id => id.trim());
-  return admins.includes(userId);
-  // TODO: In production, use Firebase custom claims for more robust admin checking
+function isAdminUser(telegramId) {
+  // Check if the Telegram ID matches the admin ID
+  const adminTelegramId = '1529689011';
+  return String(telegramId) === adminTelegramId;
 }
 
 function isValidDateKey(dateKey) {
@@ -125,9 +118,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Extract user ID from authorization header or query param
-  const userId = req.headers['x-user-id'] || req.query.userId;
-  if (!userId || !isAdminUser(userId)) {
+  // Extract Telegram ID from authorization header or request body
+  const adminTelegramId = req.headers['x-telegram-id'] || req.query.telegramId;
+  if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
     return res.status(403).json({ error: "Admin access required" });
   }
 

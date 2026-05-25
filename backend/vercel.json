@@ -50,6 +50,10 @@
     {
       "src": "/api/notification-templates",
       "dest": "/api/notification-templates.js"
+    },
+    {
+      "src": "/api/send-to-all",
+      "dest": "/api/send-to-all.js"
     }
   ]
 }

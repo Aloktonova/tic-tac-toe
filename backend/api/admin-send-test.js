@@ -3,17 +3,10 @@
  * Can send to a specific user or to the admin themselves
  */
 
-function isAdminUser(userId) {
-  // Check against environment variable list of admin user IDs
-  // Format: "ADMIN_USER_IDS=user1,user2,user3"
-  const adminIds = process.env.ADMIN_USER_IDS || '';
-  if (!adminIds) {
-    console.warn('[SendTest] WARNING: ADMIN_USER_IDS not configured. No users can access admin endpoints.');
-    return false;
-  }
-  const admins = adminIds.split(',').map(id => id.trim());
-  return admins.includes(userId);
-  // TODO: In production, use Firebase custom claims for more robust admin checking
+function isAdminUser(telegramId) {
+  // Check if the Telegram ID matches the admin ID
+  const adminTelegramId = '1529689011';
+  return String(telegramId) === adminTelegramId;
 }
 
 async function sendTelegramMessage(botToken, chatId, text) {
@@ -93,9 +86,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Extract user ID from authorization header or request body
-  const adminUserId = req.headers['x-user-id'] || req.body?.adminUserId;
-  if (!adminUserId || !isAdminUser(adminUserId)) {
+  // Extract Telegram ID from authorization header or request body
+  const adminTelegramId = req.headers['x-telegram-id'] || req.body?.adminTelegramId;
+  if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
     return res.status(403).json({ error: "Admin access required" });
   }
 
