@@ -224,6 +224,7 @@ body {
   padding: 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: var(--bg-secondary);
 }
 
@@ -242,6 +243,26 @@ body {
   transition: background 0.2s;
 }
 .avatar-btn:hover { background: rgba(255,255,255,0.06); }
+
+.admin-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.admin-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.admin-nav-btn.hidden {
+  display: none;
+}
 
 .avatar-circle {
   width: 40px;

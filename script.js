@@ -607,6 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTelegram();
   initFirebase();
   setupEventListeners();
+  initializeAdminButton();
   await identifyUser();
   await loadUserLanguage();
   renderRulesDefault(); // render default rules immediately
@@ -1112,6 +1113,13 @@ function checkUrlParams() {
 function setupEventListeners() {
   // Home — avatar opens profile screen, not settings
   document.getElementById('user-avatar-btn').addEventListener('click', openProfile);
+  
+  // Admin button (for authorized users only)
+  const adminBtn = document.getElementById('btn-admin-nav');
+  if (adminBtn && !adminBtn.classList.contains('hidden')) {
+    adminBtn.addEventListener('click', openAdminPanel);
+  }
+  
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
   document.getElementById('btn-battle-start-matchmaking')?.addEventListener('click', startBattleSearch);
@@ -3874,6 +3882,22 @@ async function saveNotificationsPreference() {
   }
 }
 
+/* ===== ADMIN BUTTON INITIALIZATION ===== */
+function initializeAdminButton() {
+  const adminBtn = document.getElementById('btn-admin-nav');
+  if (!adminBtn) return;
+  
+  // Check if user has admin Telegram ID
+  const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const adminTelegramId = '1529689011';
+  
+  if (String(telegramId) === adminTelegramId) {
+    adminBtn.classList.remove('hidden');
+  } else {
+    adminBtn.classList.add('hidden');
+  }
+}
+
 /* ===== ADMIN PANEL ===== */
 function openAdminPanel() {
   const adminScreen = document.getElementById('screen-admin');
@@ -5159,27 +5183,6 @@ async function handleReferralOnStart() {
 
   await awardCoins(referrerId, coinsToAward, 'Friend joined via your link!');
 }
-
-/* ===== ADMIN PANEL DEBUG ACCESS ===== */
-// Press Ctrl+Shift+A to toggle admin panel
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-    e.preventDefault();
-    const adminScreen = document.getElementById('screen-admin');
-    if (adminScreen && !adminScreen.classList.contains('hidden')) {
-      closeAdminPanel();
-    } else {
-      openAdminPanel();
-    }
-    console.log('[Debug] Admin panel toggled');
-  }
-});
-
-// Make openAdminPanel globally accessible for debugging
-window.openAdminDebug = () => {
-  openAdminPanel();
-  console.log('Admin panel opened. Run loadAdminStats() to refresh.');
-};
 
 /* ===== PAGE UNLOAD CLEANUP ===== */
 window.addEventListener('beforeunload', () => {
