@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       });
     } else if (req.method === "PUT") {
       // Require admin privileges to update templates
-      const adminTelegramId = req.headers['x-telegram-id'] || req.body?.adminTelegramId;
+      const adminTelegramId = req.headers['x-telegram-id'];
       if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
         return res.status(403).json({ error: "Admin access required to update templates" });
       }

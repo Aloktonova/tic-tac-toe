@@ -100,8 +100,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Extract admin Telegram ID from authorization header or request body
-  const adminTelegramId = req.headers['x-telegram-id'] || req.body?.adminTelegramId;
+  // Extract admin Telegram ID from authorization header only
+  const adminTelegramId = req.headers['x-telegram-id'];
   if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
     return res.status(403).json({ error: "Admin access required" });
   }
@@ -151,6 +151,14 @@ export default async function handler(req, res) {
             if (success) {
               sent++;
               console.log('[SendToAll] Sent to', player.uid);
+              await logBroadcastNotification(
+                firebaseDbUrl,
+                player.uid,
+                player.telegramId,
+                message,
+                true,
+                ''
+              );
             } else {
               failed++;
               console.error('[SendToAll] Failed to send to', player.uid);
@@ -163,14 +171,6 @@ export default async function handler(req, res) {
                 'Failed to send via Telegram API'
               );
             }
-            await logBroadcastNotification(
-              firebaseDbUrl,
-              player.uid,
-              player.telegramId,
-              message,
-              success,
-              ''
-            );
           } catch (e) {
             failed++;
             console.error('[SendToAll] Error sending to', player.uid, ':', e?.message);

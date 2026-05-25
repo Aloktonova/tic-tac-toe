@@ -86,8 +86,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Extract Telegram ID from authorization header or request body
-  const adminTelegramId = req.headers['x-telegram-id'] || req.body?.adminTelegramId;
+  // Extract admin Telegram ID from authorization header only
+  const adminTelegramId = req.headers['x-telegram-id'];
   if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
     return res.status(403).json({ error: "Admin access required" });
   }

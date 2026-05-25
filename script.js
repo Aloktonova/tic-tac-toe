@@ -4070,8 +4070,7 @@ async function saveAdminTemplate(templateName) {
       },
       body: JSON.stringify({
         templateName,
-        template: edits,
-        adminTelegramId: String(telegramId)
+        template: edits
       })
     });
     
@@ -4118,7 +4117,6 @@ async function sendAdminTestNotification() {
       },
       body: JSON.stringify({
         userId: currentUser.id,
-        adminTelegramId: String(telegramId),
         message: '🧪 Test Notification from Admin Panel\n\nIf you see this, notifications are working!',
         templateName: 'test'
       })
@@ -4185,7 +4183,6 @@ async function retryAdminFailedSends() {
           },
           body: JSON.stringify({
             userId: log.uid,
-            adminTelegramId: String(telegramId),
             message: log.message || 'Retry notification',
             templateName: log.templateUsed || 'dailyReminder'
           })
@@ -4229,7 +4226,6 @@ async function sendAdminBroadcast() {
         'x-telegram-id': String(telegramId)
       },
       body: JSON.stringify({
-        adminTelegramId: String(telegramId),
         message: message.trim()
       })
     });
