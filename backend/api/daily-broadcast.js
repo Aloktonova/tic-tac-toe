@@ -11,6 +11,12 @@ function isNumericId(value) {
   return typeof value === "string" && /^[0-9]+$/.test(value);
 }
 
+function isValidUserId(userId) {
+  // Firebase UIDs are typically alphanumeric with optional hyphens/underscores
+  // Prevent path traversal and special characters
+  return typeof userId === "string" && /^[a-zA-Z0-9_\-]+$/.test(userId) && userId.length <= 128;
+}
+
 /**
  * Get current hour in user's timezone
  * @param {string} timezoneStr - Timezone string like 'America/New_York' or null
@@ -273,6 +279,13 @@ export default async function handler(req, res) {
     
     // Filter users who should receive notification
     for (const userId of userIds) {
+      // Validate userId to prevent path traversal
+      if (!isValidUserId(userId)) {
+        console.warn('[DailyBroadcast] Invalid userId format:', userId);
+        reasons[userId] = 'invalid_userid_format';
+        continue;
+      }
+
       const user = users[userId] || {};
       const telegramId = user?.telegramId;
       

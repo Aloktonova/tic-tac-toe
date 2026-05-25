@@ -16,8 +16,19 @@ function isAdminUser(userId) {
   // TODO: In production, use Firebase custom claims for more robust admin checking
 }
 
+function isValidDateKey(dateKey) {
+  // Validate YYYY-MM-DD format
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateKey);
+}
+
 async function getNotificationStatsForDate(firebaseDbUrl, dateKey) {
   try {
+    // Validate dateKey format to prevent path traversal
+    if (!isValidDateKey(dateKey)) {
+      console.error('[AdminStats] Invalid date key format:', dateKey);
+      return null;
+    }
+
     const response = await fetch(
       `${firebaseDbUrl}/notifications/logs/${dateKey}.json`,
       { method: "GET" }
@@ -61,6 +72,12 @@ async function getRecentLogs(firebaseDbUrl, daysBack = 7, limit = 50) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
+
+      // Validate dateKey format (should always be valid, but check anyway)
+      if (!isValidDateKey(dateKey)) {
+        console.error('[AdminStats] Invalid generated date key:', dateKey);
+        continue;
+      }
 
       // Fetch all logs for this date (note: limitToFirst doesn't work with nested objects)
       // We'll sort and limit in-memory instead

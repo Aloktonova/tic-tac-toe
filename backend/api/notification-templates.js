@@ -16,6 +16,11 @@ function isAdminUser(userId) {
   // TODO: In production, use Firebase custom claims for more robust admin checking
 }
 
+function isValidTemplateName(name) {
+  // Only allow alphanumeric and underscore
+  return /^[a-zA-Z0-9_]+$/.test(name) && name.length <= 50;
+}
+
 const DEFAULT_TEMPLATES = {
   dailyReminder: {
     enabled: true,
@@ -100,6 +105,11 @@ export default async function handler(req, res) {
 
       if (!templateName || !template) {
         return res.status(400).json({ error: "Missing templateName or template data" });
+      }
+
+      // Validate template name to prevent path traversal
+      if (!isValidTemplateName(templateName)) {
+        return res.status(400).json({ error: "Invalid template name. Only alphanumeric and underscore allowed." });
       }
 
       const response = await fetch(

@@ -3909,11 +3909,11 @@ async function loadAdminStats() {
         const lastMsg = stats.lastSent;
         document.getElementById('admin-last-message').innerHTML = `
           <div style="font-size: 0.85em; line-height: 1.4;">
-            <strong>User:</strong> ${lastMsg.uid || 'Unknown'}<br>
+            <strong>User:</strong> ${htmlEncode(lastMsg.uid || 'Unknown')}<br>
             <strong>Sent at:</strong> ${new Date(lastMsg.sentAt || 0).toLocaleString()}<br>
             <strong>Status:</strong> <span style="color: ${lastMsg.success ? '#4ade80' : '#f87171'};">${lastMsg.success ? '✓ Success' : '✗ Failed'}</span><br>
             <strong>Message:</strong><br>
-            <span style="color: #999; white-space: pre-wrap; word-break: break-word;">${lastMsg.message || 'No message'}</span>
+            <span style="color: #999; white-space: pre-wrap; word-break: break-word;">${htmlEncode(lastMsg.message || 'No message')}</span>
           </div>
         `;
       }
@@ -3923,9 +3923,9 @@ async function loadAdminStats() {
       if (stats.recentLogs && stats.recentLogs.length > 0) {
         logsList.innerHTML = stats.recentLogs.map(log => `
           <div class="admin-log-entry">
-            <div class="log-user">${log.uid || 'Unknown'}</div>
+            <div class="log-user">${htmlEncode(log.uid || 'Unknown')}</div>
             <div class="log-status ${log.success ? '' : 'failed'}">
-              ${log.success ? '✓' : '✗'} ${log.templateUsed || 'unknown'} @ ${new Date(log.sentAt || 0).toLocaleTimeString()}
+              ${log.success ? '✓' : '✗'} ${htmlEncode(log.templateUsed || 'unknown')} @ ${new Date(log.sentAt || 0).toLocaleTimeString()}
             </div>
           </div>
         `).join('');
@@ -3991,7 +3991,7 @@ async function loadAdminTemplates() {
         
         <div class="admin-template-buttons">
           <button class="btn btn-small" onclick="saveAdminTemplate('${htmlEncode(name)}')">💾 Save</button>
-          <button class="btn btn-small" onclick="previewAdminTemplate('${name}')">👁️ Preview</button>
+          <button class="btn btn-small" onclick="previewAdminTemplate('${htmlEncode(name)}')">👁️ Preview</button>
         </div>
       </div>
     `).join('');
