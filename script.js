@@ -3961,36 +3961,36 @@ async function loadAdminTemplates() {
     const container = document.getElementById('admin-templates-list');
     
     container.innerHTML = Object.entries(templates).map(([name, template]) => `
-      <div class="admin-template-item" data-template-name="${name}">
+      <div class="admin-template-item" data-template-name="${htmlEncode(name)}">
         <div class="admin-template-header">
-          <span class="admin-template-name">${name}</span>
+          <span class="admin-template-name">${htmlEncode(name)}</span>
           <div class="admin-template-toggle ${template.enabled ? 'enabled' : ''}" 
-               onclick="toggleAdminTemplate('${name}')" title="Toggle enabled"></div>
+               onclick="toggleAdminTemplate('${htmlEncode(name)}')" title="Toggle enabled"></div>
         </div>
         
         <div class="admin-template-field">
           <label class="admin-template-label">Title</label>
           <input type="text" class="admin-template-input" data-field="title"
-                 value="${(template.title || '').replace(/"/g, '&quot;')}"
-                 onchange="updateAdminTemplateField('${name}', 'title', this.value)">
+                 value="${htmlEncode(template.title || '')}"
+                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'title', this.value)">
         </div>
         
         <div class="admin-template-field">
           <label class="admin-template-label">Message</label>
           <textarea class="admin-template-textarea" data-field="message"
-                    onchange="updateAdminTemplateField('${name}', 'message', this.value)"
-                    >${(template.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                    onchange="updateAdminTemplateField('${htmlEncode(name)}', 'message', this.value)"
+                    >${htmlEncode(template.message || '')}</textarea>
         </div>
         
         <div class="admin-template-field">
           <label class="admin-template-label">Button Text</label>
           <input type="text" class="admin-template-input" data-field="buttonText"
-                 value="${(template.buttonText || '').replace(/"/g, '&quot;')}"
-                 onchange="updateAdminTemplateField('${name}', 'buttonText', this.value)">
+                 value="${htmlEncode(template.buttonText || '')}"
+                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'buttonText', this.value)">
         </div>
         
         <div class="admin-template-buttons">
-          <button class="btn btn-small" onclick="saveAdminTemplate('${name}')">💾 Save</button>
+          <button class="btn btn-small" onclick="saveAdminTemplate('${htmlEncode(name)}')">💾 Save</button>
           <button class="btn btn-small" onclick="previewAdminTemplate('${name}')">👁️ Preview</button>
         </div>
       </div>
@@ -4058,13 +4058,13 @@ async function saveAdminTemplate(templateName) {
 
 function previewAdminTemplate(templateName) {
   const edits = window.adminTemplateEdits?.[templateName] || {};
-  const item = document.querySelector(`[data-template-name="${templateName}"]`);
+  const item = document.querySelector(`[data-template-name="${htmlEncode(templateName)}"]`);
   if (!item) return;
   
   // Get values from edits or from the DOM elements using data attributes
-  const title = edits.title || item.querySelector('[data-field="title"]')?.value || '';
-  const message = edits.message || item.querySelector('[data-field="message"]')?.value || '';
-  const buttonText = edits.buttonText || item.querySelector('[data-field="buttonText"]')?.value || '';
+  const title = htmlEncode(edits.title || item.querySelector('[data-field="title"]')?.value || '');
+  const message = htmlEncode(edits.message || item.querySelector('[data-field="message"]')?.value || '');
+  const buttonText = htmlEncode(edits.buttonText || item.querySelector('[data-field="buttonText"]')?.value || '');
   
   const preview = `<b>${title}</b>\n\n${message}\n\n🔘 ${buttonText}`;
   showToast(`Preview: ${preview.substring(0, 50)}...`);
@@ -4163,6 +4163,13 @@ async function retryAdminFailedSends() {
 }
 
 /* ===== HELPERS ===== */
+function htmlEncode(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function normalizeBoard(raw) {
   const arr = Array(9).fill('');
   if (!raw) return arr;

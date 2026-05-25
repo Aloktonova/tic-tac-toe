@@ -62,9 +62,10 @@ async function getRecentLogs(firebaseDbUrl, daysBack = 7, limit = 50) {
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
 
-      // Use limit parameter to reduce data transfer
+      // Fetch all logs for this date (note: limitToFirst doesn't work with nested objects)
+      // We'll sort and limit in-memory instead
       const response = await fetch(
-        `${firebaseDbUrl}/notifications/logs/${dateKey}.json?limitToFirst=${Math.min(limit, 100)}`,
+        `${firebaseDbUrl}/notifications/logs/${dateKey}.json`,
         { method: "GET" }
       );
 
