@@ -26,6 +26,10 @@
           ".write": false,
           ".description": "Server-tracked last notification send time to prevent duplicates"
         },
+        "telegramUsername": {
+          ".write": "$userId === auth.uid",
+          ".description": "Player's Telegram username (e.g., @username), stored for admin notifications"
+        },
         "lastActive": {
           ".write": "$userId === auth.uid",
           ".description": "User can update their last active timestamp"
@@ -164,6 +168,45 @@
           ".read": true,
           ".write": false
         }
+      }
+    },
+    "notifications": {
+      ".description": "Telegram notification system: templates, logs, and settings",
+      "templates": {
+        ".read": true,
+        ".write": false,
+        ".description": "Notification templates are read-only for clients, server-managed only",
+        "dailyReminder": {
+          ".read": true,
+          ".write": false
+        },
+        "tournamentReminder": {
+          ".read": true,
+          ".write": false
+        },
+        "comebackReminder": {
+          ".read": true,
+          ".write": false
+        }
+      },
+      "logs": {
+        ".read": false,
+        ".write": false,
+        ".description": "Notification logs are server-only, never exposed to clients except through admin API",
+        ".indexOn": ["sentAt"],
+        "$date": {
+          ".read": false,
+          ".write": false,
+          "$uid": {
+            ".read": false,
+            ".write": false
+          }
+        }
+      },
+      "settings": {
+        ".read": false,
+        ".write": false,
+        ".description": "Admin notification settings, server-managed only"
       }
     }
   }

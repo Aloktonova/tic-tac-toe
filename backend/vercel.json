@@ -34,6 +34,30 @@
     {
       "src": "/api/ai-generate",
       "dest": "/api/ai-generate.js"
+    },
+    {
+      "src": "/api/notifications-log",
+      "dest": "/api/notifications-log.js"
+    },
+    {
+      "src": "/api/admin-stats",
+      "dest": "/api/admin-stats.js"
+    },
+    {
+      "src": "/api/admin-send-test",
+      "dest": "/api/admin-send-test.js"
+    },
+    {
+      "src": "/api/notification-templates",
+      "dest": "/api/notification-templates.js"
+    },
+    {
+      "src": "/api/send-to-all",
+      "dest": "/api/send-to-all.js"
+    },
+    {
+      "src": "/api/retry-failed",
+      "dest": "/api/retry-failed.js"
     }
   ]
 }
