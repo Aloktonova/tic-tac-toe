@@ -1120,6 +1120,26 @@ function setupEventListeners() {
     adminBtn.addEventListener('click', openAdminPanel);
   }
   
+  // Admin button for mobile navigation
+  const adminBtnMobile = document.getElementById('btn-admin-nav-mobile');
+  if (adminBtnMobile && !adminBtnMobile.classList.contains('hidden')) {
+    adminBtnMobile.addEventListener('click', openAdminPanel);
+  }
+  
+  // Keyboard shortcut for admin panel: Ctrl+Shift+A
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+      e.preventDefault();
+      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const adminTelegramId = '1529689011';
+      if (String(telegramId) === adminTelegramId) {
+        openAdminPanel();
+      } else {
+        console.warn('[Admin] Unauthorized keyboard shortcut attempt');
+      }
+    }
+  });
+  
   document.getElementById('btn-play-ai').addEventListener('click', startAIGame);
   document.getElementById('btn-play-online').addEventListener('click', startFriendsGame);
   document.getElementById('btn-battle-start-matchmaking')?.addEventListener('click', startBattleSearch);
@@ -3885,16 +3905,19 @@ async function saveNotificationsPreference() {
 /* ===== ADMIN BUTTON INITIALIZATION ===== */
 function initializeAdminButton() {
   const adminBtn = document.getElementById('btn-admin-nav');
-  if (!adminBtn) return;
+  const adminBtnMobile = document.getElementById('btn-admin-nav-mobile');
+  if (!adminBtn && !adminBtnMobile) return;
   
   // Check if user has admin Telegram ID
   const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
   const adminTelegramId = '1529689011';
   
   if (String(telegramId) === adminTelegramId) {
-    adminBtn.classList.remove('hidden');
+    if (adminBtn) adminBtn.classList.remove('hidden');
+    if (adminBtnMobile) adminBtnMobile.classList.remove('hidden');
   } else {
-    adminBtn.classList.add('hidden');
+    if (adminBtn) adminBtn.classList.add('hidden');
+    if (adminBtnMobile) adminBtnMobile.classList.add('hidden');
   }
 }
 
