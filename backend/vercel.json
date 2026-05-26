@@ -54,6 +54,10 @@
     {
       "src": "/api/send-to-all",
       "dest": "/api/send-to-all.js"
+    },
+    {
+      "src": "/api/retry-failed",
+      "dest": "/api/retry-failed.js"
     }
   ]
 }

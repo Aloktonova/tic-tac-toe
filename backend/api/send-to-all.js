@@ -26,33 +26,78 @@ async function sendTelegramMessage(botToken, chatId, text) {
   return response.ok;
 }
 
-// Fetches all players with Telegram IDs (max 1000 users)
-// TODO: Implement pagination to support more than 1000 users
-// Currently limited to Firebase REST API query constraints
+// Fetches all players with Telegram IDs using pagination
+// Supports more than 1000 users by fetching in chunks
 async function getAllPlayerTelegramIds(firebaseDbUrl) {
   try {
-    const response = await fetch(
-      `${firebaseDbUrl}/users.json?orderBy="telegramId"&limitToFirst=1000`,
-      { method: "GET" }
-    );
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const users = await response.json() || {};
     const telegramIds = [];
+    let lastKey = null;
+    let hasMore = true;
+    let batchCount = 0;
+    const maxBatches = 100; // Safety limit to prevent infinite loops
 
-    for (const userId in users) {
-      const user = users[userId];
-      if (user.telegramId) {
-        telegramIds.push({
-          uid: userId,
-          telegramId: user.telegramId
-        });
+    while (hasMore && batchCount < maxBatches) {
+      batchCount++;
+      let url = `${firebaseDbUrl}/users.json?limitToFirst=1001`;
+      
+      // If we have a last key, start from the next item
+      if (lastKey) {
+        url += `&startAt="${lastKey}"&orderBy="$key"`;
+      }
+
+      console.log('[SendToAll] Fetching batch', batchCount, 'from Firebase');
+      const response = await fetch(url, { method: "GET" });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          break; // No more users
+        }
+        console.error('[SendToAll] Error fetching batch:', response.status);
+        break;
+      }
+
+      const batch = await response.json() || {};
+      const keys = Object.keys(batch);
+
+      if (keys.length === 0) {
+        break;
+      }
+
+      // Process batch
+      let itemsInBatch = 0;
+      for (const userId of keys) {
+        // Skip the last key if it was already processed
+        if (lastKey && userId === lastKey && batchCount > 1) {
+          continue;
+        }
+
+        const user = batch[userId];
+        if (user && user.telegramId) {
+          telegramIds.push({
+            uid: userId,
+            telegramId: user.telegramId
+          });
+          itemsInBatch++;
+        }
+      }
+
+      // If we got exactly 1001 items, there might be more
+      if (keys.length === 1001) {
+        lastKey = keys[keys.length - 1];
+        hasMore = true;
+      } else {
+        hasMore = false;
+      }
+
+      console.log('[SendToAll] Batch', batchCount, 'yielded', itemsInBatch, 'users with telegram IDs');
+
+      // Respect Firebase rate limits - small delay between batches
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
+    console.log('[SendToAll] Total users fetched:', telegramIds.length);
     return telegramIds;
   } catch (e) {
     console.error('[SendToAll] Error fetching player telegram IDs:', e?.message);

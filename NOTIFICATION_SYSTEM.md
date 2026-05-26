@@ -186,6 +186,27 @@ Send test notification to a user:
 }
 ```
 
+### POST /api/retry-failed
+Re-queue failed notifications for a specific date:
+```json
+{
+  "dateKey": "2024-05-22",
+  "limit": 50,
+  "retryAttempt": 1
+}
+```
+Response:
+```json
+{
+  "ok": true,
+  "message": "Retry process complete",
+  "dateKey": "2024-05-22",
+  "retried": 45,
+  "failed_count": 5,
+  "total_retried": 50
+}
+```
+
 ### POST /api/notifications-log
 Log a notification send:
 ```json
@@ -225,6 +246,24 @@ Update a template:
     "message": "New message",
     "buttonText": "New Button"
   }
+}
+```
+
+### POST /api/send-to-all
+Send notifications to all players (with automatic pagination):
+```json
+{
+  "message": "Broadcast message"
+}
+```
+Response:
+```json
+{
+  "ok": true,
+  "message": "Broadcast sent",
+  "sent": 150,
+  "failed": 5,
+  "total": 1500
 }
 ```
 
@@ -286,7 +325,7 @@ users/{uid}/notificationsEnabled - user-editable
 
 ## Future Enhancements
 
-- [ ] Retry failed sends mechanism
+- [x] Retry failed sends mechanism
 - [ ] User notification frequency preferences
 - [ ] Rich media notifications (images, buttons)
 - [ ] Notification scheduling (one-time, recurring)
@@ -298,20 +337,23 @@ users/{uid}/notificationsEnabled - user-editable
 ## Security Notes
 
 1. All logs are server-only (notifications/logs/ - no client read access)
-2. Admin stats endpoint should require authentication (TODO: implement)
-3. Template editing should require admin privileges (TODO: implement)
+2. Admin stats endpoint requires authentication (x-telegram-id header check) - ✓ Implemented
+3. Template editing requires admin privileges (x-telegram-id header check) - ✓ Implemented
 4. Telegram IDs are stored securely in Firebase
 5. Notification preferences are user-editable
 6. Failed sends are logged for debugging, not exposed to users
+7. Retry-failed endpoint requires admin authentication - ✓ Implemented
 
 ## Files Modified/Created
 
 ### Backend
 - `backend/api/daily-broadcast.js` - Updated with template loading and logging
 - `backend/api/notifications-log.js` - New endpoint for logging
-- `backend/api/admin-stats.js` - New endpoint for stats
-- `backend/api/admin-send-test.js` - New endpoint for test sends
-- `backend/api/notification-templates.js` - New endpoint for template management
+- `backend/api/admin-stats.js` - New endpoint for stats (with admin authentication)
+- `backend/api/admin-send-test.js` - New endpoint for test sends (with admin authentication)
+- `backend/api/notification-templates.js` - New endpoint for template management (with admin authentication)
+- `backend/api/send-to-all.js` - Updated with pagination support for 1000+ users
+- `backend/api/retry-failed.js` - New endpoint for re-queuing failed notifications (with admin authentication)
 - `backend/vercel.json` - Updated routes
 
 ### Frontend
