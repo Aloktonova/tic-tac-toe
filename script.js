@@ -1120,11 +1120,7 @@ function setupEventListeners() {
     adminBtn.addEventListener('click', openAdminPanel);
   }
   
-  // Admin button for mobile navigation
-  const adminBtnMobile = document.getElementById('btn-admin-nav-mobile');
-  if (adminBtnMobile && !adminBtnMobile.classList.contains('hidden')) {
-    adminBtnMobile.addEventListener('click', openAdminPanel);
-  }
+  // Admin button for mobile navigation is handled by the generic nav-btn handler below
   
   // Keyboard shortcut for admin panel: Ctrl+Shift+A
   document.addEventListener('keydown', (e) => {
@@ -1290,6 +1286,13 @@ function setupEventListeners() {
         showScreen('store');
         renderStore();
         setBottomNavActive('store');
+        return;
+      }
+
+      if (screen === 'admin') {
+        cleanupAllGameListeners();
+        openAdminPanel();
+        setBottomNavActive('admin');
         return;
       }
 
