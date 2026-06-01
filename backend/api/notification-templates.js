@@ -15,29 +15,32 @@ function isValidTemplateName(name) {
 }
 
 const DEFAULT_TEMPLATES = {
-  dailyReminder: {
+  dailyChallenge: {
+    templateName: "Daily Challenge",
     enabled: true,
-    title: "🏆 Daily Challenge",
-    message: "Your rivals are climbing the leaderboard. Play now and show them who's boss! 💪",
-    buttonText: "Play Now"
+    title: "🎮 Daily Challenge",
+    message: "🎮 Daily Challenge is ready! Play now and earn rewards.",
+    icon: "🎮"
   },
   tournamentReminder: {
+    templateName: "Tournament Reminder",
     enabled: true,
-    title: "🎯 Tournament Active",
-    message: "A new tournament has started! Compete with players worldwide and earn exclusive rewards.",
-    buttonText: "Join Tournament"
+    title: "🏆 Tournament Reminder",
+    message: "🏆 Tournament is live. Join now and climb the leaderboard.",
+    icon: "🏆"
   },
-  comebackReminder: {
+  comeBack: {
+    templateName: "Come Back",
     enabled: true,
-    title: "👋 We Miss You!",
-    message: "You haven't played in a while. Come back and reclaim your position on the leaderboard!",
-    buttonText: "Play Again"
+    title: "🔥 Come Back",
+    message: "🔥 Your rivals are playing right now. Come back and defend your rank.",
+    icon: "🔥"
   }
 };
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-telegram-id");
 
   if (req.method === "OPTIONS") {
@@ -86,6 +89,57 @@ export default async function handler(req, res) {
         ok: true,
         templates
       });
+    } else if (req.method === "POST") {
+      // Require admin privileges to create templates
+      const adminTelegramId = req.headers['x-telegram-id'];
+      if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
+        return res.status(403).json({ error: "Admin access required to create templates" });
+      }
+
+      // Create a new template
+      const { templateName, title, message, icon } = req.body;
+
+      if (!templateName || !title || !message) {
+        return res.status(400).json({ error: "Missing required fields: templateName, title, message" });
+      }
+
+      // Validate template name to prevent path traversal
+      if (!isValidTemplateName(templateName)) {
+        return res.status(400).json({ error: "Invalid template name. Only alphanumeric and underscore allowed." });
+      }
+
+      // Create unique ID from template name
+      const templateId = templateName.toLowerCase().replace(/\s+/g, '_');
+
+      const newTemplate = {
+        templateName,
+        enabled: true,
+        title,
+        message,
+        icon: icon || ""
+      };
+
+      const response = await fetch(
+        `${firebaseDbUrl}/notifications/templates/${templateId}.json`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newTemplate)
+        }
+      );
+
+      if (!response.ok) {
+        return res.status(500).json({ error: "Failed to create template" });
+      }
+
+      console.log('[Templates] Created new template:', templateId);
+
+      return res.status(200).json({
+        ok: true,
+        message: "Template created",
+        templateId,
+        template: newTemplate
+      });
     } else if (req.method === "PUT") {
       // Require admin privileges to update templates
       const adminTelegramId = req.headers['x-telegram-id'];
@@ -126,24 +180,40 @@ export default async function handler(req, res) {
         templateName,
         template
       });
-    } else if (req.method === "POST") {
-      // Initialize default templates
-      console.log('[Templates] Initializing default templates');
-      for (const [name, template] of Object.entries(DEFAULT_TEMPLATES)) {
-        await fetch(
-          `${firebaseDbUrl}/notifications/templates/${name}.json`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(template)
-          }
-        );
+    } else if (req.method === "DELETE") {
+      // Require admin privileges to delete templates
+      const adminTelegramId = req.headers['x-telegram-id'];
+      if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
+        return res.status(403).json({ error: "Admin access required to delete templates" });
       }
+
+      // Delete a template
+      const { templateName } = req.body;
+
+      if (!templateName) {
+        return res.status(400).json({ error: "Missing templateName" });
+      }
+
+      // Validate template name to prevent path traversal
+      if (!isValidTemplateName(templateName)) {
+        return res.status(400).json({ error: "Invalid template name. Only alphanumeric and underscore allowed." });
+      }
+
+      const response = await fetch(
+        `${firebaseDbUrl}/notifications/templates/${templateName}.json`,
+        { method: "DELETE" }
+      );
+
+      if (!response.ok && response.status !== 404) {
+        return res.status(500).json({ error: "Failed to delete template" });
+      }
+
+      console.log('[Templates] Deleted template:', templateName);
 
       return res.status(200).json({
         ok: true,
-        message: "Default templates initialized",
-        templates: DEFAULT_TEMPLATES
+        message: "Template deleted",
+        templateName
       });
     } else {
       return res.status(405).json({ error: "Method not allowed" });
