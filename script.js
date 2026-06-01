@@ -440,8 +440,6 @@ let currentUser = {
   games: 0,
   xpBoostExpiry: 0,
   country: '',
-  timezone: 'UTC', // Default to UTC, will be set from device/server
-  notificationsEnabled: true, // Default to enabled
   // Telegram notification preferences (backend-ready)
   // Fields populate on login and persist to Firebase. Backend can send tournament/rank/reward notifications.
   telegramId: null,
@@ -926,16 +924,7 @@ async function identifyUser() {
       currentUser.games          = d.games           || 0;
       currentUser.xpBoostExpiry  = d.xpBoostExpiry   || 0;
       currentUser.country        = d.country         || '';
-      currentUser.timezone       = d.timezone        || getDeviceTimezone();
-      currentUser.notificationsEnabled = d.notificationsEnabled !== false; // Default to true
       
-      // If timezone not in Firebase, save the detected timezone
-      if (!d.timezone) {
-        console.log('[Notification] Timezone detected:', currentUser.timezone);
-        db.ref("users/" + currentUser.id + "/timezone")
-          .set(currentUser.timezone)
-          .catch(err => console.error('[User] Error saving timezone:', err.message));
-      }
       userCoins                  = d.coins           || 0;
       userReferralCount          = d.referralCount   || 0;
 
@@ -1334,17 +1323,6 @@ function setupEventListeners() {
   });
 
   // Timezone selector
-  const tzSelect = document.getElementById('settings-timezone');
-  if (tzSelect) {
-    tzSelect.addEventListener('change', saveTimezone);
-  }
-
-  // Notifications toggle
-  const notifCheckbox = document.getElementById('settings-notifications-enabled');
-  if (notifCheckbox) {
-    notifCheckbox.addEventListener('change', saveNotificationsPreference);
-  }
-
   // Admin Panel buttons
   const btnAdminBack = document.getElementById('btn-admin-back');
   if (btnAdminBack) {
@@ -1356,11 +1334,6 @@ function setupEventListeners() {
     btnAdminSendTest.addEventListener('click', sendAdminTestNotification);
   }
   
-  const btnAdminSendToAll = document.getElementById('btn-admin-send-to-all');
-  if (btnAdminSendToAll) {
-    btnAdminSendToAll.addEventListener('click', sendAdminBroadcast);
-  }
-  
   const btnAdminRefresh = document.getElementById('btn-admin-refresh-stats');
   if (btnAdminRefresh) {
     btnAdminRefresh.addEventListener('click', loadAdminStats);
@@ -1369,6 +1342,23 @@ function setupEventListeners() {
   const btnAdminRetry = document.getElementById('btn-admin-retry-failed');
   if (btnAdminRetry) {
     btnAdminRetry.addEventListener('click', retryAdminFailedSends);
+  }
+
+  // Broadcast buttons
+  const btnBroadcastEveryone = document.getElementById('btn-admin-broadcast-everyone');
+  if (btnBroadcastEveryone) {
+    btnBroadcastEveryone.addEventListener('click', broadcastToEveryone);
+  }
+
+  const btnBroadcastScheduled = document.getElementById('btn-admin-broadcast-scheduled');
+  if (btnBroadcastScheduled) {
+    btnBroadcastScheduled.addEventListener('click', broadcastToScheduled);
+  }
+
+  // Template buttons
+  const btnCreateTemplate = document.getElementById('btn-admin-create-template');
+  if (btnCreateTemplate) {
+    btnCreateTemplate.addEventListener('click', openCreateTemplateDialog);
   }
 
   // Wallpaper preview modal
@@ -2233,15 +2223,6 @@ function makeLetterAvatar(name, size) {
  * Get the device's timezone from the browser
  * @returns {string} Timezone string (e.g., 'America/New_York')
  */
-function getDeviceTimezone() {
-  try {
-    // Try to get timezone from Intl API
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch (e) {
-    console.warn('[User] Error detecting timezone:', e.message);
-    return 'UTC';
-  }
-}
 
 function getLetterAvatarBg(name) {
   const colors = [
@@ -3770,17 +3751,6 @@ function openSettings() {
   const langSelect = document.getElementById('settings-language');
   if (langSelect) langSelect.value = lang;
 
-  // Set timezone selector
-  const tzSelect = document.getElementById('settings-timezone');
-  if (tzSelect) tzSelect.value = currentUser.timezone || 'UTC';
-
-  // Set notifications toggle
-  const notifCheckbox = document.getElementById('settings-notifications-enabled');
-  if (notifCheckbox) {
-    notifCheckbox.checked = currentUser.notificationsEnabled !== false;
-    updateNotificationStatus();
-  }
-
   populateSettingsStats();
 
   if (db) {
@@ -3792,18 +3762,6 @@ function openSettings() {
       currentUser.losses = d.losses || currentUser.losses;
       currentUser.draws  = d.draws  || currentUser.draws;
       currentUser.games  = d.games  || currentUser.games;
-      currentUser.timezone = d.timezone || getDeviceTimezone();
-      currentUser.notificationsEnabled = d.notificationsEnabled !== false;
-      
-      // Update selectors with loaded data
-      const tzSelect = document.getElementById('settings-timezone');
-      if (tzSelect) tzSelect.value = currentUser.timezone;
-      
-      const notifCheckbox = document.getElementById('settings-notifications-enabled');
-      if (notifCheckbox) {
-        notifCheckbox.checked = currentUser.notificationsEnabled;
-        updateNotificationStatus();
-      }
       
       populateSettingsStats();
     }).catch(e => console.warn('Settings stats error:', e));
@@ -3865,70 +3823,10 @@ async function saveName() {
   }
 }
 
-function updateNotificationStatus() {
-  const checkbox = document.getElementById('settings-notifications-enabled');
-  const status = document.getElementById('settings-notifications-status');
-  if (checkbox && status) {
-    status.textContent = checkbox.checked ? 'Enabled' : 'Disabled';
-  }
-}
-
-async function saveTimezone() {
-  const tzSelect = document.getElementById('settings-timezone');
-  if (!tzSelect) return;
-  
-  const newTimezone = tzSelect.value || 'UTC';
-  currentUser.timezone = newTimezone;
-
-  if (db) {
-    try {
-      await db.ref('users/' + currentUser.id).update({ timezone: newTimezone });
-      console.log('[Settings] Timezone saved:', newTimezone);
-      showToast('Timezone saved! 🕐');
-    } catch (e) {
-      console.warn('Save timezone error:', e);
-      showToast('Timezone updated locally.');
-    }
-  }
-}
-
-async function saveNotificationsPreference() {
-  const checkbox = document.getElementById('settings-notifications-enabled');
-  if (!checkbox) return;
-  
-  const enabled = checkbox.checked;
-  currentUser.notificationsEnabled = enabled;
-  updateNotificationStatus();
-
-  if (db) {
-    try {
-      await db.ref('users/' + currentUser.id).update({ notificationsEnabled: enabled });
-      console.log('[Settings] Notifications preference saved:', enabled ? 'enabled' : 'disabled');
-      showToast(enabled ? '🔔 Notifications enabled' : '🔕 Notifications disabled');
-    } catch (e) {
-      console.warn('Save notifications error:', e);
-      showToast('Preference updated locally.');
-    }
-  }
-}
-
 /* ===== ADMIN BUTTON INITIALIZATION ===== */
 function initializeAdminButton() {
-  const adminBtn = document.getElementById('btn-admin-nav');
-  const adminBtnMobile = document.getElementById('btn-admin-nav-mobile');
-  if (!adminBtn && !adminBtnMobile) return;
-  
-  // Check if user has admin Telegram ID
-  const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const adminTelegramId = '1529689011';
-  
-  if (String(telegramId) === adminTelegramId) {
-    if (adminBtn) adminBtn.classList.remove('hidden');
-    if (adminBtnMobile) adminBtnMobile.classList.remove('hidden');
-  } else {
-    if (adminBtn) adminBtn.classList.add('hidden');
-    if (adminBtnMobile) adminBtnMobile.classList.add('hidden');
-  }
+  // Admin panel is accessible via Ctrl+Shift+A keyboard shortcut
+  // No visible admin button in the UI
 }
 
 /* ===== ADMIN PANEL ===== */
@@ -4021,6 +3919,9 @@ async function loadAdminStats() {
       // Load templates
       await loadAdminTemplates();
       
+      // Load notification history
+      await loadNotificationHistory();
+      
       console.log('[Admin] Stats loaded:', stats);
     }
   } catch (e) {
@@ -4044,37 +3945,43 @@ async function loadAdminTemplates() {
     const container = document.getElementById('admin-templates-list');
     
     container.innerHTML = Object.entries(templates).map(([name, template]) => `
-      <div class="admin-template-item" data-template-name="${htmlEncode(name)}">
-        <div class="admin-template-header">
-          <span class="admin-template-name">${htmlEncode(name)}</span>
-          <div class="admin-template-toggle ${template.enabled ? 'enabled' : ''}" 
-               onclick="toggleAdminTemplate('${htmlEncode(name)}')" title="Toggle enabled"></div>
+      <div class="admin-template-item" data-template-name="${htmlEncode(name)}" style="border: 1px solid #ddd; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+        <div class="admin-template-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="admin-template-name" style="font-weight: bold; font-size: 1.1em;">${htmlEncode(template.templateName || name)}</span>
+          <div style="display: flex; gap: 4px;">
+            <div class="admin-template-toggle ${template.enabled ? 'enabled' : ''}" 
+                 onclick="toggleAdminTemplate('${htmlEncode(name)}')" title="Toggle enabled" style="width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: ${template.enabled ? '#4CAF50' : '#999'}; color: white;">✓</div>
+          </div>
         </div>
         
-        <div class="admin-template-field">
-          <label class="admin-template-label">Title</label>
+        <div class="admin-template-field" style="margin-bottom: 8px;">
+          <label class="admin-template-label" style="font-size: 0.85em; color: #666;">Icon/Emoji</label>
+          <input type="text" class="admin-template-input" data-field="icon" maxlength="4"
+                 value="${htmlEncode(template.icon || '')}"
+                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'icon', this.value)"
+                 style="padding: 6px; border: 1px solid #ddd; border-radius: 3px; width: 100%; font-size: 1.5em; text-align: center;">
+        </div>
+        
+        <div class="admin-template-field" style="margin-bottom: 8px;">
+          <label class="admin-template-label" style="font-size: 0.85em; color: #666;">Title</label>
           <input type="text" class="admin-template-input" data-field="title"
                  value="${htmlEncode(template.title || '')}"
-                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'title', this.value)">
+                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'title', this.value)"
+                 style="padding: 6px; border: 1px solid #ddd; border-radius: 3px; width: 100%;">
         </div>
         
-        <div class="admin-template-field">
-          <label class="admin-template-label">Message</label>
+        <div class="admin-template-field" style="margin-bottom: 8px;">
+          <label class="admin-template-label" style="font-size: 0.85em; color: #666;">Message</label>
           <textarea class="admin-template-textarea" data-field="message"
                     onchange="updateAdminTemplateField('${htmlEncode(name)}', 'message', this.value)"
-                    >${htmlEncode(template.message || '')}</textarea>
+                    style="padding: 6px; border: 1px solid #ddd; border-radius: 3px; width: 100%; min-height: 70px; font-size: 0.9em;">${htmlEncode(template.message || '')}</textarea>
         </div>
         
-        <div class="admin-template-field">
-          <label class="admin-template-label">Button Text</label>
-          <input type="text" class="admin-template-input" data-field="buttonText"
-                 value="${htmlEncode(template.buttonText || '')}"
-                 onchange="updateAdminTemplateField('${htmlEncode(name)}', 'buttonText', this.value)">
-        </div>
-        
-        <div class="admin-template-buttons">
-          <button class="btn btn-small" onclick="saveAdminTemplate('${htmlEncode(name)}')">💾 Save</button>
-          <button class="btn btn-small" onclick="previewAdminTemplate('${htmlEncode(name)}')">👁️ Preview</button>
+        <div class="admin-template-buttons" style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="btn btn-small" onclick="saveAdminTemplate('${htmlEncode(name)}')" style="flex: 1; min-width: 80px;">💾 Save</button>
+          <button class="btn btn-small" onclick="previewAdminTemplate('${htmlEncode(name)}')" style="flex: 1; min-width: 80px;">👁️ Preview</button>
+          <button class="btn btn-small" onclick="duplicateTemplate('${htmlEncode(name)}')" style="flex: 1; min-width: 80px;">📋 Duplicate</button>
+          <button class="btn btn-small" onclick="deleteTemplate('${htmlEncode(name)}')" style="flex: 1; min-width: 80px; background: #dc2626;">🗑️ Delete</button>
         </div>
       </div>
     `).join('');
@@ -4261,7 +4168,18 @@ async function retryAdminFailedSends() {
   }
 }
 
-async function sendAdminBroadcast() {
+async function openCreateTemplateDialog() {
+  const name = prompt('Enter template name:');
+  if (!name || name.trim() === '') return;
+  
+  const title = prompt('Enter template title:');
+  if (!title) return;
+  
+  const message = prompt('Enter template message:');
+  if (!message) return;
+  
+  const icon = prompt('Enter template icon/emoji (optional):') || '';
+  
   try {
     const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     if (!telegramId) {
@@ -4269,36 +4187,314 @@ async function sendAdminBroadcast() {
       return;
     }
     
-    const message = prompt('Enter message to send to all players:');
-    if (!message || message.trim() === '') {
-      return;
-    }
-    
-    showToast('📢 Broadcasting to all players...');
-    
-    const response = await fetch(`${BACKEND_URL}/api/send-to-all`, {
+    const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-telegram-id': String(telegramId)
       },
       body: JSON.stringify({
-        message: message.trim()
+        templateName: name.trim(),
+        title: title.trim(),
+        message: message.trim(),
+        icon: icon.trim()
+      })
+    });
+    
+    if (response.ok) {
+      showToast(`✓ Template "${name}" created!`);
+      await loadAdminTemplates();
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed to create template: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error creating template:', e.message);
+    showToast('Error creating template');
+  }
+}
+
+async function deleteTemplate(templateName) {
+  const confirmed = confirm(`Delete template "${templateName}"?`);
+  if (!confirmed) return;
+  
+  try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        templateName
+      })
+    });
+    
+    if (response.ok) {
+      showToast(`✓ Template "${templateName}" deleted!`);
+      await loadAdminTemplates();
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed to delete template: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error deleting template:', e.message);
+    showToast('Error deleting template');
+  }
+}
+
+async function duplicateTemplate(templateName) {
+  const newName = prompt('Enter new template name:');
+  if (!newName || newName.trim() === '') return;
+  
+  try {
+    // Get the template first
+    const getResponse = await fetch(`${BACKEND_URL}/api/notification-templates`);
+    if (!getResponse.ok) {
+      showToast('Failed to fetch template');
+      return;
+    }
+    
+    const data = await getResponse.json();
+    const templateToDuplicate = data.templates?.[templateName];
+    if (!templateToDuplicate) {
+      showToast('Template not found');
+      return;
+    }
+    
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    // Create new template with duplicated content
+    const createResponse = await fetch(`${BACKEND_URL}/api/notification-templates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        templateName: newName.trim(),
+        title: templateToDuplicate.title,
+        message: templateToDuplicate.message,
+        icon: templateToDuplicate.icon || ''
+      })
+    });
+    
+    if (createResponse.ok) {
+      showToast(`✓ Template duplicated as "${newName}"!`);
+      await loadAdminTemplates();
+    } else {
+      const error = await createResponse.json();
+      showToast('✗ Failed to duplicate template: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error duplicating template:', e.message);
+    showToast('Error duplicating template');
+  }
+}
+
+async function loadNotificationHistory() {
+  try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      console.warn('[Admin] Telegram ID not available');
+      return;
+    }
+    
+    const response = await fetch(`${BACKEND_URL}/api/notification-history?limit=20`, {
+      headers: {
+        'x-telegram-id': String(telegramId)
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('[Admin] Failed to fetch notification history');
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.broadcasts) return;
+    
+    const container = document.getElementById('admin-history-list');
+    if (!container) return;
+    
+    if (data.broadcasts.length === 0) {
+      container.innerHTML = '<p style="color: #999; font-size: 0.9em;">No broadcast history yet</p>';
+      return;
+    }
+    
+    container.innerHTML = data.broadcasts.map(broadcast => `
+      <div class="admin-history-item" style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9em;">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <div style="font-weight: bold; margin-bottom: 4px;">${htmlEncode(broadcast.title || 'Broadcast')}</div>
+            <div style="color: #666; margin-bottom: 4px; white-space: pre-wrap; word-wrap: break-word;">${htmlEncode(broadcast.message || '').substring(0, 100)}...</div>
+            <div style="color: #999; font-size: 0.85em;">
+              📅 ${new Date(broadcast.sentAt).toLocaleString()}<br/>
+              👥 ${broadcast.totalRecipients} recipients | ✓ ${broadcast.successCount} | ✗ ${broadcast.failureCount}
+            </div>
+          </div>
+          <button class="btn btn-small" onclick="resendBroadcast('${htmlEncode(broadcast.message)}', '${htmlEncode(broadcast.title || 'Resend')}')" style="margin-left: 8px; white-space: nowrap;">🔄 Resend</button>
+        </div>
+      </div>
+    `).join('');
+    
+    console.log('[Admin] Notification history loaded');
+  } catch (e) {
+    console.error('[Admin] Error loading notification history:', e.message);
+  }
+}
+
+async function resendBroadcast(message, title) {
+  const confirmed = confirm(`Resend broadcast?\n\n${title}\n\n${message.substring(0, 100)}...`);
+  if (!confirmed) return;
+  
+  try {
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    showToast('📢 Resending broadcast...');
+    
+    const response = await fetch(`${BACKEND_URL}/api/admin-broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        title,
+        message,
+        mode: 'send_to_everyone'
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`✓ Resent to ${data.sent} users (${data.failed} failed)`);
+      await loadNotificationHistory();
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error resending broadcast:', e.message);
+    showToast('Error resending broadcast');
+  }
+}
+
+async function broadcastToEveryone() {
+  try {
+    const title = document.getElementById('admin-broadcast-title')?.value?.trim();
+    const message = document.getElementById('admin-broadcast-message')?.value?.trim();
+    
+    if (!title || !message) {
+      showToast('Please enter both title and message');
+      return;
+    }
+    
+    const confirmed = confirm(`Send to all ${currentUser.totalUsers || '~1000'} users?\n\nTitle: ${title}\n\n${message}`);
+    if (!confirmed) return;
+    
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    showToast('📢 Broadcasting to all players...');
+    
+    const response = await fetch(`${BACKEND_URL}/api/admin-broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        title,
+        message,
+        mode: 'send_to_everyone'
       })
     });
     
     if (response.ok) {
       const data = await response.json();
       console.log('[Admin] Broadcast sent:', data);
-      showToast(`✓ Broadcast sent to ${data.sent} players (${data.failed} failed)`);
-      loadAdminStats(); // Refresh stats
+      showToast(`✓ Sent to ${data.sent} users (${data.failed} failed)`);
+      document.getElementById('admin-broadcast-title').value = '';
+      document.getElementById('admin-broadcast-message').value = '';
+      await loadAdminStats();
+      await loadNotificationHistory();
     } else {
       const error = await response.json();
-      showToast('✗ Failed to send broadcast: ' + (error.error || 'Unknown error'));
+      showToast('✗ Failed: ' + (error.error || 'Unknown error'));
     }
   } catch (e) {
-    console.error('[Admin] Error sending broadcast:', e.message);
-    showToast('Error sending broadcast');
+    console.error('[Admin] Error broadcasting:', e.message);
+    showToast('Error broadcasting');
+  }
+}
+
+async function broadcastToScheduled() {
+  try {
+    const title = document.getElementById('admin-broadcast-title')?.value?.trim();
+    const message = document.getElementById('admin-broadcast-message')?.value?.trim();
+    
+    if (!title || !message) {
+      showToast('Please enter both title and message');
+      return;
+    }
+    
+    const confirmed = confirm(`Send to subscribed users?\n\nTitle: ${title}\n\n${message}`);
+    if (!confirmed) return;
+    
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (!telegramId) {
+      showToast('Telegram ID not available');
+      return;
+    }
+    
+    showToast('⏰ Sending to subscribed users...');
+    
+    const response = await fetch(`${BACKEND_URL}/api/admin-broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-id': String(telegramId)
+      },
+      body: JSON.stringify({
+        title,
+        message,
+        mode: 'daily_scheduled'
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[Admin] Scheduled broadcast sent:', data);
+      showToast(`✓ Sent to ${data.sent} subscribed users (${data.failed} failed, ${data.skipped} skipped)`);
+      document.getElementById('admin-broadcast-title').value = '';
+      document.getElementById('admin-broadcast-message').value = '';
+      await loadAdminStats();
+      await loadNotificationHistory();
+    } else {
+      const error = await response.json();
+      showToast('✗ Failed: ' + (error.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[Admin] Error broadcasting:', e.message);
+    showToast('Error broadcasting');
   }
 }
 
