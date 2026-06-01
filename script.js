@@ -1060,6 +1060,7 @@ function setBottomNavActive(screen) {
 function updateHomeUI() {
   const avatarEl   = document.getElementById('home-avatar');
   const usernameEl = document.getElementById('home-username');
+  if (!avatarEl || !usernameEl) return; // Elements removed
   usernameEl.textContent = currentUser.name;
   applyAvatarToEl(avatarEl, currentUser.name);
 }
@@ -1149,6 +1150,12 @@ function setupEventListeners() {
 
   // Profile screen back button
   document.getElementById('btn-profile-back').addEventListener('click', () => {
+    showScreen('home');
+    setBottomNavActive('home');
+  });
+
+  // Notifications screen back button
+  document.getElementById('btn-notifications-back').addEventListener('click', () => {
     showScreen('home');
     setBottomNavActive('home');
   });
