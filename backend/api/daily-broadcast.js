@@ -240,7 +240,7 @@ export default async function handler(req, res) {
   const backendUrl = process.env.BACKEND_URL;
   
   // Template name to use (will be loaded from Firebase)
-  const templateName = process.env.DAILY_TEMPLATE_NAME || 'dailyReminder';
+  const templateName = process.env.DAILY_TEMPLATE_NAME || 'daily_challenge';
   
   // Fallback message if template loading fails
   const fallbackMessage = process.env.DAILY_TELEGRAM_MESSAGE

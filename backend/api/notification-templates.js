@@ -1,155 +1,140 @@
-/**
- * Manages notification templates in Firebase
- * Initialize default templates or update existing ones
- */
+import { requireAdmin, setAdminCors } from '../lib/admin-auth.js';
+import {
+  ensureDefaultTemplates,
+  fetchTemplates,
+  isValidTemplateId,
+  slugifyTemplateId
+} from '../lib/notification-helpers.js';
 
-function isAdminUser(telegramId) {
-  // Check if the Telegram ID matches the admin ID
-  const adminTelegramId = '1529689011';
-  return String(telegramId) === adminTelegramId;
+function normalizeTemplate(body, existing = null) {
+  const now = Date.now();
+  return {
+    displayName: String(body.displayName || existing?.displayName || 'Untitled').slice(0, 80),
+    icon: String(body.icon || existing?.icon || '').slice(0, 8),
+    title: String(body.title || existing?.title || '').slice(0, 120),
+    message: String(body.message || existing?.message || '').slice(0, 2000),
+    buttonText: String(body.buttonText || existing?.buttonText || 'Play Now').slice(0, 40),
+    enabled: body.enabled !== undefined ? !!body.enabled : (existing?.enabled !== false),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  };
 }
-
-function isValidTemplateName(name) {
-  // Only allow alphanumeric and underscore
-  return /^[a-zA-Z0-9_]+$/.test(name) && name.length <= 50;
-}
-
-const DEFAULT_TEMPLATES = {
-  dailyReminder: {
-    enabled: true,
-    title: "🏆 Daily Challenge",
-    message: "Your rivals are climbing the leaderboard. Play now and show them who's boss! 💪",
-    buttonText: "Play Now"
-  },
-  tournamentReminder: {
-    enabled: true,
-    title: "🎯 Tournament Active",
-    message: "A new tournament has started! Compete with players worldwide and earn exclusive rewards.",
-    buttonText: "Join Tournament"
-  },
-  comebackReminder: {
-    enabled: true,
-    title: "👋 We Miss You!",
-    message: "You haven't played in a while. Come back and reclaim your position on the leaderboard!",
-    buttonText: "Play Again"
-  }
-};
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-telegram-id");
+  setAdminCors(res);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   const firebaseDbUrl = process.env.FIREBASE_DATABASE_URL;
   if (!firebaseDbUrl) {
-    return res.status(500).json({ error: "Missing FIREBASE_DATABASE_URL" });
+    return res.status(500).json({ error: 'Missing FIREBASE_DATABASE_URL' });
   }
 
   try {
-    if (req.method === "GET") {
-      // Get all templates
-      const response = await fetch(
-        `${firebaseDbUrl}/notifications/templates.json`,
-        { method: "GET" }
-      );
-
-      if (response.status === 404) {
-        // Templates don't exist, create defaults
-        console.log('[Templates] Creating default templates');
-        for (const [name, template] of Object.entries(DEFAULT_TEMPLATES)) {
-          await fetch(
-            `${firebaseDbUrl}/notifications/templates/${name}.json`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(template)
-            }
-          );
-        }
-        return res.status(200).json({
-          ok: true,
-          message: "Default templates created",
-          templates: DEFAULT_TEMPLATES
-        });
-      }
-
-      if (!response.ok) {
-        return res.status(500).json({ error: "Failed to fetch templates" });
-      }
-
-      const templates = await response.json() || {};
-      return res.status(200).json({
-        ok: true,
-        templates
-      });
-    } else if (req.method === "PUT") {
-      // Require admin privileges to update templates
-      const adminTelegramId = req.headers['x-telegram-id'];
-      if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
-        return res.status(403).json({ error: "Admin access required to update templates" });
-      }
-
-      // Update a template
-      const { templateName, template } = req.body;
-
-      if (!templateName || !template) {
-        return res.status(400).json({ error: "Missing templateName or template data" });
-      }
-
-      // Validate template name to prevent path traversal
-      if (!isValidTemplateName(templateName)) {
-        return res.status(400).json({ error: "Invalid template name. Only alphanumeric and underscore allowed." });
-      }
-
-      const response = await fetch(
-        `${firebaseDbUrl}/notifications/templates/${templateName}.json`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(template)
-        }
-      );
-
-      if (!response.ok) {
-        return res.status(500).json({ error: "Failed to update template" });
-      }
-
-      console.log('[Templates] Updated template:', templateName);
-
-      return res.status(200).json({
-        ok: true,
-        message: "Template updated",
-        templateName,
-        template
-      });
-    } else if (req.method === "POST") {
-      // Initialize default templates
-      console.log('[Templates] Initializing default templates');
-      for (const [name, template] of Object.entries(DEFAULT_TEMPLATES)) {
-        await fetch(
-          `${firebaseDbUrl}/notifications/templates/${name}.json`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(template)
-          }
-        );
-      }
-
-      return res.status(200).json({
-        ok: true,
-        message: "Default templates initialized",
-        templates: DEFAULT_TEMPLATES
-      });
-    } else {
-      return res.status(405).json({ error: "Method not allowed" });
+    if (req.method === 'GET') {
+      const templates = await ensureDefaultTemplates(firebaseDbUrl);
+      return res.status(200).json({ ok: true, templates });
     }
+
+    const adminId = requireAdmin(req, res);
+    if (!adminId) return;
+
+    if (req.method === 'POST' && req.body?.action === 'init_defaults') {
+      const templates = await ensureDefaultTemplates(firebaseDbUrl);
+      return res.status(200).json({ ok: true, message: 'Default templates initialized', templates });
+    }
+
+    if (req.method === 'POST') {
+      const { templateId, displayName, title, message, icon, buttonText, enabled, duplicateFrom } = req.body || {};
+      let source = null;
+      if (duplicateFrom) {
+        if (!isValidTemplateId(duplicateFrom)) {
+          return res.status(400).json({ error: 'Invalid duplicateFrom template id' });
+        }
+        const all = await fetchTemplates(firebaseDbUrl);
+        source = all?.[duplicateFrom];
+        if (!source) {
+          return res.status(404).json({ error: 'Source template not found' });
+        }
+      }
+
+      let id = templateId ? slugifyTemplateId(templateId) : slugifyTemplateId(displayName || 'template');
+      if (!isValidTemplateId(id)) {
+        return res.status(400).json({ error: 'Invalid template id' });
+      }
+
+      const all = await fetchTemplates(firebaseDbUrl) || {};
+      if (all[id] && !duplicateFrom) {
+        id = `${id}_${Date.now().toString(36).slice(-4)}`;
+      }
+
+      const template = normalizeTemplate(
+        {
+          displayName: displayName || (source ? `${source.displayName} (Copy)` : 'New Template'),
+          title: title || source?.title,
+          message: message || source?.message,
+          icon: icon ?? source?.icon,
+          buttonText: buttonText || source?.buttonText,
+          enabled: enabled ?? source?.enabled
+        },
+        source
+      );
+
+      await fetch(`${firebaseDbUrl}/notifications/templates/${id}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(template)
+      });
+
+      return res.status(200).json({ ok: true, templateId: id, template });
+    }
+
+    if (req.method === 'PUT') {
+      const templateId = req.body?.templateId || req.body?.templateName;
+      const { template } = req.body || {};
+      if (!templateId || !isValidTemplateId(templateId)) {
+        return res.status(400).json({ error: 'Invalid templateId' });
+      }
+      if (!template || typeof template !== 'object') {
+        return res.status(400).json({ error: 'Missing template data' });
+      }
+
+      const all = await fetchTemplates(firebaseDbUrl) || {};
+      const existing = all[templateId] || null;
+      const normalized = normalizeTemplate(template, existing);
+
+      await fetch(`${firebaseDbUrl}/notifications/templates/${templateId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(normalized)
+      });
+
+      return res.status(200).json({ ok: true, templateId, template: normalized });
+    }
+
+    if (req.method === 'DELETE') {
+      const templateId = req.query?.templateId || req.query?.templateName
+        || req.body?.templateId || req.body?.templateName;
+      if (!templateId || !isValidTemplateId(templateId)) {
+        return res.status(400).json({ error: 'Invalid templateId' });
+      }
+
+      const response = await fetch(
+        `${firebaseDbUrl}/notifications/templates/${templateId}.json`,
+        { method: 'DELETE' }
+      );
+      if (!response.ok && response.status !== 404) {
+        return res.status(500).json({ error: 'Failed to delete template' });
+      }
+
+      return res.status(200).json({ ok: true, templateId });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (e) {
     console.error('[Templates] Error:', e?.message || e);
-    return res.status(500).json({ error: "Internal server error", details: e?.message });
+    return res.status(500).json({ error: 'Internal server error', details: e?.message });
   }
 }

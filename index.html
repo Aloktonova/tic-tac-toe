@@ -18,7 +18,6 @@
           <div id="home-avatar" class="avatar-circle">P</div>
           <span id="home-username">Player</span>
         </div>
-        <button id="btn-admin-nav" class="admin-nav-btn hidden" aria-label="Admin panel" title="Admin panel">⚙️</button>
       </div>
       <div class="home-content">
         <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
@@ -433,12 +432,11 @@
     <!-- ===== SCREEN 8: ADMIN PANEL (hidden, admin-only) ===== -->
     <div id="screen-admin" class="screen hidden">
       <div class="admin-screen-header">
-        <h2>🔧 Admin Panel - Notifications</h2>
+        <h2>🔧 Admin — Notifications</h2>
         <button id="btn-admin-back" class="back-btn" aria-label="Back">← Back</button>
       </div>
-      
+
       <div class="admin-content">
-        <!-- Stats Section -->
         <div class="admin-section">
           <h3>📊 Today's Statistics</h3>
           <div class="admin-stats-grid">
@@ -455,59 +453,54 @@
               <div class="stat-value" id="admin-stat-rate">0%</div>
             </div>
           </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="admin-section">
-          <h3>🎯 Quick Actions</h3>
-          <div class="admin-buttons">
+          <div class="admin-buttons" style="margin-top: 10px;">
+            <button id="btn-admin-refresh-stats" class="btn btn-small">🔄 Refresh</button>
             <button id="btn-admin-send-test" class="btn btn-small">📨 Send Test</button>
-            <button id="btn-admin-send-to-all" class="btn btn-small">📢 Send to All Players</button>
-            <button id="btn-admin-refresh-stats" class="btn btn-small">🔄 Refresh Stats</button>
             <button id="btn-admin-retry-failed" class="btn btn-small">🔁 Retry Failed</button>
           </div>
         </div>
 
-        <!-- Last Sent Message -->
         <div class="admin-section">
-          <h3>📬 Last Sent Message</h3>
-          <div id="admin-last-message" class="admin-message-box">
-            <p style="color: #999; font-size: 0.9em;">No messages sent today</p>
+          <h3>📢 Send Notification</h3>
+          <p class="admin-hint">Mode A sends to every registered user. Mode B only targets users who opted in (used by the daily cron job).</p>
+          <div class="admin-template-field">
+            <label class="admin-template-label" for="admin-broadcast-title">Title</label>
+            <input type="text" id="admin-broadcast-title" class="admin-template-input" placeholder="Announcement title" maxlength="120">
           </div>
+          <div class="admin-template-field">
+            <label class="admin-template-label" for="admin-broadcast-message">Message Body</label>
+            <textarea id="admin-broadcast-message" class="admin-template-textarea" placeholder="Write your message…" maxlength="2000"></textarea>
+          </div>
+          <div class="admin-template-field">
+            <label class="admin-template-label" for="admin-broadcast-template-select">Or use template</label>
+            <select id="admin-broadcast-template-select" class="admin-template-input">
+              <option value="">— Custom message —</option>
+            </select>
+          </div>
+          <div class="admin-template-field">
+            <label class="admin-template-label" for="admin-broadcast-mode">Send mode</label>
+            <select id="admin-broadcast-mode" class="admin-template-input">
+              <option value="everyone">Mode A — Send To Everyone (all registered users)</option>
+              <option value="opt_in">Mode B — Opted-in users only (daily scheduled)</option>
+            </select>
+          </div>
+          <button id="btn-admin-open-broadcast-confirm" class="btn btn-primary" style="width:100%; margin-top:8px;">Send Notification</button>
         </div>
 
-        <!-- Recent Logs -->
         <div class="admin-section">
-          <h3>📋 Recent Logs (Last 20)</h3>
-          <div id="admin-logs-list" class="admin-logs-list">
-            <p style="color: #999; font-size: 0.9em;">Loading...</p>
+          <div class="admin-section-header-row">
+            <h3>📝 Message Templates</h3>
+            <button id="btn-admin-create-template" class="btn btn-small">+ Create Template</button>
           </div>
-        </div>
-
-        <!-- Debug Info -->
-        <div class="admin-section">
-          <h3>ℹ️ Debug Info</h3>
-          <div class="admin-debug-info">
-            <div class="debug-row">
-              <span class="debug-label">Templates:</span>
-              <span id="admin-template-count">Loading...</span>
-            </div>
-            <div class="debug-row">
-              <span class="debug-label">Last Refresh:</span>
-              <span id="admin-last-refresh">Never</span>
-            </div>
-            <div class="debug-row">
-              <span class="debug-label">Queue Size:</span>
-              <span id="admin-queue-size">0</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Template Editor -->
-        <div class="admin-section">
-          <h3>📝 Message Templates</h3>
           <div id="admin-templates-list" class="admin-templates-list">
-            <p style="color: #999; font-size: 0.9em;">Loading templates...</p>
+            <p class="admin-empty-text">Loading templates…</p>
+          </div>
+        </div>
+
+        <div class="admin-section">
+          <h3>📜 Notification History</h3>
+          <div id="admin-history-list" class="admin-history-list">
+            <p class="admin-empty-text">Loading history…</p>
           </div>
         </div>
       </div>
@@ -626,39 +619,6 @@
         </select>
       </div>
 
-      <!-- Timezone -->
-      <div class="settings-section">
-        <label class="settings-label" for="settings-timezone">Timezone (for notifications)</label>
-        <select id="settings-timezone" class="settings-select">
-          <option value="UTC">UTC</option>
-          <option value="America/New_York">America/New_York (EST)</option>
-          <option value="America/Chicago">America/Chicago (CST)</option>
-          <option value="America/Denver">America/Denver (MST)</option>
-          <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-          <option value="Europe/London">Europe/London (GMT)</option>
-          <option value="Europe/Paris">Europe/Paris (CET)</option>
-          <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
-          <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-          <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-          <option value="Asia/Bangkok">Asia/Bangkok (ICT)</option>
-          <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
-          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
-          <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
-          <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-          <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-        </select>
-        <div style="font-size: 0.8em; color: #999; margin-top: 4px;">🔔 Used for daily notification timing (10 AM in your timezone)</div>
-      </div>
-
-      <!-- Notifications Toggle -->
-      <div class="settings-section">
-        <label class="settings-label" for="settings-notifications-enabled">Enable Daily Notifications</label>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="settings-notifications-enabled" class="settings-checkbox" checked>
-          <span id="settings-notifications-status">Enabled</span>
-        </div>
-      </div>
-
       <!-- Stats -->
       <div class="settings-section">
         <div class="xp-label">
@@ -727,6 +687,66 @@
         <div id="wpPreviewPrice" class="wp-preview-price hidden"></div>
       </div>
       <button id="wpActionBtn" class="wp-action-btn btn-apply">Apply</button>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN TEMPLATE EDITOR MODAL ===== -->
+  <div id="modal-admin-template" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Edit notification template">
+    <div class="modal-content admin-template-modal">
+      <button id="admin-template-modal-close" class="modal-close" aria-label="Close">✕</button>
+      <h3 id="admin-template-modal-title">Create Template</h3>
+      <input type="hidden" id="admin-template-edit-id" value="">
+      <div class="admin-template-field">
+        <label class="admin-template-label" for="admin-template-display-name">Template Name</label>
+        <input type="text" id="admin-template-display-name" class="admin-template-input" maxlength="80" placeholder="e.g. Weekend Tournament">
+      </div>
+      <div class="admin-template-field">
+        <label class="admin-template-label" for="admin-template-icon">Icon / Emoji (optional)</label>
+        <input type="text" id="admin-template-icon" class="admin-template-input" maxlength="8" placeholder="🎮">
+      </div>
+      <div class="admin-template-field">
+        <label class="admin-template-label" for="admin-template-title">Title</label>
+        <input type="text" id="admin-template-title" class="admin-template-input" maxlength="120">
+      </div>
+      <div class="admin-template-field">
+        <label class="admin-template-label" for="admin-template-message">Message Body</label>
+        <textarea id="admin-template-message" class="admin-template-textarea" maxlength="2000"></textarea>
+      </div>
+      <div class="admin-template-field admin-template-field-inline">
+        <label class="admin-template-label">
+          <input type="checkbox" id="admin-template-enabled" checked> Enabled
+        </label>
+      </div>
+      <div class="admin-template-buttons">
+        <button id="btn-admin-template-save" class="btn btn-primary">Save</button>
+        <button id="btn-admin-template-preview" class="btn btn-secondary">Preview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN TEMPLATE PREVIEW MODAL ===== -->
+  <div id="modal-admin-preview" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Notification preview">
+    <div class="modal-content admin-preview-modal">
+      <button id="admin-preview-modal-close" class="modal-close" aria-label="Close">✕</button>
+      <h3>Preview</h3>
+      <div id="admin-preview-content" class="admin-preview-content"></div>
+      <button id="admin-preview-modal-ok" class="btn btn-primary" style="width:100%; margin-top:12px;">Close</button>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN BROADCAST CONFIRM MODAL ===== -->
+  <div id="modal-admin-broadcast-confirm" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Confirm broadcast">
+    <div class="modal-content admin-broadcast-confirm-modal">
+      <button id="admin-broadcast-confirm-close" class="modal-close" aria-label="Close">✕</button>
+      <h3>Confirm broadcast</h3>
+      <p id="admin-broadcast-confirm-text" class="admin-broadcast-confirm-text">Send this notification to all users?</p>
+      <div id="admin-broadcast-confirm-preview" class="admin-preview-content"></div>
+      <p class="admin-hint">Recipients are estimated from registered Telegram users. Results appear after sending.</p>
+      <div class="admin-template-buttons">
+        <button id="btn-admin-broadcast-confirm" class="btn btn-primary">Send Now</button>
+        <button id="btn-admin-broadcast-cancel" class="btn btn-secondary">Cancel</button>
+      </div>
+      <div id="admin-broadcast-result" class="admin-broadcast-result hidden"></div>
     </div>
   </div>
 

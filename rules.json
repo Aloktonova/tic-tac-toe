@@ -13,15 +13,6 @@
           ".write": "$userId === auth.uid",
           ".description": "User can update their preferred language"
         },
-        "timezone": {
-          ".write": "$userId === auth.uid",
-          ".description": "User's timezone for scheduled notifications (e.g., America/New_York)",
-          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
-        },
-        "notificationsEnabled": {
-          ".write": "$userId === auth.uid",
-          ".description": "Whether user wants to receive scheduled notifications"
-        },
         "lastNotificationTimestamp": {
           ".write": false,
           ".description": "Server-tracked last notification send time to prevent duplicates"
@@ -175,19 +166,12 @@
       "templates": {
         ".read": true,
         ".write": false,
-        ".description": "Notification templates are read-only for clients, server-managed only",
-        "dailyReminder": {
-          ".read": true,
-          ".write": false
-        },
-        "tournamentReminder": {
-          ".read": true,
-          ".write": false
-        },
-        "comebackReminder": {
-          ".read": true,
-          ".write": false
-        }
+        ".description": "Notification templates are server-managed only"
+      },
+      "broadcasts": {
+        ".read": false,
+        ".write": false,
+        ".description": "Admin broadcast history, server-only"
       },
       "logs": {
         ".read": false,

@@ -1,20 +1,16 @@
-/**
- * Admin endpoint to send notifications to all players
- * Only accessible by the admin Telegram ID (1529689011)
- */
-
-function isAdminUser(telegramId) {
-  // Check if the Telegram ID matches the admin ID
-  const adminTelegramId = '1529689011';
-  return String(telegramId) === adminTelegramId;
-}
+import { requireAdmin, setAdminCors } from '../lib/admin-auth.js';
+import {
+  fetchTemplates,
+  formatTemplateMessage,
+  saveBroadcastRecord
+} from '../lib/notification-helpers.js';
 
 async function sendTelegramMessage(botToken, chatId, text) {
   const response = await fetch(
     `https://api.telegram.org/bot${botToken}/sendMessage`,
     {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
         text,
@@ -26,231 +22,211 @@ async function sendTelegramMessage(botToken, chatId, text) {
   return response.ok;
 }
 
-// Fetches all players with Telegram IDs using pagination
-// Supports more than 1000 users by fetching in chunks
-async function getAllPlayerTelegramIds(firebaseDbUrl) {
-  try {
-    const telegramIds = [];
-    let lastKey = null;
-    let hasMore = true;
-    let batchCount = 0;
-    const maxBatches = 100; // Safety limit to prevent infinite loops
+async function getAllPlayerTelegramIds(firebaseDbUrl, mode) {
+  const telegramIds = [];
+  let lastKey = null;
+  let batchCount = 0;
 
-    while (hasMore && batchCount < maxBatches) {
-      batchCount++;
-      let url = `${firebaseDbUrl}/users.json?limitToFirst=1001`;
-      
-      // If we have a last key, start from the next item
-      if (lastKey) {
-        url += `&startAt="${lastKey}"&orderBy="$key"`;
-      }
-
-      console.log('[SendToAll] Fetching batch', batchCount, 'from Firebase');
-      const response = await fetch(url, { method: "GET" });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          break; // No more users
-        }
-        console.error('[SendToAll] Error fetching batch:', response.status);
-        break;
-      }
-
-      const batch = await response.json() || {};
-      const keys = Object.keys(batch);
-
-      if (keys.length === 0) {
-        break;
-      }
-
-      // Process batch
-      let itemsInBatch = 0;
-      for (const userId of keys) {
-        // Skip the last key if it was already processed
-        if (lastKey && userId === lastKey && batchCount > 1) {
-          continue;
-        }
-
-        const user = batch[userId];
-        if (user && user.telegramId) {
-          telegramIds.push({
-            uid: userId,
-            telegramId: user.telegramId
-          });
-          itemsInBatch++;
-        }
-      }
-
-      // If we got exactly 1001 items, there might be more
-      if (keys.length === 1001) {
-        lastKey = keys[keys.length - 1];
-        hasMore = true;
-      } else {
-        hasMore = false;
-      }
-
-      console.log('[SendToAll] Batch', batchCount, 'yielded', itemsInBatch, 'users with telegram IDs');
-
-      // Respect Firebase rate limits - small delay between batches
-      if (hasMore) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+  while (batchCount < 100) {
+    batchCount++;
+    let url = `${firebaseDbUrl}/users.json?limitToFirst=1001`;
+    if (lastKey) {
+      url += `&startAt="${lastKey}"&orderBy="$key"`;
     }
 
-    console.log('[SendToAll] Total users fetched:', telegramIds.length);
-    return telegramIds;
-  } catch (e) {
-    console.error('[SendToAll] Error fetching player telegram IDs:', e?.message);
-    return [];
+    const response = await fetch(url, { method: 'GET' });
+    if (!response.ok) break;
+
+    const batch = await response.json() || {};
+    const keys = Object.keys(batch);
+    if (keys.length === 0) break;
+
+    for (const userId of keys) {
+      if (lastKey && userId === lastKey && batchCount > 1) continue;
+      const user = batch[userId];
+      if (!user?.telegramId) continue;
+      if (mode === 'opt_in' && user.notificationsEnabled === false) continue;
+      telegramIds.push({ uid: userId, telegramId: String(user.telegramId) });
+    }
+
+    if (keys.length === 1001) {
+      lastKey = keys[keys.length - 1];
+      await new Promise(r => setTimeout(r, 100));
+    } else {
+      break;
+    }
   }
+
+  return telegramIds;
 }
 
-async function logBroadcastNotification(firebaseDbUrl, uid, telegramId, message, success, errorMessage) {
+async function logPerUserSend(firebaseDbUrl, uid, telegramId, message, templateUsed, success, errorMessage, broadcastId) {
   try {
     const now = new Date();
     const dateKey = now.toISOString().split('T')[0];
-    const logPath = `notifications/logs/${dateKey}/${uid}`;
+    const logPath = `notifications/logs/${dateKey}/${uid}_${broadcastId || 'broadcast'}`;
 
-    const logEntry = {
-      uid,
-      telegramId,
-      message,
-      templateUsed: 'admin_broadcast',
-      timezone: 'UTC',
-      sentAt: now.getTime(),
-      success,
-      errorMessage: errorMessage || ''
-    };
-
-    await fetch(
-      `${firebaseDbUrl}/${logPath}.json`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(logEntry)
-      }
-    );
+    await fetch(`${firebaseDbUrl}/${logPath}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid,
+        telegramId,
+        message,
+        title: '',
+        templateUsed,
+        broadcastId: broadcastId || '',
+        timezone: 'UTC',
+        sentAt: now.getTime(),
+        success,
+        errorMessage: errorMessage || ''
+      })
+    });
   } catch (e) {
     console.error('[SendToAll] Error logging notification:', e?.message);
   }
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-telegram-id");
+  setAdminCors(res);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Extract admin Telegram ID from authorization header only
-  const adminTelegramId = req.headers['x-telegram-id'];
-  if (!adminTelegramId || !isAdminUser(adminTelegramId)) {
-    return res.status(403).json({ error: "Admin access required" });
-  }
+  const adminId = requireAdmin(req, res);
+  if (!adminId) return;
 
   const botToken = process.env.BOT_TOKEN;
   const firebaseDbUrl = process.env.FIREBASE_DATABASE_URL;
 
   if (!botToken || !firebaseDbUrl) {
-    return res.status(500).json({ error: "Missing BOT_TOKEN or FIREBASE_DATABASE_URL" });
+    return res.status(500).json({ error: 'Missing BOT_TOKEN or FIREBASE_DATABASE_URL' });
   }
 
-  const { message } = req.body;
+  const {
+    message,
+    title,
+    templateId,
+    mode = 'everyone'
+  } = req.body || {};
 
-  if (!message) {
-    return res.status(400).json({ error: "Missing required field: message" });
+  const sendMode = mode === 'opt_in' ? 'opt_in' : 'everyone';
+
+  let finalMessage = typeof message === 'string' ? message.trim() : '';
+  let finalTitle = typeof title === 'string' ? title.trim() : '';
+  let templateUsed = templateId || 'admin_broadcast';
+
+  if (templateId) {
+    const templates = await fetchTemplates(firebaseDbUrl);
+    const tpl = templates?.[templateId];
+    if (!tpl) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    finalMessage = formatTemplateMessage(tpl);
+    finalTitle = tpl.title || tpl.displayName || '';
+    templateUsed = templateId;
+  }
+
+  if (!finalMessage) {
+    return res.status(400).json({ error: 'Missing required field: message or templateId' });
   }
 
   try {
-    console.log('[SendToAll] Fetching all player telegram IDs...');
-    const players = await getAllPlayerTelegramIds(firebaseDbUrl);
+    const players = await getAllPlayerTelegramIds(firebaseDbUrl, sendMode);
 
     if (players.length === 0) {
+      const emptyRecord = {
+        id: `broadcast_${Date.now()}`,
+        title: finalTitle,
+        message: finalMessage,
+        templateId: templateUsed,
+        mode: sendMode,
+        sentAt: Date.now(),
+        totalRecipients: 0,
+        successCount: 0,
+        failedCount: 0,
+        sentBy: adminId
+      };
+      await saveBroadcastRecord(firebaseDbUrl, emptyRecord);
       return res.status(200).json({
         ok: true,
-        message: "No players with telegram IDs found",
+        message: 'No eligible players found',
+        broadcastId: emptyRecord.id,
         sent: 0,
-        failed: 0
+        failed: 0,
+        total: 0
       });
     }
 
-    console.log('[SendToAll] Sending to', players.length, 'players');
-
+    const broadcastId = `broadcast_${Date.now()}`;
     let sent = 0;
     let failed = 0;
-
-    // Send notifications with rate limiting (max 30/second to stay under Telegram limits)
     const BATCH_SIZE = 30;
-    const BATCH_DELAY = 1000; // 1 second between batches
+    const BATCH_DELAY = 1000;
 
     for (let i = 0; i < players.length; i += BATCH_SIZE) {
       const batch = players.slice(i, i + BATCH_SIZE);
 
-      await Promise.all(
-        batch.map(async (player) => {
-          try {
-            const success = await sendTelegramMessage(botToken, player.telegramId, message);
-            if (success) {
-              sent++;
-              console.log('[SendToAll] Sent to', player.uid);
-              await logBroadcastNotification(
-                firebaseDbUrl,
-                player.uid,
-                player.telegramId,
-                message,
-                true,
-                ''
-              );
-            } else {
-              failed++;
-              console.error('[SendToAll] Failed to send to', player.uid);
-              await logBroadcastNotification(
-                firebaseDbUrl,
-                player.uid,
-                player.telegramId,
-                message,
-                false,
-                'Failed to send via Telegram API'
-              );
-            }
-          } catch (e) {
+      await Promise.all(batch.map(async (player) => {
+        try {
+          const success = await sendTelegramMessage(botToken, player.telegramId, finalMessage);
+          if (success) {
+            sent++;
+            await logPerUserSend(
+              firebaseDbUrl, player.uid, player.telegramId,
+              finalMessage, templateUsed, true, '', broadcastId
+            );
+          } else {
             failed++;
-            console.error('[SendToAll] Error sending to', player.uid, ':', e?.message);
-            await logBroadcastNotification(
-              firebaseDbUrl,
-              player.uid,
-              player.telegramId,
-              message,
-              false,
-              e?.message || 'Unknown error'
+            await logPerUserSend(
+              firebaseDbUrl, player.uid, player.telegramId,
+              finalMessage, templateUsed, false, 'Telegram API error', broadcastId
             );
           }
-        })
-      );
+        } catch (e) {
+          failed++;
+          await logPerUserSend(
+            firebaseDbUrl, player.uid, player.telegramId,
+            finalMessage, templateUsed, false, e?.message || 'Unknown error', broadcastId
+          );
+        }
+      }));
 
-      // Wait before next batch
       if (i + BATCH_SIZE < players.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+        await new Promise(r => setTimeout(r, BATCH_DELAY));
       }
     }
 
-    console.log('[SendToAll] Broadcast complete. Sent:', sent, 'Failed:', failed);
+    await saveBroadcastRecord(firebaseDbUrl, {
+      id: broadcastId,
+      title: finalTitle,
+      message: finalMessage,
+      templateId: templateUsed,
+      mode: sendMode,
+      sentAt: Date.now(),
+      totalRecipients: players.length,
+      successCount: sent,
+      failedCount: failed,
+      sentBy: adminId
+    });
 
     return res.status(200).json({
       ok: true,
-      message: "Broadcast sent",
+      message: 'Broadcast sent',
+      broadcastId,
+      title: finalTitle,
       sent,
       failed,
-      total: players.length
+      total: players.length,
+      mode: sendMode
     });
   } catch (e) {
     console.error('[SendToAll] Error:', e?.message || e);
-    return res.status(500).json({ error: "Internal server error", details: e?.message });
+    return res.status(500).json({ error: 'Internal server error', details: e?.message });
   }
 }
