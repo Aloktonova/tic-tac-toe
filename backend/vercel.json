@@ -48,20 +48,16 @@
       "dest": "/api/admin-send-test.js"
     },
     {
-      "src": "/api/notification-templates",
-      "dest": "/api/notification-templates.js"
-    },
-    {
       "src": "/api/send-to-all",
       "dest": "/api/send-to-all.js"
     },
     {
-      "src": "/api/retry-failed",
-      "dest": "/api/retry-failed.js"
+      "src": "/api/send-notification",
+      "dest": "/api/send-notification.js"
     },
     {
-      "src": "/api/notification-history",
-      "dest": "/api/notification-history.js"
+      "src": "/api/retry-failed",
+      "dest": "/api/retry-failed.js"
     }
   ]
 }

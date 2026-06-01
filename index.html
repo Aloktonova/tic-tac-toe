@@ -461,8 +461,7 @@
         </div>
 
         <div class="admin-section">
-          <h3>📢 Send Notification</h3>
-          <p class="admin-hint">Mode A sends to every registered user. Mode B only targets users who opted in (used by the daily cron job).</p>
+          <h3>📢 Manual Broadcast</h3>
           <div class="admin-template-field">
             <label class="admin-template-label" for="admin-broadcast-title">Title</label>
             <input type="text" id="admin-broadcast-title" class="admin-template-input" placeholder="Announcement title" maxlength="120">
@@ -471,37 +470,7 @@
             <label class="admin-template-label" for="admin-broadcast-message">Message Body</label>
             <textarea id="admin-broadcast-message" class="admin-template-textarea" placeholder="Write your message…" maxlength="2000"></textarea>
           </div>
-          <div class="admin-template-field">
-            <label class="admin-template-label" for="admin-broadcast-template-select">Or use template</label>
-            <select id="admin-broadcast-template-select" class="admin-template-input">
-              <option value="">— Custom message —</option>
-            </select>
-          </div>
-          <div class="admin-template-field">
-            <label class="admin-template-label" for="admin-broadcast-mode">Send mode</label>
-            <select id="admin-broadcast-mode" class="admin-template-input">
-              <option value="everyone">Mode A — Send To Everyone (all registered users)</option>
-              <option value="opt_in">Mode B — Opted-in users only (daily scheduled)</option>
-            </select>
-          </div>
-          <button id="btn-admin-open-broadcast-confirm" class="btn btn-primary" style="width:100%; margin-top:8px;">Send Notification</button>
-        </div>
-
-        <div class="admin-section">
-          <div class="admin-section-header-row">
-            <h3>📝 Message Templates</h3>
-            <button id="btn-admin-create-template" class="btn btn-small">+ Create Template</button>
-          </div>
-          <div id="admin-templates-list" class="admin-templates-list">
-            <p class="admin-empty-text">Loading templates…</p>
-          </div>
-        </div>
-
-        <div class="admin-section">
-          <h3>📜 Notification History</h3>
-          <div id="admin-history-list" class="admin-history-list">
-            <p class="admin-empty-text">Loading history…</p>
-          </div>
+          <button id="btn-admin-send-everyone" class="btn btn-primary" style="width:100%; margin-top:8px;">Send To Everyone</button>
         </div>
       </div>
     </div>
@@ -690,58 +659,13 @@
     </div>
   </div>
 
-  <!-- ===== ADMIN TEMPLATE EDITOR MODAL ===== -->
-  <div id="modal-admin-template" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Edit notification template">
-    <div class="modal-content admin-template-modal">
-      <button id="admin-template-modal-close" class="modal-close" aria-label="Close">✕</button>
-      <h3 id="admin-template-modal-title">Create Template</h3>
-      <input type="hidden" id="admin-template-edit-id" value="">
-      <div class="admin-template-field">
-        <label class="admin-template-label" for="admin-template-display-name">Template Name</label>
-        <input type="text" id="admin-template-display-name" class="admin-template-input" maxlength="80" placeholder="e.g. Weekend Tournament">
-      </div>
-      <div class="admin-template-field">
-        <label class="admin-template-label" for="admin-template-icon">Icon / Emoji (optional)</label>
-        <input type="text" id="admin-template-icon" class="admin-template-input" maxlength="8" placeholder="🎮">
-      </div>
-      <div class="admin-template-field">
-        <label class="admin-template-label" for="admin-template-title">Title</label>
-        <input type="text" id="admin-template-title" class="admin-template-input" maxlength="120">
-      </div>
-      <div class="admin-template-field">
-        <label class="admin-template-label" for="admin-template-message">Message Body</label>
-        <textarea id="admin-template-message" class="admin-template-textarea" maxlength="2000"></textarea>
-      </div>
-      <div class="admin-template-field admin-template-field-inline">
-        <label class="admin-template-label">
-          <input type="checkbox" id="admin-template-enabled" checked> Enabled
-        </label>
-      </div>
-      <div class="admin-template-buttons">
-        <button id="btn-admin-template-save" class="btn btn-primary">Save</button>
-        <button id="btn-admin-template-preview" class="btn btn-secondary">Preview</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== ADMIN TEMPLATE PREVIEW MODAL ===== -->
-  <div id="modal-admin-preview" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Notification preview">
-    <div class="modal-content admin-preview-modal">
-      <button id="admin-preview-modal-close" class="modal-close" aria-label="Close">✕</button>
-      <h3>Preview</h3>
-      <div id="admin-preview-content" class="admin-preview-content"></div>
-      <button id="admin-preview-modal-ok" class="btn btn-primary" style="width:100%; margin-top:12px;">Close</button>
-    </div>
-  </div>
-
   <!-- ===== ADMIN BROADCAST CONFIRM MODAL ===== -->
   <div id="modal-admin-broadcast-confirm" class="modal-overlay center-modal hidden" role="dialog" aria-modal="true" aria-label="Confirm broadcast">
     <div class="modal-content admin-broadcast-confirm-modal">
       <button id="admin-broadcast-confirm-close" class="modal-close" aria-label="Close">✕</button>
       <h3>Confirm broadcast</h3>
-      <p id="admin-broadcast-confirm-text" class="admin-broadcast-confirm-text">Send this notification to all users?</p>
+      <p id="admin-broadcast-confirm-text" class="admin-broadcast-confirm-text">Send this notification to all registered users?</p>
       <div id="admin-broadcast-confirm-preview" class="admin-preview-content"></div>
-      <p class="admin-hint">Recipients are estimated from registered Telegram users. Results appear after sending.</p>
       <div class="admin-template-buttons">
         <button id="btn-admin-broadcast-confirm" class="btn btn-primary">Send Now</button>
         <button id="btn-admin-broadcast-cancel" class="btn btn-secondary">Cancel</button>

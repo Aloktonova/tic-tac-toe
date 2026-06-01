@@ -41,6 +41,14 @@ const TELEGRAM_STARS_INVOICE_ENDPOINT = window.__TG_STARS_INVOICE_ENDPOINT__ || 
 const BACKEND_URL = "https://tic-tac-toe-alpha-six-65.vercel.app";
 const ADMIN_TELEGRAM_ID = '1529689011';
 
+const AUTO_NOTIFY = {
+  DAILY_COINS: '🪙 You claimed your daily 50 coins reward!',
+  TOURNAMENT_STARTED: '🏆 Tournament is live! Join now and climb the leaderboard.',
+  TOURNAMENT_ENDED: '🏁 Tournament has ended. Check the final leaderboard!',
+  TOURNAMENT_JOINED: '⚔️ You joined the tournament. Good luck!',
+  DAILY_CHALLENGE: '🎮 Daily Challenge is ready! Play now and earn rewards.'
+};
+
 const AVATAR_COLORS = [
   '#7c3aed', '#4f46e5', '#818cf8', '#6d28d9',
   '#5b21b6', '#4338ca', '#3730a3', '#312e81'
@@ -510,6 +518,7 @@ let activeTournamentMeta = null;
 let tournamentCountdownTimer = null;
 let hasJoinedCurrentTournament = false;
 let tournamentJoinInProgress = false; // PHASE 2: Prevent concurrent join attempts
+let tournamentEndHandledForId = null;
 
 /* ===== TRANSLATIONS ===== */
 const TRANSLATIONS = {
@@ -3017,7 +3026,12 @@ function startTournamentCountdown(endAt) {
     }
     const diff = endAt - Date.now();
     if (diff <= 0) {
-      el.textContent = 'Reset pending';
+      el.textContent = 'Ended';
+      const tid = activeTournamentMeta?.id;
+      if (tid && tournamentEndHandledForId !== tid) {
+        tournamentEndHandledForId = tid;
+        tryTournamentResetWhenEnded();
+      }
       return;
     }
     const days = Math.floor(diff / 86400000);
@@ -3137,6 +3151,7 @@ async function joinCurrentTournament() {
     hasJoinedCurrentTournament = true;
     updateTournamentJoinButton();
     showToast('🎮 Welcome to the tournament! Play now to earn points.');
+    sendAutoNotification(currentUser.id, AUTO_NOTIFY.TOURNAMENT_JOINED);
     console.log('[Tournament] Join completed successfully');
   } catch (err) {
     console.error('[Tournament] Join error:', err?.message || err);
@@ -3435,13 +3450,23 @@ async function awardTournamentPointsForRoom(activeRoomId, room, roomOutcome) {
   }
 }
 
+async function tryTournamentResetWhenEnded() {
+  if (!isAdminUser() || !db) return;
+  const reset = await runWeeklyTournamentResetAsAdmin();
+  if (reset) {
+    activeTournamentMeta = await ensureCurrentTournament();
+    renderTournamentMeta(activeTournamentMeta);
+    listenToCurrentTournament();
+  }
+}
+
 async function runWeeklyTournamentResetAsAdmin() {
   if (!db || !currentUser.id) return false;
   let lockAcquired = false;
   const lockRef = db.ref('tournaments/reset_lock');
   try {
     const adminSnap = await db.ref('users/' + currentUser.id + '/isTournamentAdmin').once('value');
-    if (!adminSnap.val()) return false;
+    if (!adminSnap.val() && !isAdminUser()) return false;
 
     const currentSnap = await db.ref('tournaments/current').once('value');
     if (!currentSnap.exists()) return false;
@@ -3452,6 +3477,10 @@ async function runWeeklyTournamentResetAsAdmin() {
     const lockTx = await lockRef.transaction(lock => lock ? undefined : { by: currentUser.id, at: Date.now() });
     if (!lockTx.committed) return false;
     lockAcquired = true;
+
+    if (isAdminUser()) {
+      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_ENDED);
+    }
 
     const archiveKey = 'season_' + (current.season || 1) + '_' + Date.now();
     await db.ref('tournaments/history/' + archiveKey).set({
@@ -3465,6 +3494,10 @@ async function runWeeklyTournamentResetAsAdmin() {
       players: {},
       leaderboard: {}
     });
+
+    if (isAdminUser()) {
+      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_STARTED);
+    }
 
     return true;
   } catch (e) {
@@ -3791,10 +3824,7 @@ function initializeAdminButton() {
   }
 }
 
-/* ===== ADMIN PANEL ===== */
-let adminTemplatesCache = {};
-let pendingAdminBroadcast = null;
-
+/* ===== NOTIFICATIONS ===== */
 function getAdminTelegramId() {
   return window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 }
@@ -3809,53 +3839,45 @@ function isAdminUser() {
   return String(getAdminTelegramId()) === ADMIN_TELEGRAM_ID;
 }
 
-function formatAdminTemplatePlain(template) {
-  const icon = template.icon ? template.icon + ' ' : '';
-  const title = template.title || template.displayName || 'Notification';
-  return icon + title + '\n\n' + (template.message || '');
+/** Fire-and-forget Telegram push to one user (self or admin). */
+function sendAutoNotification(userId, message) {
+  const telegramId = getAdminTelegramId();
+  if (!telegramId || !userId || !message) return;
+  fetch(`${BACKEND_URL}/api/send-notification`, {
+    method: 'POST',
+    headers: getAdminHeaders(),
+    body: JSON.stringify({ userId, message })
+  }).catch(err => console.warn('[Notify]', err.message));
 }
 
-function setupAdminPanelListeners() {
-  document.getElementById('btn-admin-create-template')
-    ?.addEventListener('click', () => openAdminTemplateModal(null));
-  document.getElementById('btn-admin-open-broadcast-confirm')
-    ?.addEventListener('click', openAdminBroadcastConfirmModal);
-  document.getElementById('admin-template-modal-close')
-    ?.addEventListener('click', closeAdminTemplateModal);
-  document.getElementById('btn-admin-template-save')
-    ?.addEventListener('click', saveAdminTemplateFromModal);
-  document.getElementById('btn-admin-template-preview')
-    ?.addEventListener('click', () => {
-      const tpl = readAdminTemplateModalFields();
-      showAdminPreviewModal(tpl);
+/** Admin-only broadcast to all registered users. */
+async function sendAdminBroadcastToAll(title, message) {
+  if (!isAdminUser()) return null;
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/send-to-all`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ title: title || '', message: message || '' })
     });
-  document.getElementById('admin-preview-modal-close')
-    ?.addEventListener('click', closeAdminPreviewModal);
-  document.getElementById('admin-preview-modal-ok')
-    ?.addEventListener('click', closeAdminPreviewModal);
+    return await response.json();
+  } catch (e) {
+    console.warn('[Notify] broadcast failed:', e.message);
+    return null;
+  }
+}
+
+/* ===== ADMIN PANEL ===== */
+let pendingAdminBroadcast = null;
+
+function setupAdminPanelListeners() {
+  document.getElementById('btn-admin-send-everyone')
+    ?.addEventListener('click', openAdminBroadcastConfirmModal);
   document.getElementById('admin-broadcast-confirm-close')
     ?.addEventListener('click', closeAdminBroadcastConfirmModal);
   document.getElementById('btn-admin-broadcast-cancel')
     ?.addEventListener('click', closeAdminBroadcastConfirmModal);
   document.getElementById('btn-admin-broadcast-confirm')
     ?.addEventListener('click', executeAdminBroadcast);
-
-  document.getElementById('admin-broadcast-template-select')
-    ?.addEventListener('change', onAdminBroadcastTemplateSelect);
-
-  document.getElementById('admin-templates-list')
-    ?.addEventListener('click', handleAdminTemplatesListClick);
-  document.getElementById('admin-history-list')
-    ?.addEventListener('click', handleAdminHistoryListClick);
-
-  document.getElementById('modal-admin-template')
-    ?.addEventListener('click', e => {
-      if (e.target.id === 'modal-admin-template') closeAdminTemplateModal();
-    });
-  document.getElementById('modal-admin-preview')
-    ?.addEventListener('click', e => {
-      if (e.target.id === 'modal-admin-preview') closeAdminPreviewModal();
-    });
   document.getElementById('modal-admin-broadcast-confirm')
     ?.addEventListener('click', e => {
       if (e.target.id === 'modal-admin-broadcast-confirm') closeAdminBroadcastConfirmModal();
@@ -3875,7 +3897,7 @@ function openAdminPanel() {
 
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   adminScreen.classList.remove('hidden');
-  refreshAdminPanel();
+  loadAdminStats();
 }
 
 function closeAdminPanel() {
@@ -3883,14 +3905,6 @@ function closeAdminPanel() {
   if (adminScreen) adminScreen.classList.add('hidden');
   setBottomNavActive('home');
   showScreen('home');
-}
-
-async function refreshAdminPanel() {
-  await Promise.all([
-    loadAdminStats(),
-    loadAdminTemplates(),
-    loadAdminNotificationHistory()
-  ]);
 }
 
 async function loadAdminStats() {
@@ -3914,290 +3928,33 @@ async function loadAdminStats() {
   }
 }
 
-async function loadAdminTemplates() {
-  const container = document.getElementById('admin-templates-list');
-  if (!container) return;
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/notification-templates`);
-    if (!response.ok) {
-      container.innerHTML = '<p class="admin-empty-text">Failed to load templates.</p>';
-      return;
-    }
-
-    const data = await response.json();
-    adminTemplatesCache = data.templates || {};
-    renderAdminTemplatesList();
-    populateAdminBroadcastTemplateSelect();
-  } catch (e) {
-    console.error('[Admin] Error loading templates:', e.message);
-    container.innerHTML = '<p class="admin-empty-text">Error loading templates.</p>';
-  }
-}
-
-function renderAdminTemplatesList() {
-  const container = document.getElementById('admin-templates-list');
-  if (!container) return;
-
-  const entries = Object.entries(adminTemplatesCache);
-  if (!entries.length) {
-    container.innerHTML = '<p class="admin-empty-text">No templates yet. Create one to get started.</p>';
-    return;
-  }
-
-  container.innerHTML = entries.map(([id, tpl]) => {
-    const label = htmlEncode(tpl.displayName || id);
-    const title = htmlEncode(tpl.title || '');
-    const preview = htmlEncode((tpl.message || '').slice(0, 80));
-    const icon = htmlEncode(tpl.icon || '');
-    const enabledBadge = tpl.enabled !== false
-      ? '<span class="admin-badge admin-badge-ok">Enabled</span>'
-      : '<span class="admin-badge admin-badge-off">Disabled</span>';
-
-    return `
-      <div class="admin-template-item" data-template-id="${htmlEncode(id)}">
-        <div class="admin-template-header">
-          <div>
-            <span class="admin-template-name">${icon ? icon + ' ' : ''}${label}</span>
-            <div class="admin-template-meta">${enabledBadge} · <code>${htmlEncode(id)}</code></div>
-          </div>
-        </div>
-        <div class="admin-template-preview-line"><strong>${title}</strong></div>
-        <div class="admin-template-preview-line admin-muted">${preview}${(tpl.message || '').length > 80 ? '…' : ''}</div>
-        <div class="admin-template-buttons">
-          <button type="button" class="btn btn-small" data-action="edit-template" data-id="${htmlEncode(id)}">Edit</button>
-          <button type="button" class="btn btn-small" data-action="preview-template" data-id="${htmlEncode(id)}">Preview</button>
-          <button type="button" class="btn btn-small" data-action="send-template" data-id="${htmlEncode(id)}">Send</button>
-          <button type="button" class="btn btn-small" data-action="duplicate-template" data-id="${htmlEncode(id)}">Duplicate</button>
-          <button type="button" class="btn btn-small btn-danger-text" data-action="delete-template" data-id="${htmlEncode(id)}">Delete</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function populateAdminBroadcastTemplateSelect() {
-  const select = document.getElementById('admin-broadcast-template-select');
-  if (!select) return;
-
-  const current = select.value;
-  select.innerHTML = '<option value="">— Custom message —</option>';
-  Object.entries(adminTemplatesCache).forEach(([id, tpl]) => {
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = (tpl.icon ? tpl.icon + ' ' : '') + (tpl.displayName || tpl.title || id);
-    select.appendChild(opt);
-  });
-  if (current && adminTemplatesCache[current]) select.value = current;
-}
-
-function onAdminBroadcastTemplateSelect() {
-  const id = document.getElementById('admin-broadcast-template-select')?.value;
-  if (!id || !adminTemplatesCache[id]) return;
-  const tpl = adminTemplatesCache[id];
-  document.getElementById('admin-broadcast-title').value = tpl.title || tpl.displayName || '';
-  document.getElementById('admin-broadcast-message').value = tpl.message || '';
-}
-
-function handleAdminTemplatesListClick(e) {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-  const tpl = adminTemplatesCache[id];
-  if (!tpl && action !== 'delete-template') return;
-
-  if (action === 'edit-template') openAdminTemplateModal(id);
-  else if (action === 'preview-template') showAdminPreviewModal(tpl);
-  else if (action === 'send-template') prefillBroadcastFromTemplate(id);
-  else if (action === 'duplicate-template') duplicateAdminTemplate(id);
-  else if (action === 'delete-template') deleteAdminTemplate(id);
-}
-
-function prefillBroadcastFromTemplate(id) {
-  const select = document.getElementById('admin-broadcast-template-select');
-  if (select) select.value = id;
-  onAdminBroadcastTemplateSelect();
-  document.getElementById('admin-broadcast-mode').value = 'everyone';
-  openAdminBroadcastConfirmModal();
-}
-
-function openAdminTemplateModal(templateId) {
-  const modal = document.getElementById('modal-admin-template');
-  const isEdit = !!templateId;
-  const tpl = isEdit ? adminTemplatesCache[templateId] : null;
-
-  document.getElementById('admin-template-modal-title').textContent =
-    isEdit ? 'Edit Template' : 'Create Template';
-  document.getElementById('admin-template-edit-id').value = templateId || '';
-  document.getElementById('admin-template-display-name').value = tpl?.displayName || '';
-  document.getElementById('admin-template-icon').value = tpl?.icon || '';
-  document.getElementById('admin-template-title').value = tpl?.title || '';
-  document.getElementById('admin-template-message').value = tpl?.message || '';
-  document.getElementById('admin-template-enabled').checked = tpl?.enabled !== false;
-
-  modal?.classList.remove('hidden');
-}
-
-function closeAdminTemplateModal() {
-  document.getElementById('modal-admin-template')?.classList.add('hidden');
-}
-
-function readAdminTemplateModalFields() {
-  return {
-    displayName: document.getElementById('admin-template-display-name').value.trim(),
-    icon: document.getElementById('admin-template-icon').value.trim(),
-    title: document.getElementById('admin-template-title').value.trim(),
-    message: document.getElementById('admin-template-message').value.trim(),
-    enabled: document.getElementById('admin-template-enabled').checked
-  };
-}
-
-async function saveAdminTemplateFromModal() {
-  if (!isAdminUser()) return;
-
-  const editId = document.getElementById('admin-template-edit-id').value;
-  const fields = readAdminTemplateModalFields();
-
-  if (!fields.displayName || !fields.title || !fields.message) {
-    showToast('Name, title, and message are required');
-    return;
-  }
-
-  try {
-    if (editId) {
-      const existing = adminTemplatesCache[editId] || {};
-      const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
-        method: 'PUT',
-        headers: getAdminHeaders(),
-        body: JSON.stringify({
-          templateName: editId,
-          template: {
-            ...existing,
-            ...fields,
-            buttonText: existing.buttonText || 'Play Now'
-          }
-        })
-      });
-      if (!response.ok) throw new Error('Save failed');
-      showToast('Template updated');
-    } else {
-      const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
-        method: 'POST',
-        headers: getAdminHeaders(),
-        body: JSON.stringify(fields)
-      });
-      if (!response.ok) throw new Error('Create failed');
-      showToast('Template created');
-    }
-
-    closeAdminTemplateModal();
-    await loadAdminTemplates();
-  } catch (e) {
-    console.error('[Admin] save template:', e.message);
-    showToast('Could not save template');
-  }
-}
-
-async function duplicateAdminTemplate(id) {
-  if (!isAdminUser()) return;
-  const tpl = adminTemplatesCache[id];
-  if (!tpl) return;
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/notification-templates`, {
-      method: 'POST',
-      headers: getAdminHeaders(),
-      body: JSON.stringify({
-        displayName: (tpl.displayName || id) + ' (Copy)',
-        title: tpl.title,
-        message: tpl.message,
-        icon: tpl.icon,
-        buttonText: tpl.buttonText,
-        enabled: tpl.enabled,
-        duplicateFrom: id
-      })
-    });
-    if (!response.ok) throw new Error('Duplicate failed');
-    showToast('Template duplicated');
-    await loadAdminTemplates();
-  } catch (e) {
-    showToast('Could not duplicate template');
-  }
-}
-
-async function deleteAdminTemplate(id) {
-  if (!isAdminUser()) return;
-  if (!confirm('Delete template "' + (adminTemplatesCache[id]?.displayName || id) + '"?')) return;
-
-  try {
-    const response = await fetch(
-      `${BACKEND_URL}/api/notification-templates?templateId=${encodeURIComponent(id)}`,
-      { method: 'DELETE', headers: getAdminHeaders(false) }
-    );
-    if (!response.ok) throw new Error('Delete failed');
-    showToast('Template deleted');
-    await loadAdminTemplates();
-  } catch (e) {
-    showToast('Could not delete template');
-  }
-}
-
-function showAdminPreviewModal(templateOrFields) {
-  const content = document.getElementById('admin-preview-content');
-  if (!content) return;
-  const text = formatAdminTemplatePlain(templateOrFields);
-  content.textContent = text;
-  document.getElementById('modal-admin-preview')?.classList.remove('hidden');
-}
-
-function closeAdminPreviewModal() {
-  document.getElementById('modal-admin-preview')?.classList.add('hidden');
-}
-
 function buildAdminBroadcastPayload() {
-  const mode = document.getElementById('admin-broadcast-mode')?.value || 'everyone';
-  const templateId = document.getElementById('admin-broadcast-template-select')?.value || '';
   const title = document.getElementById('admin-broadcast-title')?.value.trim() || '';
-  const messageBody = document.getElementById('admin-broadcast-message')?.value.trim() || '';
-
-  if (templateId && adminTemplatesCache[templateId]) {
-    return { mode, templateId, title: '', message: '' };
-  }
-
-  if (!messageBody) return null;
-
-  const icon = '';
-  const fullMessage = title
-    ? `${icon}<b>${title}</b>\n\n${messageBody}`
-    : messageBody;
-
-  return { mode, templateId: '', title, message: fullMessage };
+  const message = document.getElementById('admin-broadcast-message')?.value.trim() || '';
+  if (!message) return null;
+  return { title, message };
 }
 
 function openAdminBroadcastConfirmModal() {
+  if (!isAdminUser()) {
+    showToast('Admin access required');
+    return;
+  }
+
   const payload = buildAdminBroadcastPayload();
   if (!payload) {
-    showToast('Enter a message or select a template');
+    showToast('Enter a message body');
     return;
   }
 
   pendingAdminBroadcast = payload;
-  const modeLabel = payload.mode === 'opt_in'
-    ? 'opted-in users only (Mode B)'
-    : 'all registered users (Mode A)';
-
   document.getElementById('admin-broadcast-confirm-text').textContent =
-    'Send this notification to ' + modeLabel + '?';
+    'Send this notification to all registered users?';
 
-  let previewText = '';
-  if (payload.templateId && adminTemplatesCache[payload.templateId]) {
-    previewText = formatAdminTemplatePlain(adminTemplatesCache[payload.templateId]);
-  } else {
-    previewText = (payload.title ? payload.title + '\n\n' : '') + document.getElementById('admin-broadcast-message')?.value.trim();
-  }
-
-  document.getElementById('admin-broadcast-confirm-preview').textContent = previewText;
+  const preview = payload.title
+    ? payload.title + '\n\n' + payload.message
+    : payload.message;
+  document.getElementById('admin-broadcast-confirm-preview').textContent = preview;
   document.getElementById('admin-broadcast-result').classList.add('hidden');
   document.getElementById('admin-broadcast-result').textContent = '';
   document.getElementById('modal-admin-broadcast-confirm')?.classList.remove('hidden');
@@ -4233,7 +3990,8 @@ async function executeAdminBroadcast() {
         resultEl.classList.remove('hidden');
       }
       showToast('Broadcast complete — ' + summary);
-      await refreshAdminPanel();
+      loadAdminStats();
+      closeAdminBroadcastConfirmModal();
     } else {
       showToast('Broadcast failed: ' + (data.error || 'Unknown error'));
     }
@@ -4242,79 +4000,6 @@ async function executeAdminBroadcast() {
     showToast('Error sending broadcast');
   } finally {
     if (confirmBtn) confirmBtn.disabled = false;
-  }
-}
-
-async function loadAdminNotificationHistory() {
-  const container = document.getElementById('admin-history-list');
-  if (!container || !isAdminUser()) return;
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/notification-history?limit=30`, {
-      headers: getAdminHeaders(false)
-    });
-    if (!response.ok) {
-      container.innerHTML = '<p class="admin-empty-text">Failed to load history.</p>';
-      return;
-    }
-
-    const data = await response.json();
-    const history = data.history || [];
-
-    if (!history.length) {
-      container.innerHTML = '<p class="admin-empty-text">No broadcasts sent yet.</p>';
-      return;
-    }
-
-    container.innerHTML = history.map(row => `
-      <div class="admin-history-item" data-broadcast-id="${htmlEncode(row.id)}">
-        <div class="admin-history-header">
-          <strong>${htmlEncode(row.title || row.templateId || 'Broadcast')}</strong>
-          <span class="admin-muted">${new Date(row.sentAt || 0).toLocaleString()}</span>
-        </div>
-        <div class="admin-history-body admin-muted">${htmlEncode((row.message || '').replace(/<[^>]+>/g, '').slice(0, 120))}${(row.message || '').length > 120 ? '…' : ''}</div>
-        <div class="admin-history-stats">
-          Template: <code>${htmlEncode(row.templateId || 'custom')}</code> ·
-          Mode: ${htmlEncode(row.mode || 'everyone')} ·
-          Recipients: ${row.totalRecipients ?? 0} ·
-          ✓ ${row.successCount ?? 0} · ✗ ${row.failedCount ?? 0}
-        </div>
-        <button type="button" class="btn btn-small" data-action="resend-broadcast" data-id="${htmlEncode(row.id)}">Resend</button>
-      </div>
-    `).join('');
-  } catch (e) {
-    console.error('[Admin] history:', e.message);
-    container.innerHTML = '<p class="admin-empty-text">Error loading history.</p>';
-  }
-}
-
-function handleAdminHistoryListClick(e) {
-  const btn = e.target.closest('[data-action="resend-broadcast"]');
-  if (!btn) return;
-  resendAdminBroadcast(btn.dataset.id);
-}
-
-async function resendAdminBroadcast(broadcastId) {
-  if (!broadcastId || !isAdminUser()) return;
-  if (!confirm('Resend this notification to the same audience?')) return;
-
-  showToast('Resending…');
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/notification-history`, {
-      method: 'POST',
-      headers: getAdminHeaders(),
-      body: JSON.stringify({ broadcastId })
-    });
-    const data = await response.json();
-    if (response.ok && data.ok) {
-      showToast(`Resent — Success: ${data.sent}, Failed: ${data.failed}`);
-      await loadAdminNotificationHistory();
-      await loadAdminStats();
-    } else {
-      showToast('Resend failed: ' + (data.error || 'Unknown'));
-    }
-  } catch (e) {
-    showToast('Error resending broadcast');
   }
 }
 
@@ -4689,6 +4374,7 @@ async function claimAchievement(achievementId) {
       userCoins = updated.coins || userCoins;
       updateCoinsDisplay();
       showToast("+" + DAILY_LOGIN_REWARD_COINS + " coins! Daily reward claimed!");
+      sendAutoNotification(uid, AUTO_NOTIFY.DAILY_COINS);
       loadUnlockedAchievements();
       return;
     } catch (e) {
