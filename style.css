@@ -3432,3 +3432,97 @@ body.border-purple [class*="avatar"] {
   cursor: pointer;
 }
 
+.admin-auto-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85em;
+}
+
+.admin-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(100, 150, 255, 0.1);
+  color: #d1d5db;
+}
+
+.admin-status-row:last-child {
+  border-bottom: none;
+}
+
+.admin-status-row strong {
+  color: #60a5fa;
+  text-align: right;
+  font-weight: 600;
+}
+
+.admin-status-meta span {
+  color: #999;
+}
+
+.admin-broadcast-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.88em;
+  line-height: 1.4;
+}
+
+.admin-broadcast-status.is-success {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #4ade80;
+}
+
+.admin-broadcast-status.is-error {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #f87171;
+}
+
+.admin-recent-table-wrap {
+  overflow-x: auto;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.admin-recent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+}
+
+.admin-recent-table th,
+.admin-recent-table td {
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid rgba(100, 150, 255, 0.12);
+  color: #d1d5db;
+}
+
+.admin-recent-table th {
+  color: #999;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7em;
+  letter-spacing: 0.4px;
+}
+
+.admin-recent-table .status-ok {
+  color: #4ade80;
+}
+
+.admin-recent-table .status-partial {
+  color: #fbbf24;
+}
+
+.admin-recent-table .status-fail {
+  color: #f87171;
+}
+
+.admin-text-error {
+  color: #f87171 !important;
+}
+

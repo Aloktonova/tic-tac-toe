@@ -1,14 +1,19 @@
 /**
  * Daily cron: sends "Daily Challenge is ready" to all registered Telegram users.
  */
-import { getAllUsersWithTelegram, sendTelegramMessage } from '../lib/telegram-notify.js';
+import {
+  appendRecentLog,
+  computeLogStatus,
+  updateAutoStatus
+} from '../lib/notification-log.js';
+import {
+  getAllUsersWithTelegram,
+  getBotToken,
+  sendTelegramMessage
+} from '../lib/telegram-notify.js';
 
 const DAILY_CHALLENGE_MESSAGE =
   '🎮 Daily Challenge is ready! Play now and earn rewards.';
-
-function isNumericId(value) {
-  return typeof value === 'string' && /^[0-9]+$/.test(value);
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,7 +31,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const botToken = process.env.BOT_TOKEN;
+  const botToken = getBotToken();
   const firebaseDbUrl = process.env.FIREBASE_DATABASE_URL;
   const messageText = process.env.DAILY_TELEGRAM_MESSAGE || DAILY_CHALLENGE_MESSAGE;
 
@@ -36,9 +41,8 @@ export default async function handler(req, res) {
 
   try {
     const players = await getAllUsersWithTelegram(firebaseDbUrl);
-    const eligible = players.filter(p => isNumericId(p.telegramId));
 
-    if (!eligible.length) {
+    if (!players.length) {
       return res.status(200).json({ ok: true, sent: 0, failed: 0, total: 0 });
     }
 
@@ -46,30 +50,40 @@ export default async function handler(req, res) {
     let failed = 0;
     const BATCH_SIZE = 30;
 
-    for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
-      const batch = eligible.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < players.length; i += BATCH_SIZE) {
+      const batch = players.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (player) => {
-        try {
-          const ok = await sendTelegramMessage(botToken, player.telegramId, messageText);
-          if (ok) sent++;
-          else failed++;
-        } catch {
-          failed++;
-        }
+        const result = await sendTelegramMessage(botToken, player.telegramId, messageText);
+        if (result.ok) sent++;
+        else failed++;
       }));
-      if (i + BATCH_SIZE < eligible.length) {
+      if (i + BATCH_SIZE < players.length) {
         await new Promise(r => setTimeout(r, 1000));
       }
     }
+
+    const status = computeLogStatus(sent, failed, players.length);
+
+    await appendRecentLog(firebaseDbUrl, {
+      type: 'Auto',
+      category: 'daily_challenge',
+      title: 'Daily Challenge',
+      recipients: players.length,
+      successCount: sent,
+      failedCount: failed,
+      status
+    });
+    await updateAutoStatus(firebaseDbUrl, 'daily_challenge');
 
     return res.status(200).json({
       ok: true,
       sent,
       failed,
-      total: eligible.length
+      total: players.length,
+      status
     });
   } catch (e) {
     console.error('[DailyBroadcast] Error:', e?.message || e);
-    return res.status(500).json({ error: 'Internal server error', details: e?.message });
+    return res.status(500).json({ error: e?.message || 'Internal server error' });
   }
 }

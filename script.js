@@ -1323,7 +1323,7 @@ function setupEventListeners() {
   
   const btnAdminRefresh = document.getElementById('btn-admin-refresh-stats');
   if (btnAdminRefresh) {
-    btnAdminRefresh.addEventListener('click', loadAdminStats);
+    btnAdminRefresh.addEventListener('click', loadAdminPanelData);
   }
   
   const btnAdminRetry = document.getElementById('btn-admin-retry-failed');
@@ -3151,7 +3151,7 @@ async function joinCurrentTournament() {
     hasJoinedCurrentTournament = true;
     updateTournamentJoinButton();
     showToast('🎮 Welcome to the tournament! Play now to earn points.');
-    sendAutoNotification(currentUser.id, AUTO_NOTIFY.TOURNAMENT_JOINED);
+    sendAutoNotification(currentUser.id, AUTO_NOTIFY.TOURNAMENT_JOINED, 'tournament_join');
     console.log('[Tournament] Join completed successfully');
   } catch (err) {
     console.error('[Tournament] Join error:', err?.message || err);
@@ -3479,7 +3479,7 @@ async function runWeeklyTournamentResetAsAdmin() {
     lockAcquired = true;
 
     if (isAdminUser()) {
-      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_ENDED);
+      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_ENDED, 'tournament');
     }
 
     const archiveKey = 'season_' + (current.season || 1) + '_' + Date.now();
@@ -3496,7 +3496,7 @@ async function runWeeklyTournamentResetAsAdmin() {
     });
 
     if (isAdminUser()) {
-      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_STARTED);
+      await sendAdminBroadcastToAll('', AUTO_NOTIFY.TOURNAMENT_STARTED, 'tournament');
     }
 
     return true;
@@ -3840,29 +3840,73 @@ function isAdminUser() {
 }
 
 /** Fire-and-forget Telegram push to one user (self or admin). */
-function sendAutoNotification(userId, message) {
+function sendAutoNotification(userId, message, autoType = 'auto') {
   const telegramId = getAdminTelegramId();
   if (!telegramId || !userId || !message) return;
   fetch(`${BACKEND_URL}/api/send-notification`, {
     method: 'POST',
     headers: getAdminHeaders(),
-    body: JSON.stringify({ userId, message })
+    body: JSON.stringify({ userId, message, autoType })
   }).catch(err => console.warn('[Notify]', err.message));
 }
 
+async function parseApiResponse(response) {
+  const raw = await response.text();
+  try {
+    return { ok: response.ok, status: response.status, data: JSON.parse(raw), raw };
+  } catch {
+    return {
+      ok: false,
+      status: response.status,
+      data: null,
+      raw,
+      parseError: true
+    };
+  }
+}
+
+function formatAdminTimestamp(ms) {
+  if (!ms) return '—';
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return '—';
+  }
+}
+
+function showAdminBroadcastStatus(message, isError) {
+  const el = document.getElementById('admin-broadcast-status');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden', 'is-error', 'is-success');
+  el.classList.add(isError ? 'is-error' : 'is-success');
+}
+
 /** Admin-only broadcast to all registered users. */
-async function sendAdminBroadcastToAll(title, message) {
-  if (!isAdminUser()) return null;
+async function sendAdminBroadcastToAll(title, message, logCategory = 'manual') {
+  if (!isAdminUser()) return { ok: false, error: 'Admin access required' };
   try {
     const response = await fetch(`${BACKEND_URL}/api/send-to-all`, {
       method: 'POST',
       headers: getAdminHeaders(),
-      body: JSON.stringify({ title: title || '', message: message || '' })
+      body: JSON.stringify({
+        title: title || '',
+        message: message || '',
+        logCategory
+      })
     });
-    return await response.json();
+    const parsed = await parseApiResponse(response);
+    if (!parsed.data) {
+      return {
+        ok: false,
+        error: parsed.parseError
+          ? `Server returned non-JSON (HTTP ${parsed.status}). Deploy backend or check URL.`
+          : `Invalid response (HTTP ${parsed.status})`
+      };
+    }
+    return { ...parsed.data, httpOk: parsed.ok, status: parsed.status };
   } catch (e) {
-    console.warn('[Notify] broadcast failed:', e.message);
-    return null;
+    return { ok: false, error: e.message || 'Network error' };
   }
 }
 
@@ -3897,7 +3941,7 @@ function openAdminPanel() {
 
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   adminScreen.classList.remove('hidden');
-  loadAdminStats();
+  loadAdminPanelData();
 }
 
 function closeAdminPanel() {
@@ -3905,6 +3949,13 @@ function closeAdminPanel() {
   if (adminScreen) adminScreen.classList.add('hidden');
   setBottomNavActive('home');
   showScreen('home');
+}
+
+async function loadAdminPanelData() {
+  await Promise.all([
+    loadAdminStats(),
+    loadAdminNotificationDashboard()
+  ]);
 }
 
 async function loadAdminStats() {
@@ -3915,16 +3966,86 @@ async function loadAdminStats() {
     });
     if (!response.ok) return;
 
-    const data = await response.json();
-    if (!data.ok || !data.stats) return;
+    const parsed = await parseApiResponse(response);
+    if (!parsed.data?.ok || !parsed.data.stats) return;
 
-    const stats = data.stats;
+    const stats = parsed.data.stats;
     document.getElementById('admin-stat-sent').textContent = stats.sent || 0;
     document.getElementById('admin-stat-failed').textContent = stats.failed || 0;
     document.getElementById('admin-stat-rate').textContent = (stats.successRate || 0) + '%';
   } catch (e) {
     console.error('[Admin] Error loading stats:', e.message);
-    showToast('Failed to load admin stats');
+  }
+}
+
+async function loadAdminNotificationDashboard() {
+  const tbody = document.getElementById('admin-recent-sends-body');
+  if (!getAdminTelegramId()) {
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="5" class="admin-empty-text">Open in Telegram to use admin tools.</td></tr>';
+    }
+    return;
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notification-admin`, {
+      headers: getAdminHeaders(false)
+    });
+    const parsed = await parseApiResponse(response);
+
+    if (!parsed.ok || !parsed.data?.ok) {
+      const errMsg = parsed.data?.error || parsed.raw?.slice(0, 120) || `HTTP ${parsed.status}`;
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="5" class="admin-empty-text admin-text-error">${htmlEncode(errMsg)}</td></tr>`;
+      }
+      showAdminBroadcastStatus('Could not load dashboard: ' + errMsg, true);
+      return;
+    }
+
+    const { recent, autoStatus, config } = parsed.data;
+
+    const dc = document.getElementById('admin-status-daily-challenge');
+    const tr = document.getElementById('admin-status-tournament');
+    const dl = document.getElementById('admin-status-daily-login');
+    const rc = document.getElementById('admin-status-recipients');
+
+    if (dc) dc.textContent = formatAdminTimestamp(autoStatus?.lastDailyChallengeSentAt);
+    if (tr) tr.textContent = formatAdminTimestamp(autoStatus?.lastTournamentSentAt);
+    if (dl) dl.textContent = formatAdminTimestamp(autoStatus?.lastDailyLoginSentAt);
+    if (rc) {
+      const n = config?.registeredTelegramUsers;
+      rc.textContent = n == null ? '—' : String(n);
+      if (!config?.hasBotToken) {
+        rc.textContent += ' (⚠ missing BOT_TOKEN)';
+      }
+    }
+
+    if (!tbody) return;
+
+    if (!recent?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="admin-empty-text">No sends logged yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = recent.map(row => {
+      const statusClass = row.status === 'Success' ? 'status-ok'
+        : row.status === 'Partial' ? 'status-partial' : 'status-fail';
+      const received = row.successCount != null
+        ? `${row.successCount}/${row.recipients ?? 0}`
+        : String(row.recipients ?? 0);
+      return `<tr>
+        <td>${htmlEncode(row.type || '—')}</td>
+        <td>${htmlEncode(row.title || '—')}</td>
+        <td>${htmlEncode(formatAdminTimestamp(row.sentAt))}</td>
+        <td>${htmlEncode(received)}</td>
+        <td class="${statusClass}">${htmlEncode(row.status || '—')}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('[Admin] dashboard:', e.message);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-empty-text admin-text-error">${htmlEncode(e.message)}</td></tr>`;
+    }
   }
 }
 
@@ -3966,38 +4087,78 @@ function closeAdminBroadcastConfirmModal() {
 }
 
 async function executeAdminBroadcast() {
-  if (!pendingAdminBroadcast || !isAdminUser()) return;
+  if (!pendingAdminBroadcast || !isAdminUser()) {
+    showAdminBroadcastStatus('Admin access required. Open the app in Telegram.', true);
+    return;
+  }
+
+  if (!getAdminTelegramId()) {
+    showAdminBroadcastStatus('Telegram user ID missing. Open this Mini App inside Telegram.', true);
+    return;
+  }
 
   const confirmBtn = document.getElementById('btn-admin-broadcast-confirm');
   if (confirmBtn) confirmBtn.disabled = true;
 
+  showAdminBroadcastStatus('Sending to all registered users…', false);
   showToast('Sending broadcast…');
 
   try {
     const response = await fetch(`${BACKEND_URL}/api/send-to-all`, {
       method: 'POST',
       headers: getAdminHeaders(),
-      body: JSON.stringify(pendingAdminBroadcast)
+      body: JSON.stringify({
+        ...pendingAdminBroadcast,
+        logCategory: 'manual'
+      })
     });
 
-    const data = await response.json();
+    const parsed = await parseApiResponse(response);
     const resultEl = document.getElementById('admin-broadcast-result');
 
-    if (response.ok && data.ok) {
-      const summary = `Total: ${data.total} · Success: ${data.sent} · Failed: ${data.failed}`;
+    if (!parsed.data) {
+      const err = parsed.parseError
+        ? `Server error (HTTP ${parsed.status}). Is the backend deployed with /api/send-to-all?`
+        : `Unexpected response (HTTP ${parsed.status})`;
+      showAdminBroadcastStatus('✗ ' + err, true);
       if (resultEl) {
-        resultEl.textContent = summary;
+        resultEl.textContent = err;
         resultEl.classList.remove('hidden');
       }
-      showToast('Broadcast complete — ' + summary);
-      loadAdminStats();
+      showToast('✗ ' + err);
+      return;
+    }
+
+    const data = parsed.data;
+
+    if (parsed.ok && data.ok) {
+      const summary = `Sent to ${data.sent} of ${data.total} users` +
+        (data.failed ? ` (${data.failed} failed)` : '');
+      const detail = data.warning ? ` Warning: ${data.warning}` : '';
+      const errDetail = data.lastError ? ` Last error: ${data.lastError}` : '';
+      const fullMsg = '✓ ' + summary + detail + errDetail;
+
+      showAdminBroadcastStatus(fullMsg, !!(data.failed && !data.sent));
+      if (resultEl) {
+        resultEl.textContent = fullMsg;
+        resultEl.classList.remove('hidden');
+      }
+      showToast(fullMsg);
+      await loadAdminPanelData();
       closeAdminBroadcastConfirmModal();
     } else {
-      showToast('Broadcast failed: ' + (data.error || 'Unknown error'));
+      const err = data.error || data.details || `HTTP ${parsed.status}`;
+      showAdminBroadcastStatus('✗ Broadcast failed: ' + err, true);
+      if (resultEl) {
+        resultEl.textContent = '✗ ' + err;
+        resultEl.classList.remove('hidden');
+      }
+      showToast('✗ ' + err);
     }
   } catch (e) {
     console.error('[Admin] broadcast:', e.message);
-    showToast('Error sending broadcast');
+    showAdminBroadcastStatus('✗ Network error: ' + e.message, true);
+    showToast('✗ Network error: ' + e.message);
   } finally {
     if (confirmBtn) confirmBtn.disabled = false;
   }
@@ -4028,10 +4189,10 @@ async function sendAdminTestNotification() {
       const data = await response.json();
       console.log('[Admin] Test sent:', data);
       showToast('✓ Test notification sent!');
-      loadAdminStats(); // Refresh stats
+      loadAdminPanelData();
     } else {
-      const error = await response.json();
-      showToast('✗ Failed to send test: ' + (error.error || 'Unknown error'));
+      const parsed = await parseApiResponse(response);
+      showToast('✗ Failed to send test: ' + (parsed.data?.error || `HTTP ${response.status}`));
     }
   } catch (e) {
     console.error('[Admin] Error sending test:', e.message);
@@ -4374,7 +4535,7 @@ async function claimAchievement(achievementId) {
       userCoins = updated.coins || userCoins;
       updateCoinsDisplay();
       showToast("+" + DAILY_LOGIN_REWARD_COINS + " coins! Daily reward claimed!");
-      sendAutoNotification(uid, AUTO_NOTIFY.DAILY_COINS);
+      sendAutoNotification(uid, AUTO_NOTIFY.DAILY_COINS, 'daily_login');
       loadUnlockedAchievements();
       return;
     } catch (e) {

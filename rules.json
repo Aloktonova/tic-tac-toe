@@ -168,10 +168,15 @@
         ".write": false,
         ".description": "Notification templates are server-managed only"
       },
-      "broadcasts": {
+      "recent": {
         ".read": false,
         ".write": false,
-        ".description": "Admin broadcast history, server-only"
+        ".description": "Lightweight recent send log, server-only"
+      },
+      "status": {
+        ".read": false,
+        ".write": false,
+        ".description": "Last auto-notification timestamps, server-only"
       },
       "logs": {
         ".read": false,

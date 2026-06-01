@@ -461,6 +461,28 @@
         </div>
 
         <div class="admin-section">
+          <h3>⚡ Auto Notification Status</h3>
+          <div class="admin-auto-status">
+            <div class="admin-status-row">
+              <span>Last Daily Challenge sent</span>
+              <strong id="admin-status-daily-challenge">—</strong>
+            </div>
+            <div class="admin-status-row">
+              <span>Last Tournament notification sent</span>
+              <strong id="admin-status-tournament">—</strong>
+            </div>
+            <div class="admin-status-row">
+              <span>Last Daily Login notification sent</span>
+              <strong id="admin-status-daily-login">—</strong>
+            </div>
+            <div class="admin-status-row admin-status-meta">
+              <span>Registered Telegram users</span>
+              <strong id="admin-status-recipients">—</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-section">
           <h3>📢 Manual Broadcast</h3>
           <div class="admin-template-field">
             <label class="admin-template-label" for="admin-broadcast-title">Title</label>
@@ -471,6 +493,27 @@
             <textarea id="admin-broadcast-message" class="admin-template-textarea" placeholder="Write your message…" maxlength="2000"></textarea>
           </div>
           <button id="btn-admin-send-everyone" class="btn btn-primary" style="width:100%; margin-top:8px;">Send To Everyone</button>
+          <div id="admin-broadcast-status" class="admin-broadcast-status hidden" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="admin-section">
+          <h3>📋 Recent Sends</h3>
+          <div class="admin-recent-table-wrap">
+            <table class="admin-recent-table" aria-label="Recent notification sends">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Title</th>
+                  <th>Time</th>
+                  <th>Received</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="admin-recent-sends-body">
+                <tr><td colspan="5" class="admin-empty-text">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
