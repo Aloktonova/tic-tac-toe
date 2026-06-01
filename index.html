@@ -14,11 +14,6 @@
     <!-- ===== SCREEN 1: HOME ===== -->
     <div id="screen-home" class="screen">
       <div class="home-header">
-        <div id="user-avatar-btn" class="avatar-btn" role="button" tabindex="0" aria-label="Open settings">
-          <div id="home-avatar" class="avatar-circle">P</div>
-          <span id="home-username">Player</span>
-        </div>
-        <button id="btn-admin-nav" class="admin-nav-btn hidden" aria-label="Admin panel" title="Admin panel">⚙️</button>
       </div>
       <div class="home-content">
         <img src="assets/tic-tac-toe-board.svg" alt="Tic Tac Toe board" class="home-illustration">
@@ -49,9 +44,9 @@
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="nav-label">Settings</span>
         </button>
-        <button id="btn-admin-nav-mobile" class="nav-btn hidden" aria-label="Admin panel" title="Admin panel" data-screen="admin">
-          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span class="nav-label">Admin</span>
+        <button class="nav-btn" data-screen="notifications" aria-label="Notifications">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="nav-label">Notifications</span>
         </button>
       </nav>
     </div>
@@ -139,6 +134,10 @@
         <button class="nav-btn" data-screen="settings">
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="nav-label">Settings</span>
+        </button>
+        <button class="nav-btn" data-screen="notifications" aria-label="Notifications">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="nav-label">Notifications</span>
         </button>
       </nav>
     </div>
@@ -272,6 +271,10 @@
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="nav-label">Settings</span>
         </button>
+        <button class="nav-btn" data-screen="notifications" aria-label="Notifications">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="nav-label">Notifications</span>
+        </button>
       </nav>
     </div>
 
@@ -319,6 +322,10 @@
         <button class="nav-btn" data-screen="settings">
           <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="nav-label">Settings</span>
+        </button>
+        <button class="nav-btn" data-screen="notifications" aria-label="Notifications">
+          <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="nav-label">Notifications</span>
         </button>
       </nav>
     </div>
@@ -462,9 +469,31 @@
           <h3>🎯 Quick Actions</h3>
           <div class="admin-buttons">
             <button id="btn-admin-send-test" class="btn btn-small">📨 Send Test</button>
-            <button id="btn-admin-send-to-all" class="btn btn-small">📢 Send to All Players</button>
             <button id="btn-admin-refresh-stats" class="btn btn-small">🔄 Refresh Stats</button>
             <button id="btn-admin-retry-failed" class="btn btn-small">🔁 Retry Failed</button>
+          </div>
+        </div>
+
+        <!-- Broadcast Notifications -->
+        <div class="admin-section">
+          <h3>📢 Broadcast Notifications</h3>
+          <div class="admin-broadcast-form">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <input type="text" id="admin-broadcast-title" placeholder="Broadcast Title" class="admin-input" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95em;">
+              <textarea id="admin-broadcast-message" placeholder="Broadcast Message" class="admin-input" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95em; min-height: 80px; resize: vertical;"></textarea>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-admin-broadcast-everyone" class="btn btn-small" style="flex: 1;">📢 Send To Everyone</button>
+                <button id="btn-admin-broadcast-scheduled" class="btn btn-small" style="flex: 1;">⏰ Send To Subscribed</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notification History -->
+        <div class="admin-section">
+          <h3>📜 Notification History</h3>
+          <div id="admin-history-list" class="admin-history-list">
+            <p style="color: #999; font-size: 0.9em;">Loading history...</p>
           </div>
         </div>
 
@@ -506,8 +535,26 @@
         <!-- Template Editor -->
         <div class="admin-section">
           <h3>📝 Message Templates</h3>
+          <div class="admin-templates-header">
+            <button id="btn-admin-create-template" class="btn btn-small">➕ Create Template</button>
+          </div>
           <div id="admin-templates-list" class="admin-templates-list">
             <p style="color: #999; font-size: 0.9em;">Loading templates...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: NOTIFICATIONS ===== -->
+    <div id="screen-notifications" class="screen hidden">
+      <div class="notifications-header">
+        <h2>🔔 Notifications</h2>
+        <button id="btn-notifications-back" class="back-btn" aria-label="Back to home">‹</button>
+      </div>
+      <div class="notifications-content">
+        <div id="notifications-list" class="notifications-list">
+          <div class="notifications-empty">
+            <p>No notifications yet</p>
           </div>
         </div>
       </div>
@@ -624,39 +671,6 @@
           <option value="ar">العربية</option>
           <option value="zh">中文</option>
         </select>
-      </div>
-
-      <!-- Timezone -->
-      <div class="settings-section">
-        <label class="settings-label" for="settings-timezone">Timezone (for notifications)</label>
-        <select id="settings-timezone" class="settings-select">
-          <option value="UTC">UTC</option>
-          <option value="America/New_York">America/New_York (EST)</option>
-          <option value="America/Chicago">America/Chicago (CST)</option>
-          <option value="America/Denver">America/Denver (MST)</option>
-          <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-          <option value="Europe/London">Europe/London (GMT)</option>
-          <option value="Europe/Paris">Europe/Paris (CET)</option>
-          <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
-          <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-          <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-          <option value="Asia/Bangkok">Asia/Bangkok (ICT)</option>
-          <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
-          <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
-          <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
-          <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-          <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-        </select>
-        <div style="font-size: 0.8em; color: #999; margin-top: 4px;">🔔 Used for daily notification timing (10 AM in your timezone)</div>
-      </div>
-
-      <!-- Notifications Toggle -->
-      <div class="settings-section">
-        <label class="settings-label" for="settings-notifications-enabled">Enable Daily Notifications</label>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="settings-notifications-enabled" class="settings-checkbox" checked>
-          <span id="settings-notifications-status">Enabled</span>
-        </div>
       </div>
 
       <!-- Stats -->

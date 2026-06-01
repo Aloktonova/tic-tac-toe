@@ -58,6 +58,14 @@
     {
       "src": "/api/retry-failed",
       "dest": "/api/retry-failed.js"
+    },
+    {
+      "src": "/api/notification-history",
+      "dest": "/api/notification-history.js"
+    },
+    {
+      "src": "/api/admin-broadcast",
+      "dest": "/api/admin-broadcast.js"
     }
   ]
 }
