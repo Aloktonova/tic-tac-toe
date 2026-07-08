@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
+const rateLimit = require('express-rate-limit');
 
 if (!admin.apps.length) {
   const serviceAccount = JSON.parse(
@@ -38,33 +39,13 @@ function validateTelegramInitData(initData, botToken) {
 const app = express();
 app.use(express.json());
 
-const FIREBASE_TOKEN_RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const FIREBASE_TOKEN_RATE_LIMIT_MAX_REQUESTS = 20;
-const firebaseTokenRateLimit = new Map();
-
-function isFirebaseTokenRateLimited(req) {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const ip = String(
-    Array.isArray(forwardedFor)
-      ? forwardedFor[0]
-      : (forwardedFor || req.ip || '')
-  ).split(',')[0].trim();
-  const key = ip || 'unknown';
-  const now = Date.now();
-  const bucket = firebaseTokenRateLimit.get(key);
-
-  if (!bucket || now - bucket.windowStart >= FIREBASE_TOKEN_RATE_LIMIT_WINDOW_MS) {
-    firebaseTokenRateLimit.set(key, { count: 1, windowStart: now });
-    return false;
-  }
-
-  bucket.count += 1;
-  if (bucket.count > FIREBASE_TOKEN_RATE_LIMIT_MAX_REQUESTS) {
-    return true;
-  }
-
-  return false;
-}
+const firebaseTokenRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests' }
+});
 
 // From lib/validation-helpers.js
 const ALLOWED_ORIGINS = [
@@ -2074,10 +2055,7 @@ app.all('/api/send-to-all', async (req, res) => {
 // /api/webhook
 const SECRET_TOKEN_HEADER = 'x-telegram-bot-api-secret-token';
 
-app.post('/api/firebase-token', async (req, res) => {
-  if (isFirebaseTokenRateLimited(req)) {
-    return res.status(429).json({ error: 'Too many requests' });
-  }
+app.post('/api/firebase-token', firebaseTokenRateLimit, async (req, res) => {
   const { initData, telegramUserId } = req.body;
   if (!initData || !telegramUserId) {
     return res.status(400).json({ error: 'Missing fields' });
