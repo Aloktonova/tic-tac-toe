@@ -1,67 +1,9 @@
 {
   "version": 2,
-  "env": {
-    "WEBHOOK_SECRET": "<set-in-vercel-project-env>",
-    "NVIDIA_API_KEY": "<set-in-vercel-project-env>"
-  },
-  "crons": [
-    {
-      "path": "/api/daily-broadcast",
-      "schedule": "0 9 * * *"
-    }
-  ],
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "/api/health.js"
-    },
-    {
-      "src": "/api/create-invoice",
-      "dest": "/api/create-invoice.js"
-    },
-    {
-      "src": "/api/webhook",
-      "dest": "/api/webhook.js"
-    },
-    {
-      "src": "/api/check-channel",
-      "dest": "/api/check-channel.js"
-    },
-    {
-      "src": "/api/daily-broadcast",
-      "dest": "/api/daily-broadcast.js"
-    },
-    {
-      "src": "/api/ai-generate",
-      "dest": "/api/ai-generate.js"
-    },
-    {
-      "src": "/api/notifications-log",
-      "dest": "/api/notifications-log.js"
-    },
-    {
-      "src": "/api/admin-stats",
-      "dest": "/api/admin-stats.js"
-    },
-    {
-      "src": "/api/admin-send-test",
-      "dest": "/api/admin-send-test.js"
-    },
-    {
-      "src": "/api/send-to-all",
-      "dest": "/api/send-to-all.js"
-    },
-    {
-      "src": "/api/send-notification",
-      "dest": "/api/send-notification.js"
-    },
-    {
-      "src": "/api/notification-admin",
-      "dest": "/api/notification-admin.js"
-    },
-    {
-      "src": "/api/retry-failed",
-      "dest": "/api/retry-failed.js"
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     }
   ]
 }
