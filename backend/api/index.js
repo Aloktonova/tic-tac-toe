@@ -1,5 +1,39 @@
 const express = require('express');
-const crypto = require('node:crypto');
+const crypto = require('crypto');
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  );
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: 'https://tic-tac-toe-a19ae-default-rtdb.firebaseio.com'
+  });
+}
+
+function validateTelegramInitData(initData, botToken) {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    params.delete('hash');
+    const checkStr = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    const secret = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(botToken)
+      .digest();
+    const computed = crypto
+      .createHmac('sha256', secret)
+      .update(checkStr)
+      .digest('hex');
+    return computed === hash;
+  } catch (e) {
+    return false;
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -2011,6 +2045,28 @@ app.all('/api/send-to-all', async (req, res) => {
 
 // /api/webhook
 const SECRET_TOKEN_HEADER = 'x-telegram-bot-api-secret-token';
+
+app.post('/api/firebase-token', async (req, res) => {
+  const { initData, telegramUserId } = req.body;
+  if (!initData || !telegramUserId) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  const valid = validateTelegramInitData(
+    initData,
+    process.env.BOT_TOKEN
+  );
+  if (!valid) {
+    return res.status(401).json({ error: 'Invalid Telegram data' });
+  }
+  try {
+    const token = await admin.auth()
+      .createCustomToken(String(telegramUserId));
+    res.json({ token });
+  } catch (e) {
+    console.error('createCustomToken:', e);
+    res.status(500).json({ error: 'Token creation failed' });
+  }
+});
 
 app.all('/api/webhook', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
