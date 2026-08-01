@@ -9,7 +9,7 @@ if (!admin.apps.length) {
   );
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://tic-tac-toe-a19ae-default-rtdb.firebaseio.com'
+    databaseURL: process.env.FIREBASE_DATABASE_URL
   });
 }
 
@@ -38,6 +38,9 @@ function validateTelegramInitData(initData, botToken) {
 
 const app = express();
 app.use(express.json());
+
+const TELEGRAM_INIT_DATA_HEADER = 'x-telegram-init-data';
+const AI_GENERATE_SECRET_HEADER = 'x-ai-generate-secret';
 
 const firebaseTokenRateLimit = rateLimit({
   windowMs: 60 * 1000,
@@ -91,26 +94,56 @@ function logSecurely(event, data) {
   console.log(`[${event}]`, safeData);
 }
 
-// From lib/admin-auth.js
-const ADMIN_TELEGRAM_ID = '1529689011';
+function getConfiguredAdminTelegramId() {
+  return String(process.env.ADMIN_TELEGRAM_ID || '').trim();
+}
+
+function parseTelegramUserIdFromInitData(initData) {
+  try {
+    const params = new URLSearchParams(initData);
+    const rawUser = params.get('user');
+    if (!rawUser) return null;
+    const user = JSON.parse(rawUser);
+    const userId = user?.id;
+    if (userId == null) return null;
+    return String(userId);
+  } catch (e) {
+    return null;
+  }
+}
+
+function getVerifiedTelegramUserId(req) {
+  const initData = req.headers[TELEGRAM_INIT_DATA_HEADER];
+  const botToken = getBotToken();
+  if (
+    typeof initData !== 'string'
+    || !initData
+    || !botToken
+    || !validateTelegramInitData(initData, botToken)
+  ) {
+    return null;
+  }
+  return parseTelegramUserIdFromInitData(initData);
+}
 
 function isAdminUserLib(telegramId) {
-  return String(telegramId) === ADMIN_TELEGRAM_ID;
+  const adminTelegramId = getConfiguredAdminTelegramId();
+  return !!adminTelegramId && String(telegramId) === adminTelegramId;
 }
 
 function requireAdmin(req, res) {
-  const adminTelegramId = req.headers['x-telegram-id'];
-  if (!adminTelegramId || !isAdminUserLib(adminTelegramId)) {
+  const verifiedTelegramId = getVerifiedTelegramUserId(req);
+  if (!verifiedTelegramId || !isAdminUserLib(verifiedTelegramId)) {
     res.status(403).json({ error: 'Admin access required' });
     return null;
   }
-  return String(adminTelegramId);
+  return String(verifiedTelegramId);
 }
 
 function setAdminCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-telegram-id');
+  res.setHeader('Access-Control-Allow-Headers', `Content-Type, Authorization, ${TELEGRAM_INIT_DATA_HEADER}`);
 }
 
 // From lib/notification-log.js
