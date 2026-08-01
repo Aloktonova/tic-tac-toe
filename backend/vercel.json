@@ -1,15 +1,5 @@
 {
   "version": 2,
-  "env": {
-    "WEBHOOK_SECRET": "<set-in-vercel-project-env>",
-    "NVIDIA_API_KEY": "<set-in-vercel-project-env>"
-  },
-  "crons": [
-    {
-      "path": "/api/daily-broadcast",
-      "schedule": "0 9 * * *"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
