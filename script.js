@@ -65,6 +65,383 @@ const BOT_COUNTRIES = [
   'ES', 'IT', 'KR', 'AU', 'CA', 'MX', 'TR', 'PL', 'UA', 'NL'
 ];
 
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.initialized = false;
+    this.masterGain = null;
+  }
+
+  init() {
+    if (this.initialized) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    this.ctx = new AudioContext();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.4;
+    this.masterGain.connect(this.ctx.destination);
+    this.initialized = true;
+  }
+
+  ensureRunning() {
+    if (!this.initialized) this.init();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  playClick() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.exponentialRampToValueAtTime(600, t + 0.05);
+
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  playHover() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(3000, t);
+    osc.frequency.exponentialRampToValueAtTime(3500, t + 0.03);
+
+    gain.gain.setValueAtTime(0.05, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  playInvalid() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.linearRampToValueAtTime(100, t + 0.15);
+
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.2);
+  }
+
+  playWin() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const baseTime = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+
+    notes.forEach((freq, i) => {
+      const t = baseTime + i * 0.08;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.7);
+    });
+  }
+
+  playDraw() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+
+    [440, 440].forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const start = t + i * 0.15;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.2, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(start);
+      osc.stop(start + 0.35);
+    });
+  }
+
+  playMatchStart() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    const notes = [880, 1100, 1320, 1760];
+
+    notes.forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const start = t + i * 0.06;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.15, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(start);
+      osc.stop(start + 0.3);
+    });
+  }
+
+  playCoin() {
+    this.ensureRunning();
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, t);
+    osc.frequency.exponentialRampToValueAtTime(4000, t + 0.1);
+
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.35);
+  }
+}
+
+class ParticleSystem {
+  constructor() {
+    this.canvas = null;
+    this.ctx = null;
+    this.particles = [];
+    this.running = false;
+    this.dpr = window.devicePixelRatio || 1;
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.initCanvas();
+  }
+
+  initCanvas() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.id = 'particle-overlay';
+    this.canvas.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    `;
+    document.body.appendChild(this.canvas);
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.canvas.width = w * this.dpr;
+    this.canvas.height = h * this.dpr;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(this.dpr, this.dpr);
+    this.width = w;
+    this.height = h;
+  }
+
+  dust(x, y, player) {
+    const colors = player === 'x'
+      ? ['#6366f1', '#818cf8', '#4f46e5', '#a5b4fc']
+      : ['#f472b6', '#f9a8d4', '#db2777', '#fbcfe8'];
+
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12 + (Math.random() - 0.5) * 0.5;
+      const speed = 1.5 + Math.random() * 3;
+
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1,
+        life: 1,
+        decay: 0.03 + Math.random() * 0.02,
+        size: 2 + Math.random() * 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        type: 'dust',
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 10,
+        gravity: 0.15
+      });
+    }
+    this.startLoop();
+  }
+
+  confetti(x, y) {
+    const colors = [
+      '#6366f1', '#8b5cf6', '#f472b6', '#22c55e',
+      '#eab308', '#06b6d4', '#f97316', '#ec4899'
+    ];
+    const shapes = ['square', 'circle', 'triangle'];
+
+    for (let i = 0; i < 100; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 3 + Math.random() * 8;
+
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3,
+        life: 1,
+        decay: 0.005 + Math.random() * 0.01,
+        size: 4 + Math.random() * 6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        type: 'confetti',
+        shape: shapes[Math.floor(Math.random() * shapes.length)],
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 15,
+        gravity: 0.25,
+        wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: 3 + Math.random() * 4
+      });
+    }
+    this.startLoop();
+  }
+
+  ambient() {
+    for (let i = 0; i < 3; i++) {
+      this.particles.push({
+        x: Math.random() * this.width,
+        y: this.height + 10,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -(0.3 + Math.random() * 0.5),
+        life: 1,
+        decay: 0.002 + Math.random() * 0.003,
+        size: 1 + Math.random() * 2,
+        color: `rgba(99, 102, 241, ${0.2 + Math.random() * 0.3})`,
+        type: 'ambient',
+        rotation: 0,
+        rotationSpeed: 0,
+        gravity: 0
+      });
+    }
+    this.startLoop();
+  }
+
+  startLoop() {
+    if (this.running) return;
+    this.running = true;
+    this.animate();
+  }
+
+  animate() {
+    if (this.particles.length === 0) {
+      this.ctx.clearRect(0, 0, this.width, this.height);
+      this.running = false;
+      return;
+    }
+
+    this.ctx.clearRect(0, 0, this.width, this.height);
+
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.life -= p.decay;
+      p.rotation += p.rotationSpeed;
+
+      if (p.type === 'confetti') {
+        p.wobble += p.wobbleSpeed * 0.016;
+        p.vx += Math.sin(p.wobble) * 0.1;
+      }
+
+      p.vx *= 0.99;
+      p.vy *= 0.99;
+
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+
+      this.ctx.save();
+      this.ctx.globalAlpha = p.life;
+      this.ctx.translate(p.x, p.y);
+      this.ctx.rotate((p.rotation * Math.PI) / 180);
+      this.ctx.fillStyle = p.color;
+
+      if (p.type === 'ambient') {
+        this.ctx.shadowBlur = 8;
+        this.ctx.shadowColor = p.color;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+      } else if (p.shape === 'circle' || p.type === 'dust') {
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+      } else if (p.shape === 'square') {
+        this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      } else if (p.shape === 'triangle') {
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, -p.size);
+        this.ctx.lineTo(-p.size, p.size);
+        this.ctx.lineTo(p.size, p.size);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
+
+      this.ctx.restore();
+    }
+
+    requestAnimationFrame(() => this.animate());
+  }
+
+  clearAmbient() {
+    this.particles = this.particles.filter(p => p.type !== 'ambient');
+  }
+}
+
+const sfx = new SoundEngine();
+let particles = null;
+
 const WALLPAPERS = [
   {
     id: 'none',
@@ -501,6 +878,7 @@ let tgPhotoUrl = null;
 
 // Online: waiting for second player to join
 let waitingForOpponent = false;
+let ambientInterval = null;
 
 // Battle bot name (set when playing against a named bot, null for normal AI)
 let battleBotName = null;
@@ -603,6 +981,7 @@ const TRANSLATIONS = {
 
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
+  particles = new ParticleSystem();
   initTelegram();
   initFirebase();
   setupEventListeners();
@@ -1034,9 +1413,31 @@ function countryToFlag(code) {
 }
 
 /* ===== SCREEN MANAGEMENT ===== */
+function startAmbientParticles() {
+  if (ambientInterval) return;
+  ambientInterval = setInterval(() => {
+    const homeScreen = document.getElementById('screen-home');
+    if (!homeScreen || homeScreen.classList.contains('hidden')) {
+      stopAmbientParticles();
+      return;
+    }
+    particles?.ambient();
+  }, 300);
+}
+
+function stopAmbientParticles() {
+  if (ambientInterval) {
+    clearInterval(ambientInterval);
+    ambientInterval = null;
+  }
+  particles?.clearAmbient();
+}
+
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById('screen-' + name)?.classList.remove('hidden');
+  if (name === 'home') startAmbientParticles();
+  else stopAmbientParticles();
 }
 
 function setBottomNavActive(screen) {
@@ -1179,6 +1580,9 @@ function setupEventListeners() {
     diffMenu.classList.add('hidden');
     diffBtn.classList.remove('open');
   });
+  document.addEventListener('click', () => {
+    sfx.init();
+  }, { once: true });
 
   // Board clicks and keyboard
   const boardEl = document.getElementById('game-board');
@@ -1191,6 +1595,16 @@ function setupEventListeners() {
       const cell = e.target.closest('.cell');
       if (cell) handleCellClick(parseInt(cell.dataset.index, 10));
     }
+  });
+  boardEl.addEventListener('mouseover', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    const index = parseInt(cell.dataset.index, 10);
+    if (!Number.isInteger(index)) return;
+    if (board[index] !== '' || gameOver) return;
+    if (gameMode === 'ai' && currentTurn !== 'X') return;
+    if (gameMode === 'online' && currentTurn !== playerMark) return;
+    sfx.playHover();
   });
 
   // Waiting (old online screen)
@@ -1356,6 +1770,7 @@ function setupEventListeners() {
 
 /* ===== AI GAME ===== */
 function startAIGame() {
+  sfx.playMatchStart();
   gameMode     = 'ai';
   xpAwarded    = false;
   playerMark   = 'X';
@@ -1537,6 +1952,7 @@ function updateShareButtonVisibility() {
 }
 
 function joinRoom(rId, mark) {
+  sfx.playMatchStart();
   roomId      = rId;
   playerMark  = mark;
   gameMode    = 'online';
@@ -1617,6 +2033,7 @@ function cleanupAllGameListeners() {
 }
 
 function renderOnlineRoom(room) {
+  const wasGameOver = gameOver;
   board = normalizeBoard(room.board);
   currentTurn  = room.turn || 'X';
   playerXWins  = room.playerXWins || 0;
@@ -1654,6 +2071,9 @@ function renderOnlineRoom(room) {
 
     gameOver = true;
     renderBoard(winCells);
+    if (!wasGameOver) {
+      playGameEndEffects(room.winner);
+    }
 
     let outcome;
     if (room.winner === 'draw')         outcome = 'draw';
@@ -1741,18 +2161,79 @@ function setStatus(text) {
   document.getElementById('game-status').textContent = text;
 }
 
+function getCellCenter(index) {
+  const cell = document.querySelector('.cell[data-index="' + index + '"]');
+  if (!cell) return { cell: null, x: null, y: null };
+  const rect = cell.getBoundingClientRect();
+  return {
+    cell,
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  };
+}
+
+function getBoardCenter() {
+  const boardEl = document.getElementById('game-board');
+  if (!boardEl) return null;
+  const rect = boardEl.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function playInvalidMoveFeedback(cell) {
+  sfx.playInvalid();
+  if (!cell) return;
+  cell.classList.remove('shake');
+  void cell.offsetWidth;
+  cell.classList.add('shake');
+  setTimeout(() => cell.classList.remove('shake'), 400);
+}
+
+function playGameEndEffects(winner) {
+  if (winner === 'draw') {
+    sfx.playDraw();
+    return;
+  }
+  sfx.playWin();
+  const boardCenter = getBoardCenter();
+  if (boardCenter) {
+    particles?.confetti(boardCenter.x, boardCenter.y);
+  }
+}
+
 /* ===== CELL CLICK ===== */
 function handleCellClick(index) {
-  if (gameOver || board[index] !== '') return;
+  const { cell, x, y } = getCellCenter(index);
+  if (gameOver || board[index] !== '') {
+    playInvalidMoveFeedback(cell);
+    return;
+  }
 
   // PHASE 7: Add haptic feedback on move
   triggerHaptic('light');
 
   if (gameMode === 'ai') {
-    if (currentTurn !== 'X') return;
-    processAIGameMove(index, 'X');
+    if (currentTurn !== 'X') {
+      playInvalidMoveFeedback(cell);
+      return;
+    }
   } else if (gameMode === 'online') {
-    if (currentTurn !== playerMark) return;
+    if (currentTurn !== playerMark) {
+      playInvalidMoveFeedback(cell);
+      return;
+    }
+  } else {
+    playInvalidMoveFeedback(cell);
+    return;
+  }
+
+  sfx.playClick();
+  if (x !== null && y !== null) {
+    particles?.dust(x, y, currentTurn.toLowerCase());
+  }
+
+  if (gameMode === 'ai') {
+    processAIGameMove(index, 'X');
+  } else {
     makeOnlineMove(index);
   }
 }
@@ -1769,6 +2250,7 @@ function processAIGameMove(index, mark) {
     currentTurn = mark; // keep for renderBoard disabled logic
     renderBoard(result.cells);
     updateActiveTurn();
+    playGameEndEffects(result.winner);
 
     let outcome;
     if (result.winner === 'draw') {
@@ -3673,6 +4155,7 @@ function cancelBattleSearch() {
 }
 
 function startBotGame() {
+  sfx.playMatchStart();
   activeBattleTournamentId = null;
   hideBattleModal();
 
@@ -5077,6 +5560,7 @@ async function awardCoins(uid, amount, reason) {
       .transaction(current => {
         return (current || 0) + amount;
       });
+    sfx.playCoin();
     showToast('+' + amount + ' coins! ' + reason);
   } catch (e) {
     console.error('awardCoins failed:', e);
