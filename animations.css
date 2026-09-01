@@ -1,0 +1,605 @@
+/* =============================================================================
+ * TIC-TAC-TOE ADVANCED ANIMATIONS — CSS Additions
+ * Add ALL of this to the BOTTOM of your existing style.css
+ * Theme: Dark Purple Telegram Mini App
+ * ============================================================================= */
+
+/* ── CSS Custom Properties for Animation Theme ── */
+:root {
+  --anim-primary: #6366f1;
+  --anim-primary-light: #818cf8;
+  --anim-accent: #f472b6;
+  --anim-success: #22c55e;
+  --anim-danger: #ef4444;
+  --anim-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --anim-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --anim-glow-primary: 0 0 20px rgba(99, 102, 241, 0.4);
+  --anim-glow-accent: 0 0 20px rgba(244, 114, 182, 0.4);
+  --anim-glow-success: 0 0 20px rgba(34, 197, 94, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 1: CELL ANIMATIONS — The Game Board                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Cell base with smooth transitions */
+.cell {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.4s var(--anim-spring),
+              box-shadow 0.3s ease,
+              background 0.2s ease,
+              border-color 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hover glow tracking — follows mouse cursor */
+.cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(99, 102, 241, 0.15),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cell:hover::before {
+  opacity: 1;
+}
+
+/* Cell hover lift effect */
+.cell:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* Cell active/press effect */
+.cell:active {
+  transform: translateY(0) scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+/* Occupied cell styling */
+.cell.occupied {
+  cursor: default;
+}
+
+.cell.occupied:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.cell.occupied::before {
+  display: none;
+}
+
+/* ── Mark Placement Animation ── */
+@keyframes markPlace {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  50% {
+    transform: scale(1.3) rotate(10deg);
+    opacity: 0.8;
+    filter: blur(0px);
+  }
+  70% {
+    transform: scale(0.95) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+.cell-mark {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.cell-mark.placed {
+  animation: markPlace 0.55s var(--anim-spring) forwards;
+}
+
+/* ── X Mark Glow ── */
+.cell[data-player="x"] .cell-mark,
+.cell .mark-x {
+  color: #818cf8;
+  text-shadow: 0 0 15px rgba(129, 140, 248, 0.5),
+               0 0 30px rgba(99, 102, 241, 0.3);
+}
+
+/* ── O Mark Glow ── */
+.cell[data-player="o"] .cell-mark,
+.cell .mark-o {
+  color: #f472b6;
+  text-shadow: 0 0 15px rgba(244, 114, 182, 0.5),
+               0 0 30px rgba(219, 39, 119, 0.3);
+}
+
+/* ── Shake Animation for Invalid Moves ── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px) rotate(-2deg); }
+  30% { transform: translateX(8px) rotate(2deg); }
+  45% { transform: translateX(-5px) rotate(-1deg); }
+  60% { transform: translateX(5px) rotate(1deg); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+}
+
+.cell.shake {
+  animation: shake 0.45s ease-in-out;
+  border-color: var(--anim-danger) !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ── Winning Cell Pulse ── */
+@keyframes winnerPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(34, 197, 94, 0);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 25px rgba(34, 197, 94, 0.3);
+  }
+}
+
+.cell.winner {
+  background: rgba(34, 197, 94, 0.1) !important;
+  border-color: rgba(34, 197, 94, 0.5) !important;
+  animation: winnerPulse 0.7s ease-in-out infinite;
+  z-index: 2;
+}
+
+/* ── Win Line SVG Animation ── */
+.win-line {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.win-line svg line {
+  stroke: var(--anim-success);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 0.6s ease-out forwards;
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 2: PLAYER CARD ANIMATIONS                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.player-card {
+  transition: all 0.4s var(--anim-smooth);
+}
+
+/* Active turn indicator */
+.player-card.turn-active {
+  border-color: var(--anim-primary);
+  box-shadow: var(--anim-glow-primary);
+  transform: scale(1.03);
+}
+
+.player-card.turn-active .player-symbol {
+  animation: symbolGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes symbolGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+/* Inactive turn dimming */
+.player-card.turn-inactive {
+  opacity: 0.6;
+  transform: scale(0.97);
+  filter: grayscale(0.3);
+}
+
+/* ── Score Bump Animation ── */
+@keyframes scoreBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.score-bump {
+  animation: scoreBump 0.4s var(--anim-spring);
+  color: var(--anim-success);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 3: BUTTON & UI SPRING PHYSICS                                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+button, .btn, .menu-btn, .action-btn {
+  transition: transform 0.4s var(--anim-spring),
+              box-shadow 0.3s ease,
+              background 0.2s ease,
+              border-color 0.2s ease;
+  will-change: transform;
+}
+
+button:hover, .btn:hover, .menu-btn:hover, .action-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.2);
+}
+
+button:active, .btn:active, .menu-btn:active, .action-btn:active {
+  transform: translateY(0) scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 4: SCREEN TRANSITIONS                                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.screen {
+  display: none;
+  opacity: 0;
+  transform: translateY(20px) scale(0.98);
+  transition: all 0.5s var(--anim-smooth);
+}
+
+.screen.active {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Screen entrance/exit states */
+.screen-enter {
+  animation: screenEnter 0.5s var(--anim-smooth) forwards;
+}
+
+.screen-exit {
+  animation: screenExit 0.3s ease-in forwards;
+}
+
+@keyframes screenEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes screenExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+/* Staggered children entrance */
+.screen.active .menu-btn,
+.screen.active .cell,
+.screen.active .setting-row {
+  opacity: 0;
+  transform: translateY(15px);
+  animation: staggerIn 0.4s var(--anim-spring) forwards;
+}
+
+.screen.active .menu-btn:nth-child(1) { animation-delay: 0.05s; }
+.screen.active .menu-btn:nth-child(2) { animation-delay: 0.1s; }
+.screen.active .menu-btn:nth-child(3) { animation-delay: 0.15s; }
+.screen.active .menu-btn:nth-child(4) { animation-delay: 0.2s; }
+.screen.active .menu-btn:nth-child(5) { animation-delay: 0.25s; }
+
+.screen.active .cell:nth-child(1) { animation-delay: 0.05s; }
+.screen.active .cell:nth-child(2) { animation-delay: 0.1s; }
+.screen.active .cell:nth-child(3) { animation-delay: 0.15s; }
+.screen.active .cell:nth-child(4) { animation-delay: 0.2s; }
+.screen.active .cell:nth-child(5) { animation-delay: 0.25s; }
+.screen.active .cell:nth-child(6) { animation-delay: 0.3s; }
+.screen.active .cell:nth-child(7) { animation-delay: 0.35s; }
+.screen.active .cell:nth-child(8) { animation-delay: 0.4s; }
+.screen.active .cell:nth-child(9) { animation-delay: 0.45s; }
+
+@keyframes staggerIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 5: FLOATING COIN ANIMATION                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes floatCoin {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-40px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-80px) scale(0.8);
+  }
+}
+
+.floating-coin {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #eab308;
+  text-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+  animation: floatCoin 1.2s ease-out forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 6: SETTINGS UI — Sound Toggle & Volume Slider                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.settings-section.sound-settings {
+  background: rgba(15, 15, 30, 0.6);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.settings-section.sound-settings h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-row.slider-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.setting-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+}
+
+/* ── Toggle Switch ── */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 26px;
+  transition: background 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background: #94a3b8;
+  border-radius: 50%;
+  transition: all 0.3s var(--anim-spring);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(22px);
+  background: var(--anim-primary);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+/* ── Volume Slider ── */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--anim-primary);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+  transition: transform 0.2s var(--anim-spring);
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--anim-primary);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.volume-value {
+  min-width: 40px;
+  text-align: right;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 7: BOARD CONTAINER ENTRANCE                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes boardGlowIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+    box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+  }
+}
+
+#board {
+  animation: boardGlowIn 0.6s var(--anim-smooth) forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 8: DIFFICULTY SELECTOR ANIMATION                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.difficulty-selector {
+  transition: all 0.3s var(--anim-smooth);
+}
+
+.difficulty-selector:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 9: BOTTOM NAV BAR ACTIVE INDICATOR                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.nav-item {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: var(--anim-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+  animation: navIndicator 0.3s var(--anim-spring);
+}
+
+@keyframes navIndicator {
+  from { width: 0; opacity: 0; }
+  to { width: 20px; opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PART 10: RESPONSIVE PERFORMANCE (Mobile)                                    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cell:hover {
+    transform: none;
+  }
+  .cell:active {
+    transform: scale(0.96);
+  }
+}
