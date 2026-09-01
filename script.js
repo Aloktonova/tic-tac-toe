@@ -442,6 +442,22 @@ class ParticleSystem {
 const sfx = new SoundEngine();
 let particles = null;
 
+function getAnimationHooks() {
+  return window.TTTAnimations || null;
+}
+
+function getAnimationSfx() {
+  return getAnimationHooks()?.sfx || sfx;
+}
+
+function getAnimationParticles() {
+  return getAnimationHooks()?.particles || particles;
+}
+
+function getAnimationController() {
+  return getAnimationHooks()?.anim || null;
+}
+
 const WALLPAPERS = [
   {
     id: 'none',
@@ -981,7 +997,7 @@ const TRANSLATIONS = {
 
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
-  particles = new ParticleSystem();
+  particles = getAnimationHooks()?.particles || new ParticleSystem();
   initTelegram();
   initFirebase();
   setupEventListeners();
@@ -1421,7 +1437,7 @@ function startAmbientParticles() {
       stopAmbientParticles();
       return;
     }
-    particles?.ambient();
+    getAnimationParticles()?.ambient();
   }, 300);
 }
 
@@ -1430,13 +1446,67 @@ function stopAmbientParticles() {
     clearInterval(ambientInterval);
     ambientInterval = null;
   }
-  particles?.clearAmbient();
+  getAnimationParticles()?.clearAmbient();
+}
+
+function showMenu() {
+  startAmbientParticles();
+}
+
+function applyTurnIndicator() {
+  const animController = getAnimationController();
+  if (!animController?.setTurnIndicator) return;
+  const playerXCard = document.getElementById('player-x-info');
+  const playerOCard = document.getElementById('player-o-info');
+  if (currentTurn === 'X') {
+    animController.setTurnIndicator(playerXCard, playerOCard);
+  } else if (currentTurn === 'O') {
+    animController.setTurnIndicator(playerOCard, playerXCard);
+  }
+}
+
+function playTurnSwitchFeedback(previousTurn, nextTurn) {
+  if (!previousTurn || !nextTurn || previousTurn === nextTurn || gameOver) return;
+  getAnimationSfx().playTurnSwitch?.();
+  applyTurnIndicator();
 }
 
 function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById('screen-' + name)?.classList.remove('hidden');
-  if (name === 'home') startAmbientParticles();
+  const screens = Array.from(document.querySelectorAll('.screen'));
+  const targetScreen = document.getElementById('screen-' + name);
+  if (!targetScreen) return;
+
+  const currentActive = screens.find(screen => !screen.classList.contains('hidden') && screen !== targetScreen)
+    || document.querySelector('.screen.active');
+  const animController = getAnimationController();
+
+  if (animController?.transitionScreen && currentActive && currentActive !== targetScreen) {
+    screens.forEach(screen => {
+      if (screen !== targetScreen && screen !== currentActive) {
+        screen.classList.add('hidden');
+        screen.classList.remove('active');
+      }
+    });
+    currentActive.classList.remove('hidden');
+    targetScreen.classList.remove('hidden');
+    animController.transitionScreen(currentActive, targetScreen, () => {
+      currentActive.classList.add('hidden');
+      currentActive.classList.remove('active');
+      targetScreen.classList.remove('hidden');
+      targetScreen.classList.add('active');
+      if (name === 'home') showMenu();
+      else stopAmbientParticles();
+    });
+    return;
+  }
+
+  screens.forEach(screen => {
+    screen.classList.add('hidden');
+    screen.classList.remove('active');
+  });
+  targetScreen.classList.remove('hidden');
+  targetScreen.classList.add('active');
+  if (name === 'home') showMenu();
   else stopAmbientParticles();
 }
 
@@ -1581,7 +1651,7 @@ function setupEventListeners() {
     diffBtn.classList.remove('open');
   });
   document.addEventListener('click', () => {
-    sfx.init();
+    getAnimationSfx().init?.();
   }, { once: true });
 
   // Board clicks and keyboard
@@ -1604,7 +1674,7 @@ function setupEventListeners() {
     if (board[index] !== '' || gameOver) return;
     if (gameMode === 'ai' && currentTurn !== 'X') return;
     if (gameMode === 'online' && currentTurn !== playerMark) return;
-    sfx.playHover();
+    getAnimationSfx().playHover?.();
   });
 
   // Waiting (old online screen)
@@ -1769,8 +1839,15 @@ function setupEventListeners() {
 }
 
 /* ===== AI GAME ===== */
+function playMatchStartFeedback() {
+  getAnimationSfx().playMatchStart?.();
+  applyTurnIndicator();
+  setTimeout(() => {
+    getAnimationController()?.animateBoardEntrance?.();
+  }, 100);
+}
+
 function startAIGame() {
-  sfx.playMatchStart();
   gameMode     = 'ai';
   xpAwarded    = false;
   playerMark   = 'X';
@@ -1791,9 +1868,11 @@ function startAIGame() {
   document.getElementById('player-x-wins').textContent = '0';
   document.getElementById('player-o-wins').textContent = '0';
 
+  resetBoard();
   renderBoard();
   setStatus('Your Turn');
   updateActiveTurn();
+  playMatchStartFeedback();
   showScreen('game');
   applyTheme(activeTheme);
   applyBorder(activeBorder);
@@ -1952,8 +2031,7 @@ function updateShareButtonVisibility() {
 }
 
 function joinRoom(rId, mark) {
-  sfx.playMatchStart();
-  roomId      = rId;
+  roomId       = rId;
   playerMark  = mark;
   gameMode    = 'online';
   xpAwarded   = false;
@@ -1970,7 +2048,9 @@ function joinRoom(rId, mark) {
   document.getElementById('result-overlay').classList.add('hidden');
   document.getElementById('chat-messages').innerHTML = '';
 
+  resetBoard();
   showScreen('game');
+  playMatchStartFeedback();
   applyTheme(activeTheme);
   applyBorder(activeBorder);
   listenToRoom();
@@ -4155,7 +4235,6 @@ function cancelBattleSearch() {
 }
 
 function startBotGame() {
-  sfx.playMatchStart();
   activeBattleTournamentId = null;
   hideBattleModal();
 
@@ -4184,9 +4263,11 @@ function startBotGame() {
   document.getElementById('player-x-wins').textContent = '0';
   document.getElementById('player-o-wins').textContent = '0';
 
+  resetBoard();
   renderBoard();
   setStatus('Your Turn');
   updateActiveTurn();
+  playMatchStartFeedback();
   showScreen('game');
 }
 

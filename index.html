@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Tic Tac Toe</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="animations.css">
 </head>
 <body>
   <!-- Global wallpaper layer visible on every screen -->
@@ -164,30 +165,30 @@
       </div>
 
       <div class="players-row">
-        <div class="player-info" id="player-x-info">
+        <div class="player-info player-card player-x" id="player-x-info">
           <span class="player-mark x-mark" aria-hidden="true">✕</span>
           <span id="player-x-name" class="player-name">Player X</span>
-          <span class="win-count" id="player-x-wins">0</span>
+          <span class="win-count score" id="player-x-wins">0</span>
         </div>
         <div class="vs-text" aria-hidden="true">VS</div>
-        <div class="player-info" id="player-o-info">
+        <div class="player-info player-card player-o" id="player-o-info">
           <span class="player-mark o-mark" aria-hidden="true">○</span>
           <span id="player-o-name" class="player-name">Player O</span>
-          <span class="win-count" id="player-o-wins">0</span>
+          <span class="win-count score" id="player-o-wins">0</span>
         </div>
       </div>
 
       <div class="board-container">
         <div id="game-board" class="board" role="grid" aria-label="Game board">
-          <div class="cell" data-index="0" role="gridcell" aria-label="Cell 1" tabindex="0"></div>
-          <div class="cell" data-index="1" role="gridcell" aria-label="Cell 2" tabindex="0"></div>
-          <div class="cell" data-index="2" role="gridcell" aria-label="Cell 3" tabindex="0"></div>
-          <div class="cell" data-index="3" role="gridcell" aria-label="Cell 4" tabindex="0"></div>
-          <div class="cell" data-index="4" role="gridcell" aria-label="Cell 5" tabindex="0"></div>
-          <div class="cell" data-index="5" role="gridcell" aria-label="Cell 6" tabindex="0"></div>
-          <div class="cell" data-index="6" role="gridcell" aria-label="Cell 7" tabindex="0"></div>
-          <div class="cell" data-index="7" role="gridcell" aria-label="Cell 8" tabindex="0"></div>
-          <div class="cell" data-index="8" role="gridcell" aria-label="Cell 9" tabindex="0"></div>
+          <div class="cell" data-index="0" data-player="" role="gridcell" aria-label="Cell 1" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="1" data-player="" role="gridcell" aria-label="Cell 2" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="2" data-player="" role="gridcell" aria-label="Cell 3" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="3" data-player="" role="gridcell" aria-label="Cell 4" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="4" data-player="" role="gridcell" aria-label="Cell 5" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="5" data-player="" role="gridcell" aria-label="Cell 6" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="6" data-player="" role="gridcell" aria-label="Cell 7" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="7" data-player="" role="gridcell" aria-label="Cell 8" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
+          <div class="cell" data-index="8" data-player="" role="gridcell" aria-label="Cell 9" tabindex="0"><span class="cell-mark" aria-hidden="true"></span></div>
         </div>
       </div>
 
@@ -599,7 +600,7 @@
 
   <!-- ===== SETTINGS MODAL ===== -->
   <div id="modal-settings" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
-    <div class="modal-content settings-modal">
+    <div id="screen-settings" class="modal-content settings-modal">
       <button id="settings-close" class="modal-close" aria-label="Close settings">✕</button>
 
       <!-- Coins badge -->
@@ -737,5 +738,6 @@
   <script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous"></script>
   <!-- App -->
   <script src="script.js"></script>
+  <script src="animations.js"></script>
 </body>
 </html>
