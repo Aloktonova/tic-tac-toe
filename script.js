@@ -1003,13 +1003,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFirebase();
   setupEventListeners();
   initializeAdminButton();
+  showScreen('home');
   await identifyUser();
   await loadUserLanguage();
   renderRulesDefault(); // render default rules immediately
   checkUrlParams();
   applyTranslations();
   loadSavedWallpaper();
-  showScreen('home');
   handleReferralOnStart();
 });
 
