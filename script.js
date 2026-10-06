@@ -849,6 +849,7 @@ let currentUser = {
 let gameMode    = null; // 'ai' | 'online'
 let aiDifficulty = 'medium';
 let board        = Array(9).fill('');
+let lastRenderedBoard = Array(9).fill('');
 let currentTurn  = 'X';
 let gameOver     = false;
 let playerMark   = 'X';  // current user's mark in online
@@ -2114,6 +2115,7 @@ function cleanupAllGameListeners() {
 
 function renderOnlineRoom(room) {
   const wasGameOver = gameOver;
+  const previousTurn = currentTurn;
   board = normalizeBoard(room.board);
   currentTurn  = room.turn || 'X';
   playerXWins  = room.playerXWins || 0;
@@ -2152,7 +2154,8 @@ function renderOnlineRoom(room) {
     gameOver = true;
     renderBoard(winCells);
     if (!wasGameOver) {
-      playGameEndEffects(room.winner);
+      const winningCells = winCells.map(i => document.querySelector('.cell[data-index="' + i + '"]')).filter(Boolean);
+      playGameEndEffects(room.winner, winningCells);
     }
 
     let outcome;
@@ -2189,6 +2192,7 @@ function renderOnlineRoom(room) {
       setStatus("Opponent's Turn");
     }
     updateActiveTurn();
+    playTurnSwitchFeedback(previousTurn, currentTurn);
     document.getElementById('result-overlay').classList.add('hidden');
   }
 }
@@ -2196,6 +2200,7 @@ function renderOnlineRoom(room) {
 /* ===== BOARD RENDERING ===== */
 function renderBoard(winCells) {
   const cells = document.querySelectorAll('.cell');
+  const animController = getAnimationController();
 
   const shouldDisable = gameOver
     || (gameMode === 'ai'     && currentTurn === 'O')
@@ -2204,19 +2209,37 @@ function renderBoard(winCells) {
   cells.forEach((cell, i) => {
     cell.className = 'cell';
     const val = board[i];
+    let markEl = cell.querySelector('.cell-mark');
+    if (!markEl) {
+      markEl = document.createElement('span');
+      markEl.className = 'cell-mark';
+      markEl.setAttribute('aria-hidden', 'true');
+      cell.appendChild(markEl);
+    }
 
     if (val === 'X') {
-      cell.textContent = '✕';
+      markEl.textContent = '✕';
       cell.dataset.mark = 'x';
-      cell.classList.add('x-cell', 'taken', 'disabled');
+      cell.dataset.player = 'x';
+      cell.classList.add('x-cell', 'taken', 'disabled', 'occupied');
     } else if (val === 'O') {
-      cell.textContent = '○';
+      markEl.textContent = '○';
       cell.dataset.mark = 'o';
-      cell.classList.add('o-cell', 'taken', 'disabled');
+      cell.dataset.player = 'o';
+      cell.classList.add('o-cell', 'taken', 'disabled', 'occupied');
     } else {
-      cell.textContent = '';
+      markEl.textContent = '';
+      markEl.classList.remove('placed');
       cell.removeAttribute('data-mark');
+      cell.dataset.player = '';
       if (shouldDisable) cell.classList.add('disabled');
+    }
+
+    if (val && lastRenderedBoard[i] !== val) {
+      markEl.classList.remove('placed');
+      void markEl.offsetWidth;
+      markEl.classList.add('placed');
+      animController?.animateMarkPlacement?.(cell, val.toLowerCase());
     }
 
     if (val && activeAnimatedMarks && ownedItems.has("animated_marks")) {
@@ -2226,6 +2249,7 @@ function renderBoard(winCells) {
 
     if (winCells && winCells.includes(i)) cell.classList.add('winning');
   });
+  lastRenderedBoard = [...board];
 
   if (activeTheme && activeTheme !== "default") {
     applyTheme(activeTheme);
@@ -2235,10 +2259,30 @@ function renderBoard(winCells) {
 function updateActiveTurn() {
   document.getElementById('player-x-info').classList.toggle('active-turn', currentTurn === 'X');
   document.getElementById('player-o-info').classList.toggle('active-turn', currentTurn === 'O');
+  applyTurnIndicator();
 }
 
 function setStatus(text) {
   document.getElementById('game-status').textContent = text;
+}
+
+function resetBoard() {
+  getAnimationController()?.clearWin?.();
+  document.querySelectorAll('.cell').forEach(cell => {
+    cell.classList.remove('occupied', 'winner', 'winning', 'shake', 'taken', 'x-cell', 'o-cell', 'mark-animated', 'disabled');
+    cell.removeAttribute('data-mark');
+    cell.dataset.player = '';
+    let markEl = cell.querySelector('.cell-mark');
+    if (!markEl) {
+      markEl = document.createElement('span');
+      markEl.className = 'cell-mark';
+      markEl.setAttribute('aria-hidden', 'true');
+      cell.appendChild(markEl);
+    }
+    markEl.textContent = '';
+    markEl.classList.remove('placed');
+  });
+  lastRenderedBoard = Array(9).fill('');
 }
 
 function getCellCenter(index) {
@@ -2260,23 +2304,40 @@ function getBoardCenter() {
 }
 
 function playInvalidMoveFeedback(cell) {
-  sfx.playInvalid();
+  getAnimationSfx().playInvalid?.();
   if (!cell) return;
+  const animController = getAnimationController();
+  if (animController?.shakeCell) {
+    animController.shakeCell(cell);
+    return;
+  }
   cell.classList.remove('shake');
   void cell.offsetWidth;
   cell.classList.add('shake');
   setTimeout(() => cell.classList.remove('shake'), 400);
 }
 
-function playGameEndEffects(winner) {
+function playGameEndEffects(winner, winningCells = []) {
+  const animSfx = getAnimationSfx();
+  const animParticles = getAnimationParticles();
+  const animController = getAnimationController();
   if (winner === 'draw') {
-    sfx.playDraw();
+    animSfx.playDraw?.();
     return;
   }
-  sfx.playWin();
+  animSfx.playWin?.();
+  if (winningCells.length) {
+    animController?.animateWin?.(winningCells);
+    animParticles?.winLineGlow?.(winningCells);
+  }
   const boardCenter = getBoardCenter();
   if (boardCenter) {
-    particles?.confetti(boardCenter.x, boardCenter.y);
+    animParticles?.confetti?.(boardCenter.x, boardCenter.y);
+  }
+  const scoreEl = document.getElementById(winner === 'X' ? 'player-x-wins' : 'player-o-wins');
+  if (scoreEl) {
+    const scoreValue = Number.parseInt(scoreEl.textContent || '0', 10) || 0;
+    animController?.animateScore?.(scoreEl, scoreValue);
   }
 }
 
@@ -2306,9 +2367,9 @@ function handleCellClick(index) {
     return;
   }
 
-  sfx.playClick();
+  getAnimationSfx().playClick?.();
   if (x !== null && y !== null) {
-    particles?.dust(x, y, currentTurn.toLowerCase());
+    getAnimationParticles()?.dust?.(x, y, currentTurn.toLowerCase());
   }
 
   if (gameMode === 'ai') {
@@ -2330,7 +2391,6 @@ function processAIGameMove(index, mark) {
     currentTurn = mark; // keep for renderBoard disabled logic
     renderBoard(result.cells);
     updateActiveTurn();
-    playGameEndEffects(result.winner);
 
     let outcome;
     if (result.winner === 'draw') {
@@ -2348,14 +2408,18 @@ function processAIGameMove(index, mark) {
       setStatus('AI Wins! 🤖');
     }
 
+    const winningCells = result.cells.map(i => document.querySelector('.cell[data-index="' + i + '"]')).filter(Boolean);
+    playGameEndEffects(result.winner, winningCells);
     showResultOverlay(outcome);
     if (!xpAwarded) { xpAwarded = true; awardXP(outcome); }
     return;
   }
 
+  const previousTurn = currentTurn;
   currentTurn = mark === 'X' ? 'O' : 'X';
   renderBoard();
   updateActiveTurn();
+  playTurnSwitchFeedback(previousTurn, currentTurn);
 
   if (mark === 'X') {
     const thinkingText = battleBotName
@@ -2589,6 +2653,7 @@ function showResultOverlay(outcome) {
 /* ===== PLAY AGAIN ===== */
 function restartGame() {
   board       = Array(9).fill('');
+  resetBoard();
   currentTurn = 'X';
   gameOver    = false;
   xpAwarded   = false;
@@ -5641,7 +5706,16 @@ async function awardCoins(uid, amount, reason) {
       .transaction(current => {
         return (current || 0) + amount;
       });
-    sfx.playCoin();
+    getAnimationSfx().playCoin?.();
+    const coinTarget = document.querySelector('.settings-coins-badge, .coins-display, #navStoreBtn');
+    if (coinTarget) {
+      const rect = coinTarget.getBoundingClientRect();
+      getAnimationController()?.animateCoinEarn?.(
+        amount,
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      );
+    }
     showToast('+' + amount + ' coins! ' + reason);
   } catch (e) {
     console.error('awardCoins failed:', e);
