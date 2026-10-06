@@ -21,6 +21,7 @@
  * =============================================================================
  */
 
+(() => {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* PART 1: SOUND ENGINE — Procedural SFX (Web Audio API, Zero External Files)  */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -64,7 +65,6 @@ class SoundEngine {
     this.reverb.connect(this.musicGain);
 
     this.initialized = true;
-    console.log('[SoundEngine] Initialized');
   }
 
   createReverb() {
@@ -782,6 +782,8 @@ class SettingsManager {
     let settingsScreen = document.getElementById('screen-settings');
     if (!settingsScreen) return; // If no settings screen, skip
 
+    if (settingsScreen.querySelector('.sound-settings')) return;
+
     // Create sound settings section
     const soundSection = document.createElement('div');
     soundSection.className = 'settings-section sound-settings';
@@ -834,11 +836,11 @@ class SettingsManager {
     `;
 
     // Insert at the top of settings screen content
-    const firstChild = settingsScreen.querySelector('.settings-content, .screen-content, div');
-    if (firstChild) {
+    const firstChild = settingsScreen.querySelector(':scope > .settings-content, :scope > .screen-content, :scope > div');
+    if (firstChild && firstChild !== soundSection) {
       firstChild.insertBefore(soundSection, firstChild.firstChild);
     } else {
-      settingsScreen.appendChild(soundSection);
+      settingsScreen.insertBefore(soundSection, settingsScreen.firstChild);
     }
 
     // Bind events
@@ -924,9 +926,7 @@ class SettingsManager {
         document.getElementById('music-volume-value').textContent = `${saved.musicVolume}%`;
         this.sfx.setMusicVolume(saved.musicVolume / 100);
       }
-    } catch (e) {
-      console.log('[Settings] No saved settings found');
-    }
+    } catch (e) {}
   }
 }
 
@@ -943,6 +943,10 @@ let settingsMgr = null;
 function initAnimations() {
   bgMusic = new BackgroundMusic(sfx);
   settingsMgr = new SettingsManager(sfx, bgMusic);
+  if (window.TTTAnimations) {
+    window.TTTAnimations.bgMusic = bgMusic;
+    window.TTTAnimations.settingsMgr = settingsMgr;
+  }
 
   // Initialize sound on first user interaction (browser policy)
   const initSound = () => {
@@ -959,7 +963,6 @@ function initAnimations() {
   document.addEventListener('click', initSound, { once: true });
   document.addEventListener('touchstart', initSound, { once: true });
 
-  console.log('[Animation System] Ready. Click or tap to initialize audio.');
 }
 
 // Auto-init when DOM is ready
@@ -978,3 +981,4 @@ window.TTTAnimations = {
   settingsMgr,
   initAnimations
 };
+})();

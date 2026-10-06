@@ -442,6 +442,22 @@ class ParticleSystem {
 const sfx = new SoundEngine();
 let particles = null;
 
+function getAnimationHooks() {
+  return window.TTTAnimations || null;
+}
+
+function getAnimationSfx() {
+  return getAnimationHooks()?.sfx || sfx;
+}
+
+function getAnimationParticles() {
+  return getAnimationHooks()?.particles || particles;
+}
+
+function getAnimationController() {
+  return getAnimationHooks()?.anim || null;
+}
+
 const WALLPAPERS = [
   {
     id: 'none',
@@ -833,6 +849,7 @@ let currentUser = {
 let gameMode    = null; // 'ai' | 'online'
 let aiDifficulty = 'medium';
 let board        = Array(9).fill('');
+let lastRenderedBoard = Array(9).fill('');
 let currentTurn  = 'X';
 let gameOver     = false;
 let playerMark   = 'X';  // current user's mark in online
@@ -981,7 +998,7 @@ const TRANSLATIONS = {
 
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
-  particles = new ParticleSystem();
+  particles = getAnimationHooks()?.particles || new ParticleSystem();
   initTelegram();
   initFirebase();
   setupEventListeners();
@@ -1421,7 +1438,7 @@ function startAmbientParticles() {
       stopAmbientParticles();
       return;
     }
-    particles?.ambient();
+    getAnimationParticles()?.ambient();
   }, 300);
 }
 
@@ -1430,13 +1447,67 @@ function stopAmbientParticles() {
     clearInterval(ambientInterval);
     ambientInterval = null;
   }
-  particles?.clearAmbient();
+  getAnimationParticles()?.clearAmbient();
+}
+
+function showMenu() {
+  startAmbientParticles();
+}
+
+function applyTurnIndicator() {
+  const animController = getAnimationController();
+  if (!animController?.setTurnIndicator) return;
+  const playerXCard = document.getElementById('player-x-info');
+  const playerOCard = document.getElementById('player-o-info');
+  if (currentTurn === 'X') {
+    animController.setTurnIndicator(playerXCard, playerOCard);
+  } else if (currentTurn === 'O') {
+    animController.setTurnIndicator(playerOCard, playerXCard);
+  }
+}
+
+function playTurnSwitchFeedback(previousTurn, nextTurn) {
+  if (!previousTurn || !nextTurn || previousTurn === nextTurn || gameOver) return;
+  getAnimationSfx().playTurnSwitch?.();
+  applyTurnIndicator();
 }
 
 function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById('screen-' + name)?.classList.remove('hidden');
-  if (name === 'home') startAmbientParticles();
+  const screens = Array.from(document.querySelectorAll('.screen'));
+  const targetScreen = document.getElementById('screen-' + name);
+  if (!targetScreen) return;
+
+  const currentActive = screens.find(screen => !screen.classList.contains('hidden') && screen !== targetScreen)
+    || document.querySelector('.screen.active');
+  const animController = getAnimationController();
+
+  if (animController?.transitionScreen && currentActive && currentActive !== targetScreen) {
+    screens.forEach(screen => {
+      if (screen !== targetScreen && screen !== currentActive) {
+        screen.classList.add('hidden');
+        screen.classList.remove('active');
+      }
+    });
+    currentActive.classList.remove('hidden');
+    targetScreen.classList.remove('hidden');
+    animController.transitionScreen(currentActive, targetScreen, () => {
+      currentActive.classList.add('hidden');
+      currentActive.classList.remove('active');
+      targetScreen.classList.remove('hidden');
+      targetScreen.classList.add('active');
+      if (name === 'home') showMenu();
+      else stopAmbientParticles();
+    });
+    return;
+  }
+
+  screens.forEach(screen => {
+    screen.classList.add('hidden');
+    screen.classList.remove('active');
+  });
+  targetScreen.classList.remove('hidden');
+  targetScreen.classList.add('active');
+  if (name === 'home') showMenu();
   else stopAmbientParticles();
 }
 
@@ -1581,7 +1652,7 @@ function setupEventListeners() {
     diffBtn.classList.remove('open');
   });
   document.addEventListener('click', () => {
-    sfx.init();
+    getAnimationSfx().init?.();
   }, { once: true });
 
   // Board clicks and keyboard
@@ -1604,7 +1675,7 @@ function setupEventListeners() {
     if (board[index] !== '' || gameOver) return;
     if (gameMode === 'ai' && currentTurn !== 'X') return;
     if (gameMode === 'online' && currentTurn !== playerMark) return;
-    sfx.playHover();
+    getAnimationSfx().playHover?.();
   });
 
   // Waiting (old online screen)
@@ -1769,8 +1840,15 @@ function setupEventListeners() {
 }
 
 /* ===== AI GAME ===== */
+function playMatchStartFeedback() {
+  getAnimationSfx().playMatchStart?.();
+  applyTurnIndicator();
+  setTimeout(() => {
+    getAnimationController()?.animateBoardEntrance?.();
+  }, 100);
+}
+
 function startAIGame() {
-  sfx.playMatchStart();
   gameMode     = 'ai';
   xpAwarded    = false;
   playerMark   = 'X';
@@ -1791,9 +1869,11 @@ function startAIGame() {
   document.getElementById('player-x-wins').textContent = '0';
   document.getElementById('player-o-wins').textContent = '0';
 
+  resetBoard();
   renderBoard();
   setStatus('Your Turn');
   updateActiveTurn();
+  playMatchStartFeedback();
   showScreen('game');
   applyTheme(activeTheme);
   applyBorder(activeBorder);
@@ -1952,8 +2032,7 @@ function updateShareButtonVisibility() {
 }
 
 function joinRoom(rId, mark) {
-  sfx.playMatchStart();
-  roomId      = rId;
+  roomId       = rId;
   playerMark  = mark;
   gameMode    = 'online';
   xpAwarded   = false;
@@ -1970,7 +2049,9 @@ function joinRoom(rId, mark) {
   document.getElementById('result-overlay').classList.add('hidden');
   document.getElementById('chat-messages').innerHTML = '';
 
+  resetBoard();
   showScreen('game');
+  playMatchStartFeedback();
   applyTheme(activeTheme);
   applyBorder(activeBorder);
   listenToRoom();
@@ -2034,6 +2115,7 @@ function cleanupAllGameListeners() {
 
 function renderOnlineRoom(room) {
   const wasGameOver = gameOver;
+  const previousTurn = currentTurn;
   board = normalizeBoard(room.board);
   currentTurn  = room.turn || 'X';
   playerXWins  = room.playerXWins || 0;
@@ -2072,7 +2154,8 @@ function renderOnlineRoom(room) {
     gameOver = true;
     renderBoard(winCells);
     if (!wasGameOver) {
-      playGameEndEffects(room.winner);
+      const winningCells = winCells.map(i => document.querySelector('.cell[data-index="' + i + '"]')).filter(Boolean);
+      playGameEndEffects(room.winner, winningCells);
     }
 
     let outcome;
@@ -2109,6 +2192,7 @@ function renderOnlineRoom(room) {
       setStatus("Opponent's Turn");
     }
     updateActiveTurn();
+    playTurnSwitchFeedback(previousTurn, currentTurn);
     document.getElementById('result-overlay').classList.add('hidden');
   }
 }
@@ -2116,6 +2200,7 @@ function renderOnlineRoom(room) {
 /* ===== BOARD RENDERING ===== */
 function renderBoard(winCells) {
   const cells = document.querySelectorAll('.cell');
+  const animController = getAnimationController();
 
   const shouldDisable = gameOver
     || (gameMode === 'ai'     && currentTurn === 'O')
@@ -2124,19 +2209,37 @@ function renderBoard(winCells) {
   cells.forEach((cell, i) => {
     cell.className = 'cell';
     const val = board[i];
+    let markEl = cell.querySelector('.cell-mark');
+    if (!markEl) {
+      markEl = document.createElement('span');
+      markEl.className = 'cell-mark';
+      markEl.setAttribute('aria-hidden', 'true');
+      cell.appendChild(markEl);
+    }
 
     if (val === 'X') {
-      cell.textContent = '✕';
+      markEl.textContent = '✕';
       cell.dataset.mark = 'x';
-      cell.classList.add('x-cell', 'taken', 'disabled');
+      cell.dataset.player = 'x';
+      cell.classList.add('x-cell', 'taken', 'disabled', 'occupied');
     } else if (val === 'O') {
-      cell.textContent = '○';
+      markEl.textContent = '○';
       cell.dataset.mark = 'o';
-      cell.classList.add('o-cell', 'taken', 'disabled');
+      cell.dataset.player = 'o';
+      cell.classList.add('o-cell', 'taken', 'disabled', 'occupied');
     } else {
-      cell.textContent = '';
+      markEl.textContent = '';
+      markEl.classList.remove('placed');
       cell.removeAttribute('data-mark');
+      cell.dataset.player = '';
       if (shouldDisable) cell.classList.add('disabled');
+    }
+
+    if (val && lastRenderedBoard[i] !== val) {
+      markEl.classList.remove('placed');
+      void markEl.offsetWidth;
+      markEl.classList.add('placed');
+      animController?.animateMarkPlacement?.(cell, val.toLowerCase());
     }
 
     if (val && activeAnimatedMarks && ownedItems.has("animated_marks")) {
@@ -2146,6 +2249,7 @@ function renderBoard(winCells) {
 
     if (winCells && winCells.includes(i)) cell.classList.add('winning');
   });
+  lastRenderedBoard = [...board];
 
   if (activeTheme && activeTheme !== "default") {
     applyTheme(activeTheme);
@@ -2155,10 +2259,30 @@ function renderBoard(winCells) {
 function updateActiveTurn() {
   document.getElementById('player-x-info').classList.toggle('active-turn', currentTurn === 'X');
   document.getElementById('player-o-info').classList.toggle('active-turn', currentTurn === 'O');
+  applyTurnIndicator();
 }
 
 function setStatus(text) {
   document.getElementById('game-status').textContent = text;
+}
+
+function resetBoard() {
+  getAnimationController()?.clearWin?.();
+  document.querySelectorAll('.cell').forEach(cell => {
+    cell.classList.remove('occupied', 'winner', 'winning', 'shake', 'taken', 'x-cell', 'o-cell', 'mark-animated', 'disabled');
+    cell.removeAttribute('data-mark');
+    cell.dataset.player = '';
+    let markEl = cell.querySelector('.cell-mark');
+    if (!markEl) {
+      markEl = document.createElement('span');
+      markEl.className = 'cell-mark';
+      markEl.setAttribute('aria-hidden', 'true');
+      cell.appendChild(markEl);
+    }
+    markEl.textContent = '';
+    markEl.classList.remove('placed');
+  });
+  lastRenderedBoard = Array(9).fill('');
 }
 
 function getCellCenter(index) {
@@ -2180,23 +2304,40 @@ function getBoardCenter() {
 }
 
 function playInvalidMoveFeedback(cell) {
-  sfx.playInvalid();
+  getAnimationSfx().playInvalid?.();
   if (!cell) return;
+  const animController = getAnimationController();
+  if (animController?.shakeCell) {
+    animController.shakeCell(cell);
+    return;
+  }
   cell.classList.remove('shake');
   void cell.offsetWidth;
   cell.classList.add('shake');
   setTimeout(() => cell.classList.remove('shake'), 400);
 }
 
-function playGameEndEffects(winner) {
+function playGameEndEffects(winner, winningCells = []) {
+  const animSfx = getAnimationSfx();
+  const animParticles = getAnimationParticles();
+  const animController = getAnimationController();
   if (winner === 'draw') {
-    sfx.playDraw();
+    animSfx.playDraw?.();
     return;
   }
-  sfx.playWin();
+  animSfx.playWin?.();
+  if (winningCells.length) {
+    animController?.animateWin?.(winningCells);
+    animParticles?.winLineGlow?.(winningCells);
+  }
   const boardCenter = getBoardCenter();
   if (boardCenter) {
-    particles?.confetti(boardCenter.x, boardCenter.y);
+    animParticles?.confetti?.(boardCenter.x, boardCenter.y);
+  }
+  const scoreEl = document.getElementById(winner === 'X' ? 'player-x-wins' : 'player-o-wins');
+  if (scoreEl) {
+    const scoreValue = Number.parseInt(scoreEl.textContent || '0', 10) || 0;
+    animController?.animateScore?.(scoreEl, scoreValue);
   }
 }
 
@@ -2226,9 +2367,9 @@ function handleCellClick(index) {
     return;
   }
 
-  sfx.playClick();
+  getAnimationSfx().playClick?.();
   if (x !== null && y !== null) {
-    particles?.dust(x, y, currentTurn.toLowerCase());
+    getAnimationParticles()?.dust?.(x, y, currentTurn.toLowerCase());
   }
 
   if (gameMode === 'ai') {
@@ -2250,7 +2391,6 @@ function processAIGameMove(index, mark) {
     currentTurn = mark; // keep for renderBoard disabled logic
     renderBoard(result.cells);
     updateActiveTurn();
-    playGameEndEffects(result.winner);
 
     let outcome;
     if (result.winner === 'draw') {
@@ -2268,14 +2408,18 @@ function processAIGameMove(index, mark) {
       setStatus('AI Wins! 🤖');
     }
 
+    const winningCells = result.cells.map(i => document.querySelector('.cell[data-index="' + i + '"]')).filter(Boolean);
+    playGameEndEffects(result.winner, winningCells);
     showResultOverlay(outcome);
     if (!xpAwarded) { xpAwarded = true; awardXP(outcome); }
     return;
   }
 
+  const previousTurn = currentTurn;
   currentTurn = mark === 'X' ? 'O' : 'X';
   renderBoard();
   updateActiveTurn();
+  playTurnSwitchFeedback(previousTurn, currentTurn);
 
   if (mark === 'X') {
     const thinkingText = battleBotName
@@ -2509,6 +2653,7 @@ function showResultOverlay(outcome) {
 /* ===== PLAY AGAIN ===== */
 function restartGame() {
   board       = Array(9).fill('');
+  resetBoard();
   currentTurn = 'X';
   gameOver    = false;
   xpAwarded   = false;
@@ -4155,7 +4300,6 @@ function cancelBattleSearch() {
 }
 
 function startBotGame() {
-  sfx.playMatchStart();
   activeBattleTournamentId = null;
   hideBattleModal();
 
@@ -4184,9 +4328,11 @@ function startBotGame() {
   document.getElementById('player-x-wins').textContent = '0';
   document.getElementById('player-o-wins').textContent = '0';
 
+  resetBoard();
   renderBoard();
   setStatus('Your Turn');
   updateActiveTurn();
+  playMatchStartFeedback();
   showScreen('game');
 }
 
@@ -5560,7 +5706,16 @@ async function awardCoins(uid, amount, reason) {
       .transaction(current => {
         return (current || 0) + amount;
       });
-    sfx.playCoin();
+    getAnimationSfx().playCoin?.();
+    const coinTarget = document.querySelector('.settings-coins-badge, .coins-display, #navStoreBtn');
+    if (coinTarget) {
+      const rect = coinTarget.getBoundingClientRect();
+      getAnimationController()?.animateCoinEarn?.(
+        amount,
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      );
+    }
     showToast('+' + amount + ' coins! ' + reason);
   } catch (e) {
     console.error('awardCoins failed:', e);
